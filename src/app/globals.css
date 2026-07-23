@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;1,400;1,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: theme('colors.saddle.cream');
+  color: theme('colors.saddle.brown');
+  font-family: theme('fontFamily.sans');
+}
+
+h1, h2, h3, .font-display {
+  font-family: theme('fontFamily.serif');
+}
