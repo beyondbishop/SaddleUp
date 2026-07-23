@@ -48,4 +48,6 @@ export interface Listing {
   status: 'draft' | 'unclaimed' | 'active' | 'pending_sale' | 'sold' | 'removed';
   location_city: string | null;
   location_state: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
 }
