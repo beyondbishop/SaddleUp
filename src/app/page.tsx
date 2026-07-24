@@ -2,29 +2,45 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS } from '@/lib/types';
 
+const DISCIPLINE_ICONS: Record<string, string> = {
+  hunter_jumper: '🏇',
+  dressage: '🎗️',
+  all_purpose: '🐴',
+  western: '🤠',
+  pony_child: '🎠',
+  endurance: '🏔️',
+  eventing: '🚩'
+};
+
 export default async function HomePage() {
   const supabase = createClient();
   const { data: brands } = await supabase.from('brands').select('name, slug').limit(12);
 
   return (
     <div>
-      <section className="py-16 text-center">
-        <p className="text-saddle-gold text-xs font-semibold tracking-[0.2em] uppercase mb-4">
-          The Fitted Saddle Marketplace
-        </p>
-        <h1 className="font-serif text-5xl leading-tight text-saddle-brown mb-4 max-w-3xl mx-auto">
-          The saddle that fits — your horse, and your budget.
-        </h1>
-        <p className="text-lg max-w-2xl mx-auto mb-8 text-saddle-brown/80">
-          Every used saddle on SaddleUp is matched to your horse's back and your own
-          measurements — so you stop guessing and start riding. Sellers keep 80%+ of every sale.
-        </p>
-        <Link
-          href="/match"
-          className="inline-block bg-saddle-green text-white px-6 py-3 rounded-md font-semibold"
-        >
-          Find My Fit
-        </Link>
+      <section className="py-16 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+        <div>
+          <p className="text-saddle-gold text-xs font-semibold tracking-[0.2em] uppercase mb-4">
+            The Fitted Saddle Marketplace
+          </p>
+          <h1 className="font-serif text-5xl leading-tight text-saddle-brown mb-4">
+            The saddle that fits — your horse, and your budget.
+          </h1>
+          <p className="text-lg mb-8 text-saddle-brown/80">
+            Every used saddle on SaddleUp is matched to your horse's back and your own
+            measurements — so you stop guessing and start riding. Sellers keep 80%+ of every sale.
+          </p>
+          <Link
+            href="/match"
+            className="inline-block bg-saddle-green text-white px-6 py-3 rounded-md font-semibold"
+          >
+            Find My Fit
+          </Link>
+        </div>
+
+        <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-saddle-tan/40 via-saddle-cream to-saddle-green/20 border border-saddle-tan/50 flex items-center justify-center">
+          <span className="text-6xl">🐎</span>
+        </div>
       </section>
 
       <section className="py-8">
@@ -34,9 +50,10 @@ export default async function HomePage() {
             <Link
               key={key}
               href={`/saddles?discipline=${key}`}
-              className="bg-white border border-saddle-tan rounded-lg p-4 text-center hover:shadow-md transition"
+              className="bg-white border border-saddle-tan rounded-lg p-5 text-center hover:shadow-md hover:-translate-y-0.5 transition-all"
             >
-              {label}
+              <div className="text-3xl mb-2">{DISCIPLINE_ICONS[key]}</div>
+              <p className="font-medium text-saddle-brown">{label}</p>
             </Link>
           ))}
         </div>

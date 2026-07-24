@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AccountMenu from './AccountMenu';
 
 export default function Navbar() {
   return (
@@ -10,17 +11,8 @@ export default function Navbar() {
         <nav className="flex gap-6 text-sm items-center text-saddle-brown">
           <Link href="/saddles">Browse Saddles</Link>
           <Link href="/match">Find My Fit</Link>
-          <Link href="/favorites">Favorites</Link>
-          <Link href="/watchlist">Watchlist</Link>
-          <Link href="/messages">Messages</Link>
-          <Link href="/orders">Orders</Link>
           <Link href="/dashboard">Sell a Saddle</Link>
-          <Link
-            href="/auth/login"
-            className="border border-saddle-brown/40 px-4 py-1.5 rounded-md font-medium hover:bg-saddle-brown hover:text-saddle-cream transition-colors"
-          >
-            Sign In
-          </Link>
+          <AccountMenu />
         </nav>
       </div>
     </header>
