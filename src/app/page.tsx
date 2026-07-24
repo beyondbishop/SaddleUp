@@ -38,8 +38,12 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-saddle-tan/40 via-saddle-cream to-saddle-green/20 border border-saddle-tan/50 flex items-center justify-center">
-          <span className="text-6xl">🐎</span>
+        <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-saddle-tan/50">
+          <img
+            src="/images/hero-saddle.jpg"
+            alt="English saddle on a horse"
+            className="w-full h-full object-cover"
+          />
         </div>
       </section>
 
