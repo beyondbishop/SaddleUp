@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // Call this on a schedule (Vercel Cron — see vercel.json) once daily.
 // Protects itself with CRON_SECRET so randoms on the internet can't trigger it.
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
     if (!unseenMatches.length) continue;
 
     const email = (search as any).profiles?.email;
-    if (email && process.env.RESEND_API_KEY) {
+    if (email && resend) {
       await resend.emails.send({
         from: process.env.EMAIL_FROM!,
         to: email,
