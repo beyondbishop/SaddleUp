@@ -6,10 +6,27 @@
 
 body {
   background: theme('colors.saddle.cream');
-  color: theme('colors.saddle.brown');
+  color: theme('colors.saddle.ink');
   font-family: theme('fontFamily.sans');
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  /* lets .full-bleed sections span the viewport without a horizontal scrollbar */
+  overflow-x: clip;
 }
 
 h1, h2, h3, .font-display {
   font-family: theme('fontFamily.serif');
+}
+
+@layer utilities {
+  /* Break out of the centered <main> container to span the full viewport width */
+  .full-bleed {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+  }
+
+  /* Diagonal striped placeholder used where a photo would go */
+  .bg-stripes {
+    background-image: repeating-linear-gradient(135deg, #e9dcc4 0, #e9dcc4 10px, #e4d5ba 10px, #e4d5ba 20px);
+  }
 }

@@ -19,7 +19,7 @@ export default function AccountMenu() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="border border-saddle-brown/40 px-4 py-1.5 rounded-md font-medium hover:bg-saddle-brown hover:text-saddle-cream transition-colors"
+        className="text-[13px] font-semibold text-saddle-brown border border-saddle-tan-line px-[18px] py-[9px] rounded-sm whitespace-nowrap transition-colors hover:bg-saddle-brown hover:text-saddle-cream hover:border-saddle-brown"
       >
         Account
       </button>

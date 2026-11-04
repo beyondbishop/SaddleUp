@@ -1,80 +1,252 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import { DISCIPLINE_LABELS } from '@/lib/types';
+import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 
-const DISCIPLINE_ICONS: Record<string, string> = {
-  hunter_jumper: '🏇',
-  dressage: '🎗️',
-  all_purpose: '🐴',
-  western: '🤠',
-  pony_child: '🎠',
-  endurance: '🏔️',
-  eventing: '🚩'
-};
+const eyebrow = 'font-mono uppercase text-saddle-gold';
+const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
+
+const TRUST = [
+  ['No buyer commission', 'You pay the sticker price. Sellers keep 80%+ of every sale.'],
+  ['5-day inspection', "Your payment is held until you confirm the saddle fits — or it's returned."],
+  ['Fit-first search', 'Filter by tree width, seat size and discipline — not just brand.']
+];
+
+const TESTIMONIALS = [
+  {
+    quote:
+      "I've bought saddles off Facebook before and always held my breath. Here it was three clicks — and knowing it was insured door to door was the reason I actually hit buy.",
+    name: 'Megan T.',
+    meta: 'Hunter/Jumper · Ocala, FL'
+  },
+  {
+    quote:
+      'The insurance is what sold me. A $4k saddle sight-unseen felt insane until I saw my payment was held and the shipment was covered. Fit was perfect, released the funds day four.',
+    name: 'Rebecca L.',
+    meta: 'Dressage · Lexington, KY'
+  },
+  {
+    quote:
+      "Selling was the easy part I didn't expect — listed in ten minutes, buyer covered, and my payout landed automatically once the inspection window closed. No chasing, no risk.",
+    name: 'James P.',
+    meta: 'Eventing · Aiken, SC'
+  }
+];
+
+function SectionHeader({ title, href, cta }: { title: string; href: string; cta: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 mb-[26px]">
+      <h2 className={sectionH2}>{title}</h2>
+      <Link href={href} className={`${eyebrow} text-[11px] tracking-[0.16em] whitespace-nowrap hover:text-saddle-brown`}>
+        {cta} →
+      </Link>
+    </div>
+  );
+}
+
+function ListingCard({ listing }: { listing: Listing }) {
+  const price = (listing.price_cents / 100).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  });
+  const title = `${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`.replace(/\s+/g, ' ');
+  const location = [listing.location_city, listing.location_state].filter(Boolean).join(', ');
+
+  return (
+    <Link
+      href={`/saddles/${listing.slug}`}
+      className="block bg-saddle-paper border border-saddle-line rounded-[3px] overflow-hidden transition-colors hover:border-saddle-brown"
+    >
+      <div className="relative aspect-[4/3]">
+        {listing.images?.[0] ? (
+          <Image src={listing.images[0]} alt={title} fill sizes="(max-width: 560px) 100vw, (max-width: 900px) 50vw, 380px" className="object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-stripes flex items-center justify-center">
+            <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-saddle-brown/40">No photo yet</span>
+          </div>
+        )}
+      </div>
+      <div className="px-4 pt-4 pb-[18px]">
+        <div className={`${eyebrow} text-[10px] tracking-[0.16em] mb-[7px]`}>{DISCIPLINE_LABELS[listing.discipline]}</div>
+        <div className="font-serif text-xl leading-[1.15] text-saddle-ink">{title}</div>
+        <div className="text-[13px] text-saddle-muted mt-1">
+          {TREE_WIDTH_LABELS[listing.tree_width]} Tree{location ? ` · ${location}` : ''}
+        </div>
+        <div className="font-serif text-[22px] text-saddle-brown mt-3">{price}</div>
+      </div>
+    </Link>
+  );
+}
 
 export default async function HomePage() {
   const supabase = createClient();
-  const { data: brands } = await supabase.from('brands').select('name, slug').limit(12);
+  const [{ data: brands }, { data: listings }] = await Promise.all([
+    supabase.from('brands').select('name, slug').order('name').limit(12),
+    supabase
+      .from('listings')
+      .select('*, brands(name, slug)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(6)
+  ]);
 
   return (
-    <div>
-      <section className="py-16 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+    <div className="full-bleed">
+      {/* Hero */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-12 min-[900px]:pt-[76px] pb-14 grid grid-cols-1 min-[900px]:grid-cols-[1.05fr_0.95fr] gap-9 min-[900px]:gap-16 items-center">
         <div>
-          <p className="text-saddle-gold text-xs font-semibold tracking-[0.2em] uppercase mb-4">
-            The Fitted Saddle Marketplace
-          </p>
-          <h1 className="font-serif text-5xl leading-tight text-saddle-brown mb-4">
+          <div className={`${eyebrow} text-[11px] tracking-[0.24em] mb-[22px]`}>The fitted saddle marketplace</div>
+          <h1 className="font-serif font-normal text-[34px] sm:text-[42px] min-[900px]:text-[60px] leading-[1.02] tracking-[-0.01em] text-saddle-ink mb-6">
             The saddle that fits — your horse, and your budget.
           </h1>
-          <p className="text-lg mb-8 text-saddle-brown/80">
-            Every used saddle on SaddleUp is matched to your horse's back and your own
-            measurements — so you stop guessing and start riding. Sellers keep 80%+ of every sale.
+          <p className="text-lg leading-[1.55] text-saddle-body max-w-[520px] mb-[34px]">
+            Every used saddle on SaddleUp is matched to your horse&apos;s back and your own measurements — so you
+            stop guessing and start riding. Buyers pay no commission; sellers keep over 80%.
           </p>
-          <Link
-            href="/match"
-            className="inline-block bg-saddle-green text-white px-6 py-3 rounded-md font-semibold"
-          >
-            Find My Fit
-          </Link>
+          <div className="flex gap-3.5 flex-wrap">
+            <Link
+              href="/match"
+              className="inline-flex items-center gap-[9px] bg-saddle-green text-saddle-cream px-7 py-[15px] rounded-sm font-semibold text-[14.5px] tracking-[0.02em] transition-colors hover:bg-saddle-green-dark"
+            >
+              Find My Fit →
+            </Link>
+            <Link
+              href="/saddles"
+              className="inline-flex items-center text-saddle-brown border border-saddle-brown px-7 py-[15px] rounded-sm font-semibold text-[14.5px] tracking-[0.02em] transition-colors hover:bg-saddle-brown hover:text-saddle-cream"
+            >
+              Browse all saddles
+            </Link>
+          </div>
         </div>
-
-        <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-saddle-tan/50">
-          <img
-            src="/images/hero-saddle.jpg"
-            alt="English saddle on a horse"
-            className="w-full h-full object-cover"
-          />
+        <div className="relative">
+          <div className="relative aspect-[4/5] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper">
+            <Image
+              src="/images/hero-saddle.jpg"
+              alt="Brown leather English saddle with gold stirrup on a navy quilted pad"
+              fill
+              priority
+              sizes="(max-width: 900px) 100vw, 540px"
+              className="object-cover object-[40%_center]"
+            />
+          </div>
+          <div className="absolute -bottom-[18px] left-0 min-[900px]:-left-[18px] bg-saddle-paper border border-saddle-line rounded-[3px] px-5 py-4 shadow-[0_12px_34px_rgba(60,40,20,0.12)]">
+            <div className={`${eyebrow} text-[10px] tracking-[0.18em] mb-1`}>Matched to your horse</div>
+            <div className="font-serif text-xl text-saddle-ink">Medium tree · 17.5″ seat</div>
+          </div>
         </div>
       </section>
 
-      <section className="py-8">
-        <h2 className="text-2xl font-semibold mb-4">Shop by Discipline</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Trust strip */}
+      <section className="border-y border-saddle-line bg-saddle-sand">
+        <div className="max-w-[1200px] mx-auto px-8 py-[34px] grid grid-cols-1 min-[900px]:grid-cols-3 gap-5 min-[900px]:gap-10">
+          {TRUST.map(([title, body], i) => (
+            <div key={title} className={i > 0 ? 'min-[900px]:border-l min-[900px]:border-saddle-line min-[900px]:pl-10' : ''}>
+              <div className="font-serif text-[23px] text-saddle-brown mb-1">{title}</div>
+              <div className="text-sm text-saddle-muted">{body}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Disciplines */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-10">
+        <SectionHeader title="Shop by discipline" href="/saddles" cta="View all" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 min-[900px]:grid-cols-4 gap-4">
           {Object.entries(DISCIPLINE_LABELS).map(([key, label]) => (
             <Link
               key={key}
               href={`/saddles?discipline=${key}`}
-              className="bg-white border border-saddle-tan rounded-lg p-5 text-center hover:shadow-md hover:-translate-y-0.5 transition-all"
+              className="relative block aspect-[3/4] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper transition-colors hover:border-saddle-brown"
             >
-              <div className="text-3xl mb-2">{DISCIPLINE_ICONS[key]}</div>
-              <p className="font-medium text-saddle-brown">{label}</p>
+              <div className="absolute inset-0 bg-stripes" />
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-saddle-ink/70 to-saddle-ink/0">
+                <div className="font-serif text-xl text-saddle-cream">{label}</div>
+              </div>
             </Link>
           ))}
         </div>
       </section>
 
-      <section className="py-8">
-        <h2 className="text-2xl font-semibold mb-4">Shop by Brand</h2>
-        <div className="flex flex-wrap gap-3">
-          {brands?.map((b) => (
-            <Link
-              key={b.slug}
-              href={`/saddles?brand=${b.slug}`}
-              className="bg-white border border-saddle-tan rounded-full px-4 py-2 text-sm hover:shadow-md transition"
-            >
-              {b.name}
-            </Link>
-          ))}
+      {/* Newly listed */}
+      {listings && listings.length > 0 && (
+        <section className="max-w-[1200px] mx-auto px-5 sm:px-8 py-9">
+          <SectionHeader title="Newly listed" href="/saddles" cta="See all saddles" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 min-[900px]:grid-cols-3 gap-[22px]">
+            {(listings as Listing[]).map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Brands */}
+      {brands && brands.length > 0 && (
+        <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-11 pb-2">
+          <h2 className="font-serif font-medium text-[26px] text-saddle-ink mb-[18px]">Shop by brand</h2>
+          <div className="flex flex-wrap gap-[11px]">
+            {brands.map((b) => (
+              <Link
+                key={b.slug}
+                href={`/saddles?brand=${b.slug}`}
+                className="bg-saddle-paper border border-saddle-line rounded-full px-[18px] py-[9px] text-sm text-saddle-nav transition-colors hover:border-saddle-brown hover:text-saddle-brown"
+              >
+                {b.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Testimonials */}
+      <section className="mt-[52px] border-t border-saddle-line bg-saddle-sand">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-[60px]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 mb-2">
+            <h2 className={sectionH2}>Riders who found their fit</h2>
+            <div className={`${eyebrow} text-[11px] tracking-[0.16em]`}>4.9 ★ · 1,200+ sales</div>
+          </div>
+          <p className="text-saddle-muted text-[15px] mb-[30px] max-w-[560px]">
+            Every purchase is backed by SaddleUp Protection — full insurance on the saddle in transit and a 5-day
+            inspection, so your money is covered until the fit is confirmed.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 min-[900px]:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} className="bg-saddle-paper border border-saddle-line rounded-[3px] p-[26px]">
+                <div className="text-saddle-tan text-[15px] tracking-[2px] mb-3.5" aria-label="5 out of 5 stars">★★★★★</div>
+                <p className="font-serif text-[19px] leading-[1.4] text-saddle-ink mb-5">&ldquo;{t.quote}&rdquo;</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-[38px] h-[38px] rounded-full bg-saddle-tan flex items-center justify-center font-serif text-base text-saddle-brown-deep">
+                    {t.name[0]}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-saddle-ink">{t.name}</div>
+                    <div className="text-[12.5px] text-saddle-muted">{t.meta}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-[60px] pb-[76px]">
+        <div className="bg-saddle-green rounded p-9 min-[900px]:p-14 grid grid-cols-1 min-[900px]:grid-cols-[1fr_auto] gap-[22px] min-[900px]:gap-10 items-center">
+          <div>
+            <h2 className="font-serif font-normal text-[38px] leading-[1.08] text-saddle-cream mb-3">
+              Not sure what fits? Start with two measurements.
+            </h2>
+            <p className="text-saddle-green-mist text-base max-w-[560px]">
+              Enter your horse&apos;s back width and your inseam. We&apos;ll narrow the whole marketplace down to the
+              tree widths and seat sizes most likely to fit.
+            </p>
+          </div>
+          <Link
+            href="/match"
+            className="justify-self-start whitespace-nowrap bg-saddle-cream text-saddle-green px-[30px] py-4 rounded-sm font-semibold text-[15px] tracking-[0.02em] transition-colors hover:bg-saddle-paper"
+          >
+            Find My Fit →
+          </Link>
         </div>
       </section>
     </div>
