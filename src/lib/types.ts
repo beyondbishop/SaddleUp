@@ -50,4 +50,8 @@ export interface Listing {
   location_state: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
+  ebay_item_id?: string | null;
+  ebay_item_url?: string | null;
+  ebay_seller_username?: string | null;
+  ebay_imported_at?: string | null;
 }

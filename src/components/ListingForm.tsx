@@ -5,22 +5,29 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import slugify from 'slugify';
+import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 
 const DISCIPLINES = Object.entries(DISCIPLINE_LABELS);
 const TREES = Object.entries(TREE_WIDTH_LABELS);
 
 export default function ListingForm({
   brands,
-  existing
+  existing,
+  prefill,
+  prefillImages,
+  ebaySource
 }: {
   brands: { id: number; name: string }[];
   existing?: Listing;
+  prefill?: ListingPrefill;
+  prefillImages?: string[];
+  ebaySource?: EbaySource;
 }) {
   const supabase = createClient();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<string[]>(existing?.images ?? []);
+  const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
   const [uploading, setUploading] = useState(false);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -89,7 +96,16 @@ export default function ListingForm({
       location_state: form.get('location_state') || null,
       images,
       status: existing ? existing.status : 'draft',
-      slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`
+      slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`,
+      ...(ebaySource && !existing
+        ? {
+            source: 'ebay_import',
+            ebay_item_id: ebaySource.item_id,
+            ebay_item_url: ebaySource.url,
+            ebay_seller_username: ebaySource.seller_username,
+            ebay_imported_at: new Date().toISOString()
+          }
+        : {})
     };
 
     const query = existing
@@ -98,7 +114,13 @@ export default function ListingForm({
 
     const { error: saveError } = await query;
     setSaving(false);
-    if (saveError) return setError(saveError.message);
+    if (saveError) {
+      return setError(
+        saveError.code === '23505' && ebaySource
+          ? 'That eBay listing has already been imported to SaddleUp.'
+          : saveError.message
+      );
+    }
     router.push('/dashboard');
     router.refresh();
   }
@@ -110,7 +132,8 @@ export default function ListingForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">Brand</label>
-          <select name="brand_id" required defaultValue={existing?.brand_id} className="w-full border rounded p-2">
+          <select name="brand_id" required defaultValue={existing?.brand_id ?? prefill?.brand_id ?? ''} className="w-full border rounded p-2">
+            <option value="" disabled>Select brand…</option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
@@ -118,14 +141,15 @@ export default function ListingForm({
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Model</label>
-          <input name="model" required defaultValue={existing?.model} className="w-full border rounded p-2" />
+          <input name="model" required defaultValue={existing?.model ?? prefill?.model} className="w-full border rounded p-2" />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">Discipline</label>
-          <select name="discipline" required defaultValue={existing?.discipline} className="w-full border rounded p-2">
+          <select name="discipline" required defaultValue={existing?.discipline ?? prefill?.discipline ?? ''} className="w-full border rounded p-2">
+            <option value="" disabled>Select…</option>
             {DISCIPLINES.map(([k, label]) => (
               <option key={k} value={k}>{label}</option>
             ))}
@@ -133,11 +157,12 @@ export default function ListingForm({
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Seat Size (in)</label>
-          <input name="seat_size" type="number" step="0.5" required defaultValue={existing?.seat_size} className="w-full border rounded p-2" />
+          <input name="seat_size" type="number" step="0.5" required defaultValue={existing?.seat_size ?? prefill?.seat_size ?? ''} className="w-full border rounded p-2" />
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Tree Width</label>
-          <select name="tree_width" required defaultValue={existing?.tree_width} className="w-full border rounded p-2">
+          <select name="tree_width" required defaultValue={existing?.tree_width ?? prefill?.tree_width ?? ''} className="w-full border rounded p-2">
+            <option value="" disabled>Select…</option>
             {TREES.map(([k, label]) => (
               <option key={k} value={k}>{label}</option>
             ))}
@@ -148,15 +173,15 @@ export default function ListingForm({
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">Panel Type</label>
-          <input name="panel_type" placeholder="regular / monoflap" defaultValue={existing?.panel_type ?? ''} className="w-full border rounded p-2" />
+          <input name="panel_type" placeholder="regular / monoflap" defaultValue={existing?.panel_type ?? prefill?.panel_type ?? ''} className="w-full border rounded p-2" />
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Year</label>
-          <input name="year_manufactured" type="number" defaultValue={existing?.year_manufactured ?? ''} className="w-full border rounded p-2" />
+          <input name="year_manufactured" type="number" defaultValue={existing?.year_manufactured ?? prefill?.year_manufactured ?? ''} className="w-full border rounded p-2" />
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Condition</label>
-          <input name="condition" placeholder="excellent / good / fair" defaultValue={existing?.condition ?? ''} className="w-full border rounded p-2" />
+          <input name="condition" placeholder="excellent / good / fair" defaultValue={existing?.condition ?? prefill?.condition ?? ''} className="w-full border rounded p-2" />
         </div>
       </div>
 
@@ -175,22 +200,22 @@ export default function ListingForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">City</label>
-          <input name="location_city" defaultValue={existing?.location_city ?? ''} className="w-full border rounded p-2" />
+          <input name="location_city" defaultValue={existing?.location_city ?? prefill?.location_city ?? ''} className="w-full border rounded p-2" />
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">State</label>
-          <input name="location_state" defaultValue={existing?.location_state ?? ''} className="w-full border rounded p-2" />
+          <input name="location_state" defaultValue={existing?.location_state ?? prefill?.location_state ?? ''} className="w-full border rounded p-2" />
         </div>
       </div>
 
       <div>
         <label className="block text-sm font-semibold mb-1">Price (USD)</label>
-        <input name="price" type="number" required defaultValue={existing ? existing.price_cents / 100 : ''} className="w-full border rounded p-2" />
+        <input name="price" type="number" required defaultValue={existing ? existing.price_cents / 100 : prefill?.price ?? ''} className="w-full border rounded p-2" />
       </div>
 
       <div>
         <label className="block text-sm font-semibold mb-1">Description</label>
-        <textarea name="description" rows={5} defaultValue={existing?.description ?? ''} className="w-full border rounded p-2" />
+        <textarea name="description" rows={5} defaultValue={existing?.description ?? prefill?.description ?? ''} className="w-full border rounded p-2" />
       </div>
 
       <div>
@@ -199,11 +224,32 @@ export default function ListingForm({
         {uploading && <p className="text-sm text-gray-500">Uploading…</p>}
         <div className="flex gap-2 mt-2 flex-wrap">
           {images.map((img) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={img} src={img} alt="" className="w-20 h-20 object-cover rounded" />
+            <div key={img} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img} alt="" className="w-20 h-20 object-cover rounded" />
+              <button
+                type="button"
+                onClick={() => setImages((prev) => prev.filter((i) => i !== img))}
+                aria-label="Remove photo"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-saddle-ink text-saddle-cream text-xs leading-none"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       </div>
+
+      {ebaySource && !existing && (
+        <label className="flex items-start gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-3">
+          <input type="checkbox" required className="mt-1" />
+          <span>
+            This is my own eBay listing
+            {ebaySource.seller_username ? <> (eBay seller <strong>{ebaySource.seller_username}</strong>)</> : null}, and I
+            have the right to use these photos and this description on SaddleUp.
+          </span>
+        </label>
+      )}
 
       <button type="submit" disabled={saving} className="bg-saddle-green text-white px-6 py-3 rounded-md font-semibold">
         {saving ? 'Saving…' : existing ? 'Save Changes' : 'Publish Listing'}

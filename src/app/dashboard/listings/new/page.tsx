@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import ListingForm from '@/components/ListingForm';
+import NewListingWithEbayImport from '@/components/EbayImport';
+import { ebayConfigured } from '@/lib/ebay/client';
 
 export default async function NewListingPage() {
   const supabase = createClient();
@@ -15,7 +16,7 @@ export default async function NewListingPage() {
       <p className="text-sm text-gray-600 mb-6">
         New listings go through a quick review (usually same-day) before they appear publicly.
       </p>
-      <ListingForm brands={brands ?? []} />
+      <NewListingWithEbayImport brands={brands ?? []} ebayEnabled={ebayConfigured()} />
     </div>
   );
 }

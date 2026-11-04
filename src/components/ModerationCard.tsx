@@ -31,6 +31,16 @@ export default function ModerationCard({ listing }: { listing: any }) {
             {listing.tree_width} · ${(listing.price_cents / 100).toLocaleString()} ·{' '}
             {listing.location_city}, {listing.location_state}
           </p>
+          {listing.ebay_item_id && (
+            <p className="text-sm text-saddle-gold">
+              Imported from{' '}
+              <a href={listing.ebay_item_url} target="_blank" rel="noopener noreferrer" className="underline">
+                eBay #{listing.ebay_item_id}
+              </a>
+              {listing.ebay_seller_username ? ` · eBay seller: ${listing.ebay_seller_username}` : ''} — check this
+              matches the SaddleUp seller.
+            </p>
+          )}
         </div>
       </div>
       <div className="flex gap-2 shrink-0">

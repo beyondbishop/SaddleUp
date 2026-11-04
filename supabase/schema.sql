@@ -326,3 +326,33 @@ create policy "authenticated users can upload saddle images" on storage.objects
   for insert with check (bucket_id = 'saddle-images' and auth.role() = 'authenticated');
 create policy "users can delete their own uploaded images" on storage.objects
   for delete using (bucket_id = 'saddle-images' and owner = auth.uid());
+
+-- ---------- EBAY IMPORT (also in migrations/20261104_ebay_import.sql) ----------
+alter table listings
+  add column if not exists ebay_item_id text,
+  add column if not exists ebay_item_url text,
+  add column if not exists ebay_seller_username text,
+  add column if not exists ebay_imported_at timestamptz;
+
+-- One SaddleUp listing per eBay listing (ignores removed listings so a seller can re-import).
+create unique index if not exists idx_listings_ebay_item
+  on listings(ebay_item_id)
+  where ebay_item_id is not null and status <> 'removed';
+
+-- Lets the import route check for duplicates across all sellers without exposing other
+-- sellers' draft listings through row-level security.
+create or replace function ebay_item_already_imported(p_item_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from listings
+    where ebay_item_id = p_item_id and status <> 'removed'
+  );
+$$;
+
+revoke all on function ebay_item_already_imported(text) from public;
+grant execute on function ebay_item_already_imported(text) to authenticated;
