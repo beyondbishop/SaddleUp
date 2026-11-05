@@ -81,15 +81,25 @@ function ListingCard({ listing }: { listing: Listing }) {
 
 export default async function HomePage() {
   const supabase = createClient();
-  const [{ data: brands }, { data: listings }] = await Promise.all([
+  const [{ data: brands }, { data: listings }, { data: forTiles }] = await Promise.all([
     supabase.from('brands').select('name, slug').order('name').limit(12),
     supabase
       .from('listings')
       .select('*, brands(name, slug)')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .limit(6)
+      .limit(6),
+    // Every live saddle's discipline + photos (small), for the discipline tiles' photo and count.
+    supabase.from('listings').select('discipline, images').eq('status', 'active').order('created_at', { ascending: false })
   ]);
+
+  const tiles = new Map<string, { count: number; photo: string | null }>();
+  for (const l of forTiles ?? []) {
+    const t = tiles.get(l.discipline) ?? { count: 0, photo: null };
+    t.count += 1;
+    t.photo ??= l.images?.[0] ?? null; // newest listing with a photo
+    tiles.set(l.discipline, t);
+  }
 
   return (
     <div className="full-bleed">
@@ -153,18 +163,34 @@ export default async function HomePage() {
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-10">
         <SectionHeader title="Shop by discipline" href="/saddles" cta="View all" />
         <div className="grid grid-cols-2 sm:grid-cols-3 min-[900px]:grid-cols-4 gap-4">
-          {Object.entries(DISCIPLINE_LABELS).map(([key, label]) => (
-            <Link
-              key={key}
-              href={`/saddles?discipline=${key}`}
-              className="relative block aspect-[3/4] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper transition-colors hover:border-saddle-brown"
-            >
-              <div className="absolute inset-0 bg-stripes" />
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-saddle-ink/70 to-saddle-ink/0">
-                <div className="font-serif text-xl text-saddle-cream">{label}</div>
-              </div>
-            </Link>
-          ))}
+          {Object.entries(DISCIPLINE_LABELS).map(([key, label]) => {
+            const tile = tiles.get(key);
+            return (
+              <Link
+                key={key}
+                href={`/saddles?discipline=${key}`}
+                className="group relative block aspect-[3/4] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper transition-colors hover:border-saddle-brown"
+              >
+                {tile?.photo ? (
+                  <Image
+                    src={tile.photo}
+                    alt=""
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 900px) 33vw, 280px"
+                    className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-stripes" />
+                )}
+                <div className="absolute inset-x-0 bottom-0 p-4 pt-12 bg-gradient-to-t from-saddle-ink/80 to-saddle-ink/0">
+                  <div className="font-serif text-xl text-saddle-cream">{label}</div>
+                  <div className="text-xs text-saddle-cream/85 mt-0.5">
+                    {tile ? `${tile.count} saddle${tile.count === 1 ? '' : 's'}` : 'None listed yet'}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 
