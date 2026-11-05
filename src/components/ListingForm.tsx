@@ -3,20 +3,19 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
+import { TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import slugify from 'slugify';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
-  DISCIPLINES_BY_TYPE,
-  SADDLE_TYPE_LABELS,
-  SEAT_SIZES,
-  TREE_OPTIONS,
-  brandInfo,
-  brandsForType,
+  DISCIPLINE_CHOICES,
+  brandsForDiscipline,
   formatSeat,
-  saddleTypeForDiscipline,
-  type SaddleType
+  modelsFor,
+  seatSizesFor,
+  treeLabelFor,
+  treeOptionsFor
 } from '@/lib/saddle-catalog';
+import type { Discipline } from '@/lib/types';
 
 const field = 'w-full border border-saddle-line rounded p-2 bg-saddle-paper disabled:opacity-50';
 
@@ -40,36 +39,25 @@ export default function ListingForm({
   const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
   const [uploading, setUploading] = useState(false);
 
-  // Choices that drive each other: English/Western -> brands, disciplines, seat sizes, tree widths;
-  // brand -> model suggestions.
-  const startBrandId = existing?.brand_id ?? prefill?.brand_id ?? null;
-  const startBrand = brands.find((b) => b.id === startBrandId);
-  const startDiscipline = existing?.discipline ?? prefill?.discipline ?? '';
-  const startBrandType = startBrand ? brandInfo(startBrand.name).type : 'both';
-  const [saddleType, setSaddleType] = useState<SaddleType | null>(
-    saddleTypeForDiscipline(startDiscipline || null) ?? (startBrandType === 'both' ? null : startBrandType)
-  );
-  const [brandId, setBrandId] = useState(startBrandId ? String(startBrandId) : '');
-  const [discipline, setDiscipline] = useState<string>(startDiscipline);
+  // The discipline is chosen first and drives everything else: English vs Western brands,
+  // model suggestions, seat sizes and tree widths.
+  const [discipline, setDiscipline] = useState<Discipline | ''>(existing?.discipline ?? prefill?.discipline ?? '');
+  const [brandId, setBrandId] = useState(String(existing?.brand_id ?? prefill?.brand_id ?? ''));
   const [seat, setSeat] = useState(String(existing?.seat_size ?? prefill?.seat_size ?? ''));
   const [tree, setTree] = useState<string>(existing?.tree_width ?? prefill?.tree_width ?? '');
 
-  const brandOptions = brandsForType(brands, saddleType);
-  const disciplineOptions = saddleType ? DISCIPLINES_BY_TYPE[saddleType] : [];
-  const seatOptions = saddleType ? SEAT_SIZES[saddleType] : [];
-  const treeOptions = saddleType ? TREE_OPTIONS[saddleType] : [];
+  const brandOptions = brandsForDiscipline(brands, discipline);
+  const seatOptions = seatSizesFor(discipline);
+  const treeOptions = treeOptionsFor(discipline);
   const selectedBrand = brands.find((b) => String(b.id) === brandId);
-  const modelSuggestions = selectedBrand ? brandInfo(selectedBrand.name).models : [];
+  const modelSuggestions = modelsFor(selectedBrand?.name, discipline);
 
-  function chooseType(type: SaddleType) {
-    setSaddleType(type);
-    // Clear anything that doesn't make sense for the new type.
-    if (brandId && !brandsForType(brands, type).some((b) => String(b.id) === brandId)) setBrandId('');
-    if (!DISCIPLINES_BY_TYPE[type].some((d) => d.value === discipline)) {
-      setDiscipline(type === 'western' ? 'western' : '');
-    }
-    if (seat && !SEAT_SIZES[type].includes(Number(seat))) setSeat('');
-    if (tree && !TREE_OPTIONS[type].some((t) => t.value === tree)) setTree('');
+  function chooseDiscipline(d: Discipline) {
+    setDiscipline(d);
+    // Clear anything that doesn't fit the new discipline (e.g. an English brand after picking Western).
+    if (brandId && !brandsForDiscipline(brands, d).some((b) => String(b.id) === brandId)) setBrandId('');
+    if (seat && !seatSizesFor(d).includes(Number(seat))) setSeat('');
+    if (tree && !treeOptionsFor(d).some((t) => t.value === tree)) setTree('');
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -95,8 +83,8 @@ export default function ListingForm({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!saddleType) {
-      setError('Choose English or Western first.');
+    if (!discipline) {
+      setError('Choose the saddle’s discipline first.');
       return;
     }
     setSaving(true);
@@ -176,25 +164,29 @@ export default function ListingForm({
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
       <fieldset>
-        <legend className="block text-sm font-semibold mb-2">What kind of saddle is it?</legend>
-        <div className="grid grid-cols-2 gap-3">
-          {(Object.keys(SADDLE_TYPE_LABELS) as SaddleType[]).map((t) => (
+        <legend className="block text-sm font-semibold mb-2">What discipline is the saddle for?</legend>
+        <input type="hidden" name="discipline" value={discipline} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {DISCIPLINE_CHOICES.map((d) => (
             <button
-              key={t}
+              key={d.value}
               type="button"
-              onClick={() => chooseType(t)}
-              aria-pressed={saddleType === t}
-              className={`py-3 rounded-sm border font-semibold transition-colors ${
-                saddleType === t
+              onClick={() => chooseDiscipline(d.value)}
+              aria-pressed={discipline === d.value}
+              className={`text-left px-3 py-2.5 rounded-sm border transition-colors ${
+                discipline === d.value
                   ? 'bg-saddle-brown text-saddle-cream border-saddle-brown'
-                  : 'bg-saddle-paper text-saddle-brown border-saddle-line hover:border-saddle-brown'
+                  : 'bg-saddle-paper text-saddle-ink border-saddle-line hover:border-saddle-brown'
               }`}
             >
-              {SADDLE_TYPE_LABELS[t]}
+              <span className="block font-semibold text-sm">{d.label}</span>
+              <span className={`block text-xs ${discipline === d.value ? 'text-saddle-cream/80' : 'text-saddle-muted'}`}>
+                {d.hint}
+              </span>
             </button>
           ))}
         </div>
-        {!saddleType && <p className="text-xs text-saddle-muted mt-1">Choose one to see the right brands, sizes and widths.</p>}
+        {!discipline && <p className="text-xs text-saddle-muted mt-1">Pick one to see the right brands, models, sizes and widths.</p>}
       </fieldset>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -204,7 +196,7 @@ export default function ListingForm({
             id="brand_id"
             name="brand_id"
             required
-            disabled={!saddleType}
+            disabled={!discipline}
             value={brandId}
             onChange={(e) => setBrandId(e.target.value)}
             className={field}
@@ -214,7 +206,7 @@ export default function ListingForm({
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
-          {saddleType && brandOptions.length <= 1 && (
+          {discipline && brandOptions.length <= 1 && (
             <p className="text-xs text-red-700 mt-1">Brand list didn&apos;t load — please refresh the page.</p>
           )}
         </div>
@@ -224,7 +216,7 @@ export default function ListingForm({
             id="model"
             name="model"
             required
-            disabled={!saddleType}
+            disabled={!discipline}
             list="model-suggestions"
             autoComplete="off"
             placeholder={modelSuggestions.length ? `e.g. ${modelSuggestions.slice(0, 2).join(', ')}` : 'Model name'}
@@ -239,34 +231,14 @@ export default function ListingForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label htmlFor="discipline" className="block text-sm font-semibold mb-1">Discipline</label>
-          <select
-            id="discipline"
-            name="discipline"
-            required
-            disabled={!saddleType}
-            value={discipline}
-            onChange={(e) => setDiscipline(e.target.value)}
-            className={field}
-          >
-            <option value="" disabled>Select…</option>
-            {disciplineOptions.map((d) => (
-              <option key={d.value} value={d.value}>{d.label}</option>
-            ))}
-            {discipline && !disciplineOptions.some((d) => d.value === discipline) && (
-              <option value={discipline}>{DISCIPLINE_LABELS[discipline as keyof typeof DISCIPLINE_LABELS]}</option>
-            )}
-          </select>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="seat_size" className="block text-sm font-semibold mb-1">Seat Size</label>
           <select
             id="seat_size"
             name="seat_size"
             required
-            disabled={!saddleType}
+            disabled={!discipline}
             value={seat}
             onChange={(e) => setSeat(e.target.value)}
             className={field}
@@ -279,14 +251,12 @@ export default function ListingForm({
           </select>
         </div>
         <div>
-          <label htmlFor="tree_width" className="block text-sm font-semibold mb-1">
-            {saddleType === 'western' ? 'Bars / Tree' : 'Tree Width'}
-          </label>
+          <label htmlFor="tree_width" className="block text-sm font-semibold mb-1">{treeLabelFor(discipline)}</label>
           <select
             id="tree_width"
             name="tree_width"
             required
-            disabled={!saddleType}
+            disabled={!discipline}
             value={tree}
             onChange={(e) => setTree(e.target.value)}
             className={field}
