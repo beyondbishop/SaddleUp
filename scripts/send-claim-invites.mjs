@@ -1,4 +1,4 @@
-// Usage: node scripts/send-claim-invites.mjs claim-invites.csv
+// Usage: node --env-file=.env.local scripts/send-claim-invites.mjs claim-invites.csv
 // Sends each seller a personal email with their claim link. Uses Resend.
 // Rate-limited deliberately (1 every 2s) to keep this looking like real
 // outreach, not a spam blast, and to stay within provider rate limits.
@@ -14,6 +14,10 @@ const rows = parse(fs.readFileSync(csvPath), { columns: true, skip_empty_lines: 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 for (const row of rows) {
+  if (!row.seller_email) {
+    console.log(`Skipping ${row.seller_name || row.claim_url} — no email (send their link by message instead).`);
+    continue;
+  }
   try {
     await resend.emails.send({
       from: process.env.EMAIL_FROM,
