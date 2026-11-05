@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
 import ZipField from './ZipField';
+import PhotoUploader from './PhotoUploader';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
   DISCIPLINE_CHOICES,
@@ -79,7 +80,6 @@ export default function ListingForm({
     if (message) setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
   };
   const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
-  const [uploading, setUploading] = useState(false);
 
   // The discipline is chosen first and drives everything else: English vs Western brands,
   // model suggestions, seat sizes and tree widths.
@@ -100,24 +100,6 @@ export default function ListingForm({
     if (brandId && !brandsForDiscipline(brands, d).some((b) => String(b.id) === brandId)) setBrandId('');
     if (seat && !seatSizesFor(d).includes(Number(seat))) setSeat('');
     if (tree && !treeOptionsFor(d).some((t) => t.value === tree)) setTree('');
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (!files?.length) return;
-    setUploading(true);
-    for (const file of Array.from(files)) {
-      const body = new FormData();
-      body.append('file', file);
-      const { ok, data } = await postWithTimeout('/api/listings/upload-image', body, 60_000, false);
-      if (!ok) {
-        setError(data.error ?? `Couldn't upload ${file.name}.`);
-        continue;
-      }
-      setImages((prev) => [...prev, data.url]);
-    }
-    setUploading(false);
-    e.target.value = '';
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -426,27 +408,7 @@ export default function ListingForm({
           No photos needed — the seller adds their own when they claim the listing.
         </p>
       ) : (
-      <div>
-        <label className="block text-sm font-semibold mb-1">Photos</label>
-        <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
-        {uploading && <p className="text-sm text-gray-500">Uploading…</p>}
-        <div className="flex gap-2 mt-2 flex-wrap">
-          {images.map((img) => (
-            <div key={img} className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="" className="w-20 h-20 object-cover rounded" />
-              <button
-                type="button"
-                onClick={() => setImages((prev) => prev.filter((i) => i !== img))}
-                aria-label="Remove photo"
-                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-saddle-ink text-saddle-cream text-xs leading-none"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PhotoUploader images={images} setImages={setImages} />
       )}
 
       {ebaySource && !existing && (
