@@ -30,8 +30,8 @@ export async function POST(req: Request) {
 
   if (aiReaderConfigured() && brands?.length) {
     try {
-      const { prefill } = await aiParseListing(text, brands);
-      return NextResponse.json({ prefill, ...summarizeFill(prefill), reader: 'ai' });
+      const { prefill, warnings } = await aiParseListing(text, brands);
+      return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, reader: 'ai' });
     } catch (e) {
       console.error('AI listing reader failed; using rules instead', e);
     }

@@ -85,10 +85,12 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dd>{DISCIPLINE_LABELS[listing.discipline]}</dd>
           <dt className="text-gray-500">Tree Width</dt>
           <dd>{TREE_WIDTH_LABELS[listing.tree_width]}</dd>
-          <dt className="text-gray-500">Panel Type</dt>
+          <dt className="text-gray-500">Leather Color</dt>
+          <dd className="capitalize">{listing.color ?? '—'}</dd>
+          <dt className="text-gray-500">Flap / Panel</dt>
           <dd>{listing.panel_type ?? '—'}</dd>
           <dt className="text-gray-500">Condition</dt>
-          <dd>{listing.condition ?? '—'}</dd>
+          <dd className="capitalize">{listing.condition ?? '—'}</dd>
           <dt className="text-gray-500">Year</dt>
           <dd>{listing.year_manufactured ?? '—'}</dd>
           <dt className="text-gray-500">Location</dt>

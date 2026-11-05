@@ -44,7 +44,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   const [text, setText] = useState('');
   const [sellerName, setSellerName] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [parsed, setParsed] = useState<(ParsedListing & { key: string }) | null>(null);
+  const [parsed, setParsed] = useState<(ParsedListing & { key: string; reader: 'ai' | 'rules' }) | null>(null);
   const [created, setCreated] = useState<Created[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -132,13 +132,20 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
         <section className="space-y-3">
           <div className="max-w-2xl flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-saddle-green">
-              Filled in {parsed.found.join(', ')}.
+              Filled in {parsed.found.join(', ')}{parsed.reader === 'ai' ? ' and tidied up the description' : ''}.
               {parsed.missing.length > 0 && <span className="text-saddle-brown"> Please add the {parsed.missing.join(', ')}.</span>}
             </p>
             <button type="button" onClick={() => setParsed(null)} className="text-sm underline text-saddle-brown">
               ← Back to the pasted text
             </button>
           </div>
+          {parsed.warnings.length > 0 && (
+            <ul className="max-w-2xl text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
+              {parsed.warnings.map((w) => (
+                <li key={w}>⚠ {w}</li>
+              ))}
+            </ul>
+          )}
           <ListingForm
             key={parsed.key}
             brands={brands}

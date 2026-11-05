@@ -100,6 +100,7 @@ export function parseTree(text: string, discipline: Discipline | null): TreeWidt
     if (/med(?:ium)?[\s/-]*narrow|\bmn\b/.test(source)) return 'medium_narrow';
     if (/\bwide\b/.test(source)) return 'wide';
     if (/\bnarrow\b/.test(source)) return 'narrow';
+    if (/\bnormale?\b|\bstandard\b/.test(source) && source === near) return 'medium';
     if (/\bmedium\b|\bmed\b|\bregular\b/.test(source) && (source === near || discipline)) return 'medium';
   }
   return null;
@@ -181,6 +182,7 @@ function parseYear(text: string): number | null {
   const m =
     text.match(/^\s*((?:19[89]|20[0-4])\d)\s+[A-Z]/) ??
     text.match(/\b((?:19[89]|20[0-4])\d)\s+model\b/i) ??
+    text.match(/\b(?:manufactured|made|built|purchased|bought)\b[^.\n]{0,24}?\b((?:19[89]|20[0-4])\d)\b/i) ??
     text.match(/\b(?:year|made(?: in)?|manufactured|purchased|bought(?: new)?(?: in)?|from|built)\s*[:\-–]?\s*((?:19[89]|20[0-4])\d)\b/i);
   const y = m ? Number(m[1]) : null;
   return y && y <= new Date().getFullYear() ? y : null;
@@ -241,16 +243,40 @@ function disciplineFromModel(brand: Brand | null, model: string): Discipline | n
   return fits.length && fits.length < ALL_DISCIPLINES.length ? fits[0] : null;
 }
 
+/** Marketplace page text that gets copied along with a post but isn't part of the listing. */
+const CLUTTER = [
+  /^listed .*\bago\b.*$/i,
+  /^(door pickup|public meetup|pickup|local pickup|details|description|seller information|seller details|message|send seller a message|send|is this still available\??|save|share|see more|see less|hi, is this available\??|today'?s picks)$/i,
+  /^\$\s?\d[\d,]*(\.\d\d)?$/,
+  /^(?:asking\s+)?price\s*:.*$/i,
+  /^\d+ (?:people|person) (?:clicked|saved).*$/i
+];
+
+/** Tidies pasted text into a description: drops page clutter and extra blank lines, keeps the seller's words. */
+export function cleanDescription(text: string): string {
+  return text
+    .replace(/\r/g, '')
+    .replace(/\uFEFF/g, '')
+    .split('\n')
+    .map((l) => l.replace(/[ \t]+/g, ' ').trim())
+    .filter((l) => !CLUTTER.some((re) => re.test(l)))
+    .map((l) => l.replace(/^[*\-–]\s+/, '• '))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export interface ParsedListing {
   prefill: ListingPrefill;
   found: string[];
   missing: string[];
+  warnings: string[];
 }
 
 export function parseListingText(text: string, brands: Brand[]): ParsedListing {
   const clean = text.replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim();
   const brand = findBrand(brands, clean);
-  const model = parseModel(clean, brand, null);
+  const model = spec(clean, 'model')?.slice(0, 80) ?? parseModel(clean, brand, null);
   const discipline = parseDisciplineText(clean, brand) ?? disciplineFromModel(brand, model);
   const { city, state } = parseLocation(clean);
 
@@ -259,18 +285,34 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
     model,
     discipline,
     seat_size: parseSeat(clean),
-    tree_width: parseTree(clean, discipline),
+    tree_width: parseTree(`tree ${spec(clean, 'tree|tree width|gullet|bars') ?? ''}`, discipline) ?? parseTree(clean, discipline),
     condition: parseCondition(clean),
-    color: parseColor(clean),
+    color: spec(clean, 'colou?r|leather colou?r') ?? parseColor(clean),
     year_manufactured: parseYear(clean),
-    panel_type: parsePanel(clean),
+    panel_type: [parsePanel(clean), spec(clean, 'flap|flaps|panels?|panel configuration')].filter(Boolean).join(', ') || null,
     price: parsePrice(clean),
-    description: clean.slice(0, 4000),
+    description: cleanDescription(text).slice(0, 4000),
     location_city: city,
     location_state: state
   };
 
-  return { prefill, ...summarizeFill(prefill) };
+  return { prefill, ...summarizeFill(prefill), warnings: conflictWarnings(clean) };
+}
+
+/** Value of a "Key: value" spec line, e.g. "• Model: Chiberta Lab". */
+function spec(text: string, keys: string): string | null {
+  const m = text.match(new RegExp(`^\\s*(?:[•*\\-–]\\s*)?(?:${keys})\\s*:\\s*(.+?)\\s*$`, 'im'));
+  return m ? m[1] : null;
+}
+
+/** Things the seller should double-check because the text disagrees with itself. */
+function conflictWarnings(text: string): string[] {
+  const prices = Array.from(
+    new Set(Array.from(text.matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d{3,6})(?!\d)/g), (m) => Number(m[1].replace(/,/g, ''))))
+  ).filter((n) => n >= 50);
+  return prices.length > 1
+    ? [`More than one price in the post (${prices.map((p) => `$${p.toLocaleString('en-US')}`).join(' and ')}) — check the price.`]
+    : [];
 }
 
 /** Which of the key fields a fill found, and which the person still needs to add. */

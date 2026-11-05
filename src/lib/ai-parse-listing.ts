@@ -28,7 +28,9 @@ function schemaFor(brandNames: string[]) {
     condition: z.enum(CONDITIONS).nullable(),
     year_manufactured: z.number().nullable(),
     color: z.string().nullable(),
-    panel_type: z.string().nullable()
+    panel_type: z.string().nullable(),
+    description: z.string(),
+    warnings: z.array(z.string())
   });
 }
 
@@ -40,16 +42,25 @@ Field guidance:
 - brand: choose from the allowed list only. Match common variants (e.g. "County" = County Saddlery, "Stübben" = Stubben, "Voltaire" = Voltaire Design). If a brand is named that isn't in the list, use "Other" and put the real brand name at the start of model.
 - model: the model name only (e.g. "Biarritz", "Spirit", "Park"), without brand, seat size, tree, discipline or condition words.
 - seat_size: inches, in half-inch steps between 12 and 19.5 ("17 1/2" = 17.5). null if not given.
-- tree_width: English widths map directly (MW = medium_wide, MN = medium_narrow, XW = x_wide). Changeable/interchangeable gullet systems = adjustable. Western bars: Arabian = narrow, semi-quarter horse (semi-QH, regular) = medium, full quarter horse (full QH) = wide, draft = x_wide, flex/adjustable tree = adjustable. A bare "medium" with no tree/gullet/bars context is not enough - null.
+- tree_width: English widths map directly. Maker terms for the standard tree ("normal", "normale", "regular", "standard", "arcade normale") = medium; "large"/"wide arcade" = wide. (MW = medium_wide, MN = medium_narrow, XW = x_wide). Changeable/interchangeable gullet systems = adjustable. Western bars: Arabian = narrow, semi-quarter horse (semi-QH, regular) = medium, full quarter horse (full QH) = wide, draft = x_wide, flex/adjustable tree = adjustable. A bare "medium" with no tree/gullet/bars context is not enough - null.
 - price_usd: the asking price in whole US dollars ("3.3k" = 3300, "$2,850 OBO" = 2850). Ignore shipping costs, original retail prices and prices of other items. null if no asking price.
 - city / state: where the saddle is located. state as the two-letter US code. null if not given.
 - condition: new (never used), excellent (like new, mint, barely used), good (very good, great shape, some normal wear), fair (well used, needs work/reflocking, noticeable wear). null if not described.
 - year_manufactured: only if the text gives the saddle's year.
-- color: leather color if stated (e.g. "havana", "black", "brown").
-- panel_type: flap/panel details if stated (e.g. "monoflap", "forward flap", "long flap", "2A flap", "wool flocked").`;
+- color: leather color as a short label, adding the plain color when the maker's name isn't obvious (e.g. "Havana (dark brown)", "Black", "Brown").
+- panel_type: flap/panel details, short and consistent (e.g. "Monoflap, 2AAR flap, D3D 4030 panels", "Long flap", "Wool flocked").
+- warnings: short notes for anything the seller must check because the text disagrees with itself or is unclear - e.g. two different prices ("Two prices in the post: $3,950 and $4,250 - check the price"), two different locations, a seat size or tree that conflicts. Use the value you think is the asking price/location for the field and explain the conflict here. Empty list when nothing conflicts.
+
+description: write a clean listing description from the post, for buyers on SaddleUp.
+- Use only facts in the post. Don't add claims, opinions or selling points it doesn't make; you may keep the seller's own descriptive claims.
+- Drop marketplace page clutter (e.g. "Listed a few seconds ago in ...", "Door pickup", "Details", "Message seller", "Is this still available?"), the price, and the location - those have their own fields.
+- Keep useful facts: what the saddle is, condition details, specifications (tree, flap, panels, serial number, date made), what's included, shipping/pickup terms.
+- Make it consistent: one way of writing each thing (17.5", Havana), no repeated facts, plain sentences. Plain text only - no markdown, no asterisks or headings with #.
+- Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.`;
 
 export interface AiParseResult {
   prefill: ListingPrefill;
+  warnings: string[];
 }
 
 /** Throws on any failure (API error, refusal, unparseable output) — callers fall back to rules. */
@@ -101,9 +112,10 @@ export async function aiParseListing(text: string, brands: { id: number; name: s
       year_manufactured: year,
       panel_type: out.panel_type,
       price,
-      description: text.trim().slice(0, 4000),
+      description: (out.description.trim() || text.trim()).slice(0, 4000),
       location_city: out.city,
       location_state: state
-    }
+    },
+    warnings: out.warnings.filter((w) => w.trim()).slice(0, 5)
   };
 }

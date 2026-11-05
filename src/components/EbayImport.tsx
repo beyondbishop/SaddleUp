@@ -12,6 +12,7 @@ interface Fill {
   ebay?: EbaySource;
   note: string;
   missing: string[];
+  warnings: string[];
 }
 
 /**
@@ -36,7 +37,7 @@ export default function NewListingWithEbayImport({
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { prefill, found, missing } = await readListingText(text, brands);
+    const { prefill, found, missing, warnings, reader } = await readListingText(text, brands);
     setLoading(false);
     if (!found.length) {
       setError("We couldn't pick out any saddle details — try including the brand, seat size and price.");
@@ -45,8 +46,9 @@ export default function NewListingWithEbayImport({
     setFill({
       key: `paste-${Date.now()}`,
       prefill,
-      note: `Filled in ${found.join(', ')}.`,
-      missing
+      note: `Filled in ${found.join(', ')}${reader === 'ai' ? ' and tidied up the description' : ''}.`,
+      missing,
+      warnings
     });
   }
 
@@ -68,7 +70,8 @@ export default function NewListingWithEbayImport({
         images: json.images,
         ebay: json.source,
         note: `Imported “${json.source.title}” with ${json.images.length} photo${json.images.length === 1 ? '' : 's'}.`,
-        missing: json.missing
+        missing: json.missing,
+        warnings: []
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed.');
@@ -154,6 +157,13 @@ export default function NewListingWithEbayImport({
               <span className="text-saddle-brown"> Please add the {fill.missing.join(', ')} below.</span>
             )}
           </p>
+        )}
+        {fill && fill.warnings.length > 0 && (
+          <ul className="mt-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
+            {fill.warnings.map((w) => (
+              <li key={w}>⚠ {w}</li>
+            ))}
+          </ul>
         )}
       </section>
 

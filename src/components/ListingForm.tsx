@@ -296,18 +296,59 @@ export default function ListingForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold mb-1">Panel Type</label>
-          <input name="panel_type" placeholder="regular / monoflap" defaultValue={existing?.panel_type ?? prefill?.panel_type ?? ''} className="w-full border rounded p-2" />
+          <label htmlFor="color" className="block text-sm font-semibold mb-1">Leather Color</label>
+          <input
+            id="color"
+            name="color"
+            list="leather-colors"
+            autoComplete="off"
+            placeholder="e.g. Havana (dark brown)"
+            defaultValue={existing?.color ?? prefill?.color ?? ''}
+            className={field}
+          />
+          <datalist id="leather-colors">
+            {['Havana (dark brown)', 'Brown', 'Dark brown', 'Light brown', 'Black', 'Chestnut', 'Tan', 'Oak', 'Walnut'].map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1">Year</label>
-          <input name="year_manufactured" type="number" defaultValue={existing?.year_manufactured ?? prefill?.year_manufactured ?? ''} className="w-full border rounded p-2" />
+          <label htmlFor="condition" className="block text-sm font-semibold mb-1">Condition</label>
+          <select id="condition" name="condition" defaultValue={existing?.condition ?? prefill?.condition ?? ''} className={field}>
+            <option value="">Select…</option>
+            <option value="new">New / never used</option>
+            <option value="excellent">Excellent (like new)</option>
+            <option value="good">Good (normal wear)</option>
+            <option value="fair">Fair (well used / needs work)</option>
+            {(() => {
+              const c = existing?.condition ?? prefill?.condition;
+              return c && !['new', 'excellent', 'good', 'fair'].includes(c) ? <option value={c}>{c}</option> : null;
+            })()}
+          </select>
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1">Condition</label>
-          <input name="condition" placeholder="excellent / good / fair" defaultValue={existing?.condition ?? prefill?.condition ?? ''} className="w-full border rounded p-2" />
+          <label htmlFor="panel_type" className="block text-sm font-semibold mb-1">Flap / Panel</label>
+          <input
+            id="panel_type"
+            name="panel_type"
+            placeholder="e.g. monoflap, 2A flap, long flap"
+            defaultValue={existing?.panel_type ?? prefill?.panel_type ?? ''}
+            className={field}
+          />
+        </div>
+        <div>
+          <label htmlFor="year_manufactured" className="block text-sm font-semibold mb-1">Year Made</label>
+          <input
+            id="year_manufactured"
+            name="year_manufactured"
+            type="number"
+            min={1950}
+            max={new Date().getFullYear()}
+            defaultValue={existing?.year_manufactured ?? prefill?.year_manufactured ?? ''}
+            className={field}
+          />
         </div>
       </div>
 
