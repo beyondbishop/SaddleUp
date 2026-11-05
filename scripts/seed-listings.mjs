@@ -28,7 +28,13 @@ import slugify from 'slugify';
 const args = process.argv.slice(2);
 const csvPath = args.find((a) => !a.startsWith('--'));
 const dryRun = args.includes('--dry-run');
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me').replace(/\/$/, '');
+// Claim links go to real sellers, so they always use the live site — even though .env.local
+// points NEXT_PUBLIC_SITE_URL at localhost. Pass --local to get localhost links for testing.
+const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '');
+const SITE_URL =
+  args.includes('--local') || (configured && !/localhost|127\.0\.0\.1/.test(configured))
+    ? configured || 'http://localhost:3000'
+    : 'https://saddleup.me';
 
 if (!csvPath) {
   console.error('Usage: node --env-file=.env.local scripts/seed-listings.mjs path/to/saddles.csv [--dry-run]');

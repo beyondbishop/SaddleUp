@@ -28,4 +28,5 @@ as $$
 $$;
 
 revoke all on function ebay_item_already_imported(text) from public;
+revoke all on function ebay_item_already_imported(text) from anon;
 grant execute on function ebay_item_already_imported(text) to authenticated;

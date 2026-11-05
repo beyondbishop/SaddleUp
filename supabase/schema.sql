@@ -355,6 +355,7 @@ as $$
 $$;
 
 revoke all on function ebay_item_already_imported(text) from public;
+revoke all on function ebay_item_already_imported(text) from anon;
 grant execute on function ebay_item_already_imported(text) to authenticated;
 
 -- ---------- CLAIM FUNCTIONS (also in migrations/20261104_claim_functions.sql) ----------
@@ -409,5 +410,6 @@ $$;
 
 revoke all on function get_claimable_listing(uuid) from public;
 revoke all on function claim_listing(uuid) from public;
+revoke all on function claim_listing(uuid) from anon;
 grant execute on function get_claimable_listing(uuid) to anon, authenticated;
 grant execute on function claim_listing(uuid) to authenticated;
