@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
+import GoogleButton from '@/components/GoogleButton';
 
 interface Claimable {
   id: string;
@@ -155,6 +156,12 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           </p>
         </div>
       ) : (
+        <div>
+          <GoogleButton next={`/claim/${params.token}`} label="Claim with Google" />
+          <p className="text-xs text-saddle-muted text-center mt-2">You&apos;ll come back here to finish claiming.</p>
+        <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
+        <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
+      </div>
         <form onSubmit={handleSignUpAndClaim} className="space-y-3">
           <input placeholder="Full name" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full border border-saddle-line rounded p-2 bg-saddle-paper" />
           <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-saddle-line rounded p-2 bg-saddle-paper" />
@@ -164,6 +171,7 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           </button>
           <p className="text-xs text-saddle-muted text-center">Already have a SaddleUp account? Use the same email and password.</p>
         </form>
+        </div>
       )}
     </div>
   );

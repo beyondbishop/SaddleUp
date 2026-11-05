@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import GoogleButton from '@/components/GoogleButton';
 
 export default function SignupPage() {
   const supabase = createClient();
@@ -39,6 +40,10 @@ export default function SignupPage() {
   return (
     <div className="py-16 max-w-sm mx-auto">
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Create Account</h1>
+      <GoogleButton next="/dashboard" label="Sign up with Google" />
+      <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
+        <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <input
