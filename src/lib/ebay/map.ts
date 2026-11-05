@@ -33,6 +33,7 @@ export interface ListingPrefill {
   description: string;
   location_city: string | null;
   location_state: string | null;
+  trial_policy?: import('../types').TrialPolicy | null;
 }
 
 export interface EbaySource {

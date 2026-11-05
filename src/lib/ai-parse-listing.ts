@@ -29,6 +29,7 @@ function schemaFor(brandNames: string[]) {
     year_manufactured: z.number().nullable(),
     color: z.string().nullable(),
     panel_type: z.string().nullable(),
+    trial_policy: z.enum(['local_trial', 'trial', 'no_trial']).nullable(),
     description: z.string(),
     warnings: z.array(z.string())
   });
@@ -49,12 +50,13 @@ Field guidance:
 - year_manufactured: only if the text gives the saddle's year.
 - color: leather color as a short label, adding the plain color when the maker's name isn't obvious (e.g. "Havana (dark brown)", "Black", "Brown").
 - panel_type: flap/panel details, short and consistent (e.g. "Monoflap, 2AAR flap, D3D 4030 panels", "Long flap", "Wool flocked").
+- trial_policy: whether the seller allows a trial ride before buying. local_trial = trial only in person/locally; trial = trial offered including shipped trials (or not limited to local); no_trial = no trials, sale only ("no trials", "sold as is", "first come first served, no holds or trials"). null if trials aren't mentioned.
 - warnings: short notes for anything the seller must check because the text disagrees with itself or is unclear - e.g. two different prices ("Two prices in the post: $3,950 and $4,250 - check the price"), two different locations, a seat size or tree that conflicts. Use the value you think is the asking price/location for the field and explain the conflict here. Empty list when nothing conflicts.
 
 description: write a clean listing description from the post, for buyers on SaddleUp.
 - Use only facts in the post. Don't add claims, opinions or selling points it doesn't make; you may keep the seller's own descriptive claims.
 - Drop marketplace page clutter (e.g. "Listed a few seconds ago in ...", "Door pickup", "Details", "Message seller", "Is this still available?"), the price, and the location - those have their own fields.
-- Keep useful facts: what the saddle is, condition details, specifications (tree, flap, panels, serial number, date made), what's included, shipping/pickup terms.
+- Keep useful facts: what the saddle is, condition details, specifications (tree, flap, panels, serial number, date made), what's included, shipping/pickup and trial terms.
 - Make it consistent: one way of writing each thing (17.5", Havana), no repeated facts, plain sentences. Plain text only - no markdown, no asterisks or headings with #.
 - Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.`;
 
@@ -114,7 +116,8 @@ export async function aiParseListing(text: string, brands: { id: number; name: s
       price,
       description: (out.description.trim() || text.trim()).slice(0, 4000),
       location_city: out.city,
-      location_state: state
+      location_state: state,
+      trial_policy: out.trial_policy
     },
     warnings: out.warnings.filter((w) => w.trim()).slice(0, 5)
   };

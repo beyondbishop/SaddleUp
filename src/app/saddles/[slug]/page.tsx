@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, Listing } from '@/lib/types';
+import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
@@ -95,6 +95,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dd>{listing.year_manufactured ?? '—'}</dd>
           <dt className="text-gray-500">Location</dt>
           <dd>{[listing.location_city, listing.location_state].filter(Boolean).join(', ') || '—'}</dd>
+          <dt className="text-gray-500">Trials</dt>
+          <dd>{listing.trial_policy ? TRIAL_POLICY_LABELS[listing.trial_policy as keyof typeof TRIAL_POLICY_LABELS] : 'Ask the seller'}</dd>
         </dl>
 
         <p className="mb-2">

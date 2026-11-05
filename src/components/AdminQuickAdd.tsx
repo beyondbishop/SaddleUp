@@ -141,6 +141,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
           </div>
           {parsed.warnings.length > 0 && (
             <ul className="max-w-2xl text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
+              <li className="font-semibold">Double-check before saving (this won't stop you saving):</li>
               {parsed.warnings.map((w) => (
                 <li key={w}>⚠ {w}</li>
               ))}

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { TREE_WIDTH_LABELS, Listing } from '@/lib/types';
+import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
@@ -41,7 +41,13 @@ export default function ListingForm({
   const supabase = createClient();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorText] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  // Show errors next to the Save button (and scroll to them) so they can't be missed.
+  const setError = (message: string | null) => {
+    setErrorText(message);
+    if (message) setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+  };
   const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
   const [uploading, setUploading] = useState(false);
 
@@ -133,7 +139,8 @@ export default function ListingForm({
       tree_width_cm: form.get('tree_width_cm') ? Number(form.get('tree_width_cm')) : null,
       panel_length_cm: form.get('panel_length_cm') ? Number(form.get('panel_length_cm')) : null,
       location_city: form.get('location_city') || null,
-      location_state: form.get('location_state') || null,
+      location_state: form.get('location_state') ? String(form.get('location_state')).trim().toUpperCase().slice(0, 2) : null,
+      ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
       status: existing ? existing.status : onSeeded ? 'unclaimed' : 'draft',
       ...(onSeeded ? { source: 'seeded' } : {}),
@@ -173,10 +180,11 @@ export default function ListingForm({
     const { error: saveError } = await query;
     setSaving(false);
     if (saveError) {
+      console.error('Listing save failed', saveError);
       return setError(
         saveError.code === '23505' && ebaySource
           ? 'That eBay listing has already been imported to SaddleUp.'
-          : saveError.message
+          : `Couldn't save: ${saveError.message}`
       );
     }
     router.push('/dashboard');
@@ -184,8 +192,16 @@ export default function ListingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+    <form
+      onSubmit={handleSubmit}
+      // The browser blocks submit when a required field is empty; say which one, next to the button.
+      onInvalidCapture={(e) => {
+        const el = e.target as HTMLInputElement;
+        const label = el.id ? document.querySelector(`label[for="${el.id}"]`)?.textContent : null;
+        setError(`Please fill in ${label ?? el.name.replace(/_/g, ' ')}.`);
+      }}
+      className="max-w-2xl space-y-4"
+    >
 
       <fieldset>
         <legend className="block text-sm font-semibold mb-2">What discipline is the saddle for?</legend>
@@ -366,18 +382,39 @@ export default function ListingForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold mb-1">City</label>
-          <input name="location_city" defaultValue={existing?.location_city ?? prefill?.location_city ?? ''} className="w-full border rounded p-2" />
+          <label htmlFor="location_city" className="block text-sm font-semibold mb-1">Where is the saddle? City</label>
+          <input id="location_city" name="location_city" placeholder="e.g. Durham" defaultValue={existing?.location_city ?? prefill?.location_city ?? ''} className={field} />
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-1">State</label>
-          <input name="location_state" defaultValue={existing?.location_state ?? prefill?.location_state ?? ''} className="w-full border rounded p-2" />
+          <label htmlFor="location_state" className="block text-sm font-semibold mb-1">State</label>
+          <input id="location_state" name="location_state" placeholder="e.g. NC" maxLength={2} defaultValue={existing?.location_state ?? prefill?.location_state ?? ''} className={`${field} uppercase`} />
         </div>
       </div>
 
+      <fieldset>
+        <legend className="block text-sm font-semibold mb-1">Trials</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {(Object.entries(TRIAL_POLICY_LABELS) as [TrialPolicy, string][]).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-2.5 cursor-pointer">
+              <input
+                type="radio"
+                name="trial_policy"
+                value={value}
+                defaultChecked={(existing?.trial_policy ?? prefill?.trial_policy) === value}
+              />
+              {label}
+            </label>
+          ))}
+          <label className="flex items-center gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-2.5 cursor-pointer">
+            <input type="radio" name="trial_policy" value="" defaultChecked={!(existing?.trial_policy ?? prefill?.trial_policy)} />
+            Not sure / ask me
+          </label>
+        </div>
+      </fieldset>
+
       <div>
-        <label className="block text-sm font-semibold mb-1">Price (USD)</label>
-        <input name="price" type="number" required defaultValue={existing ? existing.price_cents / 100 : prefill?.price ?? ''} className="w-full border rounded p-2" />
+        <label htmlFor="price" className="block text-sm font-semibold mb-1">Price (USD)</label>
+        <input id="price" name="price" type="number" min={1} step="any" required defaultValue={existing ? existing.price_cents / 100 : prefill?.price ?? ''} className={field} />
       </div>
 
       <div>
@@ -422,6 +459,12 @@ export default function ListingForm({
             have the right to use these photos and this description on SaddleUp.
           </span>
         </label>
+      )}
+
+      {error && (
+        <p ref={errorRef} role="alert" className="text-sm text-red-800 bg-red-50 border border-red-200 rounded p-3">
+          {error}
+        </p>
       )}
 
       <button type="submit" disabled={saving} className="bg-saddle-green text-white px-6 py-3 rounded-md font-semibold">

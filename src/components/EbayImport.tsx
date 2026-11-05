@@ -160,6 +160,7 @@ export default function NewListingWithEbayImport({
         )}
         {fill && fill.warnings.length > 0 && (
           <ul className="mt-2 text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
+            <li className="font-semibold">Double-check before saving (this won't stop you saving):</li>
             {fill.warnings.map((w) => (
               <li key={w}>⚠ {w}</li>
             ))}

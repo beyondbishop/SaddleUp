@@ -2,7 +2,7 @@
 // classified ad, a text message. Rule-based: fast, free, and predictable. Anything it can't find
 // is left blank for the person to fill in, and the full text becomes the description.
 
-import type { Discipline, TreeWidth } from './types';
+import type { Discipline, TreeWidth, TrialPolicy } from './types';
 import type { ListingPrefill } from './ebay/map';
 import { brandInfo, modelsFor } from './saddle-catalog';
 
@@ -169,6 +169,14 @@ export function parseLocation(text: string): { city: string | null; state: strin
   return { city: null, state: lone ? STATES[lone[1].toLowerCase()] : null };
 }
 
+export function parseTrial(text: string): TrialPolicy | null {
+  const t = text.toLowerCase();
+  if (/\bno\s+(?:trials?|test rides?)\b|trials? not (?:available|offered|possible)|\bsold as[\s-]is\b|\bsale only\b/.test(t)) return 'no_trial';
+  if (/\blocal\s+trials?\b|trials?\s+(?:available\s+)?(?:locally|local only|in person)|\btrial (?:ride )?(?:at|in) (?:my|our) barn\b/.test(t)) return 'local_trial';
+  if (/\btrials?\s+(?:available|ok|welcome|possible|offered)\b|\bshipped trials?\b|\btrial period\b|\b\d+[\s-]day trial\b/.test(t)) return 'trial';
+  return null;
+}
+
 function parseCondition(text: string): string | null {
   const t = text.toLowerCase();
   if (/brand[\s-]*new|\bnew with tags\b|\bnwt\b|never (?:been )?used/.test(t)) return 'new';
@@ -293,7 +301,8 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
     price: parsePrice(clean),
     description: cleanDescription(text).slice(0, 4000),
     location_city: city,
-    location_state: state
+    location_state: state,
+    trial_policy: parseTrial(clean)
   };
 
   return { prefill, ...summarizeFill(prefill), warnings: conflictWarnings(clean) };

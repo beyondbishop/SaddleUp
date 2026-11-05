@@ -17,6 +17,14 @@ export const TREE_WIDTH_LABELS: Record<TreeWidth, string> = {
   adjustable: 'Adjustable'
 };
 
+export type TrialPolicy = 'local_trial' | 'trial' | 'no_trial';
+
+export const TRIAL_POLICY_LABELS: Record<TrialPolicy, string> = {
+  local_trial: 'Local trial available',
+  trial: 'Trial available (local or shipped)',
+  no_trial: 'No trials — sale only'
+};
+
 export const DISCIPLINE_LABELS: Record<Discipline, string> = {
   hunter_jumper: 'Hunter/Jumper',
   dressage: 'Dressage',
@@ -50,6 +58,7 @@ export interface Listing {
   location_state: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
+  trial_policy?: TrialPolicy | null;
   ebay_item_id?: string | null;
   ebay_item_url?: string | null;
   ebay_seller_username?: string | null;

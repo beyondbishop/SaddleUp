@@ -439,3 +439,8 @@ insert into brands (name, slug) values
   ('Reinsman','reinsman'),
   ('Tucker','tucker')
 on conflict do nothing;
+
+-- ---------- TRIALS (also in migrations/20261105_trial_policy.sql) ----------
+alter table listings
+  add column if not exists trial_policy text
+  check (trial_policy in ('local_trial', 'trial', 'no_trial'));
