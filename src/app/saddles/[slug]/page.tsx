@@ -3,6 +3,7 @@ import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLI
 import FavoriteButton from '@/components/FavoriteButton';
 import PhotoGallery from '@/components/PhotoGallery';
 import { SITE_URL, disciplinePath } from '@/lib/seo';
+import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import type { Metadata } from 'next';
@@ -45,7 +46,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  const notPublic = listing.status !== 'active';
+  // A saddle mid-checkout (pending_sale) is still public; it just can't be bought by others.
+  const notPublic = listing.status !== 'active' && listing.status !== 'pending_sale';
   const canEdit = !!user && (listing.seller_id === user.id || notPublic);
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
@@ -96,6 +98,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
         </div>
       )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {listing.status === 'active' && <ViewTracker listingId={listing.id} />}
 
       <PhotoGallery images={listing.images ?? []} alt={`${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`}>
         <FavoriteButton listingId={listing.id} className="absolute top-3 right-3" />
@@ -142,7 +145,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
         <p className="mb-6 whitespace-pre-line">{listing.description}</p>
 
-        <BuyButton listingId={listing.id} priceCents={listing.price_cents} />
+        <BuyButton listingId={listing.id} priceCents={listing.price_cents} status={listing.status} />
         <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />
       </div>
     </div>

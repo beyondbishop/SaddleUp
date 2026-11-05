@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe';
+import { releasePayout } from '@/lib/payouts';
 
+// Daily: pay sellers whose buyer confirmed receipt or whose inspection window (which starts at
+// confirmed delivery) has ended, and free saddles left reserved by abandoned checkouts.
 export async function GET(req: Request) {
   const auth = req.headers.get('authorization');
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -10,35 +12,29 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
 
-  const { data: dueOrders } = await admin
+  // Backup for missed checkout.session.expired webhooks.
+  const { data: releasedReservations } = await admin.rpc('release_reservation', { p_grace: '1 hour' });
+
+  const { data: dueOrders, error } = await admin
     .from('orders')
-    .select('*, profiles!orders_seller_id_fkey(stripe_connect_account_id)')
+    .select('id')
+    .eq('status', 'paid')
     .eq('payout_status', 'held')
-    .lte('release_at', new Date().toISOString());
+    .or(`confirmed_at.not.is.null,release_at.lte.${new Date().toISOString()}`);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   let released = 0;
+  const failed: string[] = [];
   for (const order of dueOrders ?? []) {
-    const sellerAccount = (order as any).profiles?.stripe_connect_account_id;
-    if (!sellerAccount) continue;
-
-    try {
-      const transfer = await stripe.transfers.create({
-        amount: order.seller_payout_cents,
-        currency: 'usd',
-        destination: sellerAccount,
-        transfer_group: order.id
-      });
-
-      await admin
-        .from('orders')
-        .update({ payout_status: 'transferred', stripe_transfer_id: transfer.id })
-        .eq('id', order.id);
-
-      released++;
-    } catch (e) {
-      console.error(`Failed to release payout for order ${order.id}`, e);
-    }
+    const result = await releasePayout(order.id, { byBuyer: false });
+    if (result.ok) released++;
+    else if (result.reason !== 'not_eligible') failed.push(order.id);
   }
 
-  return NextResponse.json({ checked: dueOrders?.length ?? 0, released });
+  return NextResponse.json({
+    checked: dueOrders?.length ?? 0,
+    released,
+    failed,
+    releasedReservations: releasedReservations ?? 0
+  });
 }

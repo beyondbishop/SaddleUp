@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }: { searchParams: { purchased?: string } }) {
   const supabase = createClient();
   const {
     data: { user }
@@ -18,6 +18,12 @@ export default async function OrdersPage() {
   return (
     <div className="py-8">
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Your Orders</h1>
+      {searchParams.purchased === '1' && (
+        <p className="bg-saddle-cream border border-saddle-tan rounded-lg p-4 mb-6 text-sm">
+          Payment received — thank you! Your order will appear here within a minute. Your payment is
+          held until you&apos;ve had 5 days to inspect the saddle after delivery.
+        </p>
+      )}
       <div className="space-y-3">
         {orders?.map((o: any) => (
           <Link
@@ -29,7 +35,13 @@ export default async function OrdersPage() {
               {o.listings?.seat_size}&quot; {o.listings?.brands?.name} {o.listings?.model}
             </p>
             <p className="text-sm text-gray-500">
-              ${(o.sale_price_cents / 100).toLocaleString()} · {o.payout_status === 'transferred' ? 'Complete' : 'In trial window'}
+              ${(o.sale_price_cents / 100).toLocaleString()} · {o.status === 'refunded'
+                ? 'Refunded'
+                : o.payout_status === 'transferred'
+                  ? 'Complete'
+                  : o.release_at
+                    ? 'In inspection window'
+                    : 'Awaiting delivery'}
             </p>
           </Link>
         ))}

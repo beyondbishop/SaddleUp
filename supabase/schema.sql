@@ -484,3 +484,7 @@ create policy "sellers read views of own listings" on listing_views
     exists (select 1 from listings l where l.id = listing_id and l.seller_id = auth.uid())
     or exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin = true)
   );
+
+-- ---------- TRANSACTION SAFETY ----------
+-- Lives in migrations/20261105_transaction_safety.sql (RLS lockdown, checkout reservations,
+-- idempotent fulfillment, claim-then-transfer payouts, delivery-based inspection clock).
