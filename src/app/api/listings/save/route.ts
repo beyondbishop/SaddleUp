@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     if (body!.mode === 'update') {
       if (!body!.id) return { data: null, error: { message: 'Missing listing id.', code: '' } };
       const { slug: _keepSlug, source: _keepSource, ...changes } = values;
-      return supabase.from('listings').update(changes).eq('id', body!.id).select('id').single();
+      return supabase.from('listings').update(changes).eq('id', body!.id).select('id, slug, status, discipline, brands(slug)').single();
     }
     if (body!.mode === 'seed') {
       return supabase
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
           ? "You don't have permission to save this listing."
           : `Couldn't save: ${e?.message ?? 'unknown error'}`;
     return NextResponse.json({ error: message }, { status: 400 });
+  }
+  const saved = result.data as { status?: string; slug?: string } & Record<string, unknown>;
+  if (body.mode === 'update' && saved.status === 'active' && saved.slug) {
+    await notifyIndexNow(listingPaths(saved as any));
   }
   return NextResponse.json(result.data);
 }

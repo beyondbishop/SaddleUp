@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +22,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
 
-  const { error } = await supabase.from('listings').update({ status }).eq('id', id);
-  if (error) {
+  const { data: listing, error } = await supabase
+    .from('listings')
+    .update({ status })
+    .eq('id', id)
+    .select('slug, discipline, brands(slug)')
+    .single();
+  if (error || !listing) {
     console.error('Moderation failed', error);
-    return NextResponse.json({ error: `Couldn't update: ${error.message}` }, { status: 400 });
+    return NextResponse.json({ error: `Couldn't update: ${error?.message ?? 'listing not found'}` }, { status: 400 });
   }
+  // Approved: new page to index. Rejected: tell search engines to re-check (it's no longer public).
+  await notifyIndexNow(listingPaths(listing as any));
   return NextResponse.json({ ok: true });
 }
