@@ -59,6 +59,7 @@ export interface Listing {
   meta_title?: string | null;
   meta_description?: string | null;
   trial_policy?: TrialPolicy | null;
+  location_zip?: string | null;
   ebay_item_id?: string | null;
   ebay_item_url?: string | null;
   ebay_seller_username?: string | null;

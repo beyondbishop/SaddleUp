@@ -25,6 +25,7 @@ function schemaFor(brandNames: string[]) {
     price_usd: z.number().nullable(),
     city: z.string().nullable(),
     state: z.string().nullable(),
+    zip: z.string().nullable(),
     condition: z.enum(CONDITIONS).nullable(),
     year_manufactured: z.number().nullable(),
     color: z.string().nullable(),
@@ -45,7 +46,7 @@ Field guidance:
 - seat_size: inches, in half-inch steps between 12 and 19.5 ("17 1/2" = 17.5). null if not given.
 - tree_width: English widths map directly. Maker terms for the standard tree ("normal", "normale", "regular", "standard", "arcade normale") = medium; "large"/"wide arcade" = wide. (MW = medium_wide, MN = medium_narrow, XW = x_wide). Changeable/interchangeable gullet systems = adjustable. Western bars: Arabian = narrow, semi-quarter horse (semi-QH, regular) = medium, full quarter horse (full QH) = wide, draft = x_wide, flex/adjustable tree = adjustable. A bare "medium" with no tree/gullet/bars context is not enough - null.
 - price_usd: the asking price in whole US dollars ("3.3k" = 3300, "$2,850 OBO" = 2850). Ignore shipping costs, original retail prices and prices of other items. null if no asking price.
-- city / state: where the saddle is located. state as the two-letter US code. null if not given.
+- city / state / zip: where the saddle is located. state as the two-letter US code; zip only if a 5-digit US ZIP code is given. null if not given.
 - condition: new (never used), excellent (like new, mint, barely used), good (very good, great shape, some normal wear), fair (well used, needs work/reflocking, noticeable wear). null if not described.
 - year_manufactured: only if the text gives the saddle's year.
 - color: leather color as a short label, adding the plain color when the maker's name isn't obvious (e.g. "Havana (dark brown)", "Black", "Brown").
@@ -117,7 +118,8 @@ export async function aiParseListing(text: string, brands: { id: number; name: s
       description: (out.description.trim() || text.trim()).slice(0, 4000),
       location_city: out.city,
       location_state: state,
-      trial_policy: out.trial_policy
+      trial_policy: out.trial_policy,
+      location_zip: out.zip && /^\d{5}$/.test(out.zip.trim()) ? out.zip.trim() : null
     },
     warnings: out.warnings.filter((w) => w.trim()).slice(0, 5)
   };

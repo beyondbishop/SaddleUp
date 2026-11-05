@@ -302,7 +302,9 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
     description: cleanDescription(text).slice(0, 4000),
     location_city: city,
     location_state: state,
-    trial_policy: parseTrial(clean)
+    trial_policy: parseTrial(clean),
+    location_zip:
+      clean.match(/\b[A-Z]{2},?\s+(\d{5})(?:-\d{4})?\b/)?.[1] ?? clean.match(/\bzip(?:\s*code)?\s*:?\s*(\d{5})\b/i)?.[1] ?? null
   };
 
   return { prefill, ...summarizeFill(prefill), warnings: conflictWarnings(clean) };

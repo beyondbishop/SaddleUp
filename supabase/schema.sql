@@ -444,3 +444,8 @@ on conflict do nothing;
 alter table listings
   add column if not exists trial_policy text
   check (trial_policy in ('local_trial', 'trial', 'no_trial'));
+
+-- ---------- LOCATION ZIP (also in migrations/20261105_location_zip.sql) ----------
+alter table listings
+  add column if not exists location_zip text
+  check (location_zip ~ '^\d{5}$');

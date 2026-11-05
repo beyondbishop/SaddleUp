@@ -34,6 +34,7 @@ export interface ListingPrefill {
   location_city: string | null;
   location_state: string | null;
   trial_policy?: import('../types').TrialPolicy | null;
+  location_zip?: string | null;
 }
 
 export interface EbaySource {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
+import ZipField from './ZipField';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
   DISCIPLINE_CHOICES,
@@ -140,6 +141,7 @@ export default function ListingForm({
       panel_length_cm: form.get('panel_length_cm') ? Number(form.get('panel_length_cm')) : null,
       location_city: form.get('location_city') || null,
       location_state: form.get('location_state') ? String(form.get('location_state')).trim().toUpperCase().slice(0, 2) : null,
+      location_zip: form.get('location_zip') || null,
       ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
       status: existing ? existing.status : onSeeded ? 'unclaimed' : 'draft',
@@ -380,16 +382,12 @@ export default function ListingForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="location_city" className="block text-sm font-semibold mb-1">Where is the saddle? City</label>
-          <input id="location_city" name="location_city" placeholder="e.g. Durham" defaultValue={existing?.location_city ?? prefill?.location_city ?? ''} className={field} />
-        </div>
-        <div>
-          <label htmlFor="location_state" className="block text-sm font-semibold mb-1">State</label>
-          <input id="location_state" name="location_state" placeholder="e.g. NC" maxLength={2} defaultValue={existing?.location_state ?? prefill?.location_state ?? ''} className={`${field} uppercase`} />
-        </div>
-      </div>
+      <ZipField
+        initialZip={existing?.location_zip ?? prefill?.location_zip}
+        initialCity={existing?.location_city ?? prefill?.location_city}
+        initialState={existing?.location_state ?? prefill?.location_state}
+        className={field}
+      />
 
       <fieldset>
         <legend className="block text-sm font-semibold mb-1">Trials</legend>
