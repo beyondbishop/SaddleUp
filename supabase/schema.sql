@@ -488,3 +488,10 @@ create policy "sellers read views of own listings" on listing_views
 -- ---------- TRANSACTION SAFETY ----------
 -- Lives in migrations/20261105_transaction_safety.sql (RLS lockdown, checkout reservations,
 -- idempotent fulfillment, claim-then-transfer payouts, delivery-based inspection clock).
+
+-- ---------- BUYERS SEE PURCHASED (also in migrations/20261105_buyers_see_purchased.sql) ----------
+drop policy if exists "buyers see listings they ordered" on listings;
+create policy "buyers see listings they ordered" on listings
+  for select using (
+    exists (select 1 from orders o where o.listing_id = listings.id and o.buyer_id = auth.uid())
+  );

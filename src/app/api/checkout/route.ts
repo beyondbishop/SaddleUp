@@ -88,6 +88,11 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
+      // The Stripe account has Managed Payments (Stripe as merchant of record) on by default.
+      // It's meant for digital goods and rejects payment_method_types; SaddleUp sells physical
+      // saddles and pays sellers by separate transfer, so turn it off for these sessions.
+      // (Not in stripe-node v16's types yet.)
+      ...({ managed_payments: { enabled: false } } as Record<string, unknown>),
       line_items: [
         {
           price_data: {
