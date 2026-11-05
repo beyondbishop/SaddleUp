@@ -18,6 +18,20 @@ export default async function DashboardPage() {
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false });
 
+  // Views in the last 30 days per listing (row-level security limits this to the seller's own).
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const ids = (listings ?? []).map((l) => l.id);
+  const { data: views } = ids.length
+    ? await supabase.from('listing_views').select('listing_id, visitor_hash').in('listing_id', ids).gte('viewed_at', since).limit(50_000)
+    : { data: [] as { listing_id: string; visitor_hash: string }[] };
+  const stats = new Map<string, { views: number; visitors: Set<string> }>();
+  for (const v of views ?? []) {
+    const s = stats.get(v.listing_id) ?? { views: 0, visitors: new Set<string>() };
+    s.views += 1;
+    s.visitors.add(v.visitor_hash);
+    stats.set(v.listing_id, s);
+  }
+
   return (
     <div className="py-8">
       <div className="flex items-center justify-between mb-6">
@@ -47,9 +61,17 @@ export default async function DashboardPage() {
               <p className="text-sm text-gray-500">
                 {l.status} · ${(l.price_cents / 100).toLocaleString()}
               </p>
+              {l.status === 'active' && (
+                <p className="text-sm text-saddle-green">
+                  {stats.get(l.id)?.views ?? 0} view{stats.get(l.id)?.views === 1 ? '' : 's'} ·{' '}
+                  {stats.get(l.id)?.visitors.size ?? 0} visitor{stats.get(l.id)?.visitors.size === 1 ? '' : 's'}{' '}
+                  <span className="text-gray-500">(last 30 days)</span>
+                </p>
+              )}
             </div>
             <div className="flex gap-3 text-sm">
               <Link href={`/saddles/${l.slug}`} className="underline">View</Link>
+              <Link href={`/dashboard/listings/${l.id}/stats`} className="underline">Stats</Link>
               <Link href={`/dashboard/listings/${l.id}/edit`} className="underline">Edit</Link>
               <DeleteListingButton listingId={l.id} />
             </div>
