@@ -1,4 +1,4 @@
-import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS } from '@/lib/types';
+import { DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS } from '@/lib/types';
 
 export default function FilterSidebar({
   brands,
@@ -11,6 +11,11 @@ export default function FilterSidebar({
     ? searchParams.tree
     : searchParams.tree
     ? [searchParams.tree]
+    : [];
+  const selectedPanels = Array.isArray(searchParams.panels)
+    ? searchParams.panels
+    : searchParams.panels
+    ? [searchParams.panels]
     : [];
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
   return (
@@ -51,6 +56,18 @@ export default function FilterSidebar({
           {Object.entries(TREE_WIDTH_LABELS).map(([k, label]) => (
             <label key={k} className="flex items-center gap-2">
               <input type="checkbox" name="tree" value={k} defaultChecked={selectedTrees.includes(k)} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block font-semibold mb-1 text-sm">Panels</label>
+        <div className="space-y-1 text-sm">
+          {Object.entries(PANEL_FLOCKING_LABELS).map(([k, label]) => (
+            <label key={k} className="flex items-center gap-2">
+              <input type="checkbox" name="panels" value={k} defaultChecked={selectedPanels.includes(k)} />
               {label}
             </label>
           ))}

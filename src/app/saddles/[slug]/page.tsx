@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
+import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
 import PhotoGallery from '@/components/PhotoGallery';
 import BuyButton from '@/components/BuyButton';
@@ -106,6 +106,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dd>{TREE_WIDTH_LABELS[listing.tree_width]}</dd>
           <dt className="text-gray-500">Leather Color</dt>
           <dd className="capitalize">{listing.color ?? '—'}</dd>
+          <dt className="text-gray-500">Panels</dt>
+          <dd>{listing.panel_flocking ? PANEL_FLOCKING_LABELS[listing.panel_flocking] : '—'}</dd>
           <dt className="text-gray-500">Flap / Panel</dt>
           <dd>{listing.panel_type ?? '—'}</dd>
           <dt className="text-gray-500">Condition</dt>

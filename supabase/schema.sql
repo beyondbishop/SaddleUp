@@ -449,3 +449,10 @@ alter table listings
 alter table listings
   add column if not exists location_zip text
   check (location_zip ~ '^\d{5}$');
+
+-- ---------- PANEL FLOCKING (also in migrations/20261105_panel_flocking.sql) ----------
+alter table listings
+  add column if not exists panel_flocking text
+  check (panel_flocking in ('wool', 'foam', 'cair'));
+
+create index if not exists idx_listings_panel_flocking on listings(panel_flocking);

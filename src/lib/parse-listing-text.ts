@@ -169,6 +169,14 @@ export function parseLocation(text: string): { city: string | null; state: strin
   return { city: null, state: lone ? STATES[lone[1].toLowerCase()] : null };
 }
 
+export function parseFlocking(text: string): 'wool' | 'foam' | 'cair' | null {
+  const t = text.toLowerCase();
+  if (/\bcair\b|\bair[\s-]*(?:panels?|cushion)/.test(t)) return 'cair';
+  if (/\bwool\b[^.\n]{0,15}\b(?:flock(?:ed|ing)?|panels?|stuffed)|\bflock(?:ed|ing)\b[^.\n]{0,15}\bwool\b|\breflock|\bpanels?\s*:\s*wool/.test(t)) return 'wool';
+  if (/\bfoam\b|\blatex panels?\b/.test(t)) return 'foam';
+  return null;
+}
+
 export function parseTrial(text: string): TrialPolicy | null {
   const t = text.toLowerCase();
   if (/\bno\s+(?:trials?|test rides?)\b|trials? not (?:available|offered|possible)|\bsold as[\s-]is\b|\bsale only\b/.test(t)) return 'no_trial';
@@ -303,6 +311,7 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
     location_city: city,
     location_state: state,
     trial_policy: parseTrial(clean),
+    panel_flocking: parseFlocking(clean),
     location_zip:
       clean.match(/\b[A-Z]{2},?\s+(\d{5})(?:-\d{4})?\b/)?.[1] ?? clean.match(/\bzip(?:\s*code)?\s*:?\s*(\d{5})\b/i)?.[1] ?? null
   };

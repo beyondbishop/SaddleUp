@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
+import { PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
 import ZipField from './ZipField';
 import PhotoUploader from './PhotoUploader';
@@ -149,6 +149,7 @@ export default function ListingForm({
       seat_size: seatSize,
       tree_width: form.get('tree_width'),
       panel_type: form.get('panel_type') || null,
+      panel_flocking: form.get('panel_flocking') || null,
       flap_length: form.get('flap_length') || null,
       year_manufactured: form.get('year_manufactured') ? Number(form.get('year_manufactured')) : null,
       condition: form.get('condition') || null,
@@ -347,6 +348,20 @@ export default function ListingForm({
               const c = existing?.condition ?? prefill?.condition;
               return c && !['new', 'excellent', 'good', 'fair'].includes(c) ? <option value={c}>{c}</option> : null;
             })()}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="panel_flocking" className="block text-sm font-semibold mb-1">Panels</label>
+          <select
+            id="panel_flocking"
+            name="panel_flocking"
+            defaultValue={existing?.panel_flocking ?? prefill?.panel_flocking ?? ''}
+            className={field}
+          >
+            <option value="">Not sure</option>
+            {Object.entries(PANEL_FLOCKING_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
         </div>
         <div>

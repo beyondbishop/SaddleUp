@@ -46,6 +46,12 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   if (one(searchParams.seat_min)) query = query.gte('seat_size', Number(one(searchParams.seat_min)));
   if (one(searchParams.seat_max)) query = query.lte('seat_size', Number(one(searchParams.seat_max)));
   if (one(searchParams.price_max)) query = query.lte('price_cents', Number(one(searchParams.price_max)) * 100);
+  if (searchParams.panels) {
+    const panels = (Array.isArray(searchParams.panels) ? searchParams.panels : [searchParams.panels]).filter((p) =>
+      ['wool', 'foam', 'cair'].includes(p)
+    );
+    if (panels.length) query = query.in('panel_flocking', panels);
+  }
   if (searchParams.tree) {
     const trees = Array.isArray(searchParams.tree) ? searchParams.tree : [searchParams.tree];
     query = query.in('tree_width', trees);

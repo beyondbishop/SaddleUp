@@ -17,6 +17,14 @@ export const TREE_WIDTH_LABELS: Record<TreeWidth, string> = {
   adjustable: 'Adjustable'
 };
 
+export type PanelFlocking = 'wool' | 'foam' | 'cair';
+
+export const PANEL_FLOCKING_LABELS: Record<PanelFlocking, string> = {
+  wool: 'Wool flocked',
+  foam: 'Foam',
+  cair: 'CAIR (air panels)'
+};
+
 export type TrialPolicy = 'local_trial' | 'trial' | 'no_trial';
 
 export const TRIAL_POLICY_LABELS: Record<TrialPolicy, string> = {
@@ -60,6 +68,7 @@ export interface Listing {
   meta_description?: string | null;
   trial_policy?: TrialPolicy | null;
   location_zip?: string | null;
+  panel_flocking?: PanelFlocking | null;
   ebay_item_id?: string | null;
   ebay_item_url?: string | null;
   ebay_seller_username?: string | null;
