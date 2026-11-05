@@ -1,19 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
 export default function ModerationCard({ listing }: { listing: any }) {
-  const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function decide(status: 'active' | 'removed') {
     setLoading(true);
-    await supabase.from('listings').update({ status }).eq('id', listing.id);
-    setLoading(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: listing.id, status }),
+        signal: AbortSignal.timeout(20_000)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Could not update.');
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error && e.name !== 'TimeoutError' ? e.message : 'That took too long — try again.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -43,6 +55,7 @@ export default function ModerationCard({ listing }: { listing: any }) {
           )}
         </div>
       </div>
+      {error && <p className="text-sm text-red-700">{error}</p>}
       <div className="flex gap-2 shrink-0">
         <button
           onClick={() => decide('active')}
