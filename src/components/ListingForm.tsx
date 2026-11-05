@@ -24,13 +24,19 @@ export default function ListingForm({
   existing,
   prefill,
   prefillImages,
-  ebaySource
+  ebaySource,
+  onSeeded
 }: {
   brands: { id: number; name: string }[];
   existing?: Listing;
   prefill?: ListingPrefill;
   prefillImages?: string[];
   ebaySource?: EbaySource;
+  /**
+   * Admin "quick add" mode: saves a HIDDEN listing with no seller (status 'unclaimed') and hands
+   * back its claim token instead of redirecting. The seller adds their own photos when they claim.
+   */
+  onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -111,7 +117,7 @@ export default function ListingForm({
     });
 
     const payload = {
-      seller_id: user.id,
+      seller_id: onSeeded ? null : user.id,
       brand_id: brandId,
       model,
       discipline: form.get('discipline'),
@@ -129,7 +135,8 @@ export default function ListingForm({
       location_city: form.get('location_city') || null,
       location_state: form.get('location_state') || null,
       images,
-      status: existing ? existing.status : 'draft',
+      status: existing ? existing.status : onSeeded ? 'unclaimed' : 'draft',
+      ...(onSeeded ? { source: 'seeded' } : {}),
       slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`,
       ...(ebaySource && !existing
         ? {
@@ -141,6 +148,23 @@ export default function ListingForm({
           }
         : {})
     };
+
+    if (onSeeded && !existing) {
+      const { data: seeded, error: seedError } = await supabase
+        .from('listings')
+        .insert(payload)
+        .select('id, claim_token')
+        .single();
+      setSaving(false);
+      if (seedError || !seeded) return setError(seedError?.message ?? 'Could not save.');
+      const brandName = brands.find((b) => b.id === brandId)?.name;
+      onSeeded({
+        id: seeded.id,
+        claim_token: seeded.claim_token,
+        saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`
+      });
+      return;
+    }
 
     const query = existing
       ? supabase.from('listings').update(payload).eq('id', existing.id)
@@ -320,6 +344,11 @@ export default function ListingForm({
         <textarea name="description" rows={5} defaultValue={existing?.description ?? prefill?.description ?? ''} className="w-full border rounded p-2" />
       </div>
 
+      {onSeeded ? (
+        <p className="text-sm text-saddle-muted bg-saddle-paper border border-saddle-line rounded p-3">
+          No photos needed — the seller adds their own when they claim the listing.
+        </p>
+      ) : (
       <div>
         <label className="block text-sm font-semibold mb-1">Photos</label>
         <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
@@ -341,6 +370,7 @@ export default function ListingForm({
           ))}
         </div>
       </div>
+      )}
 
       {ebaySource && !existing && (
         <label className="flex items-start gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-3">
@@ -354,7 +384,7 @@ export default function ListingForm({
       )}
 
       <button type="submit" disabled={saving} className="bg-saddle-green text-white px-6 py-3 rounded-md font-semibold">
-        {saving ? 'Saving…' : existing ? 'Save Changes' : 'Publish Listing'}
+        {saving ? 'Saving…' : existing ? 'Save Changes' : onSeeded ? 'Create hidden listing + claim link' : 'Publish Listing'}
       </button>
     </form>
   );

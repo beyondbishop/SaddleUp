@@ -20,7 +20,12 @@ export default async function AdminListingsPage() {
 
   return (
     <div className="py-8">
-      <h1 className="text-2xl font-bold text-saddle-brown mb-6">Listings Awaiting Review</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-saddle-brown">Listings Awaiting Review</h1>
+        <a href="/admin/quick-add" className="bg-saddle-green text-saddle-cream px-4 py-2 rounded-sm text-sm font-semibold">
+          + Quick add a saddle
+        </a>
+      </div>
       <div className="space-y-3">
         {pending?.map((l: any) => (
           <ModerationCard key={l.id} listing={l} />
