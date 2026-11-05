@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
+import PhotoGallery from '@/components/PhotoGallery';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import type { Metadata } from 'next';
@@ -86,15 +87,9 @@ export default async function ListingPage({ params }: { params: { slug: string }
       )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="relative aspect-[4/3] bg-white border border-saddle-tan rounded-lg overflow-hidden">
-        {listing.images?.[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={listing.images[0]} alt={listing.model} className="w-full h-full object-cover" />
-        ) : (
-          <div className="flex items-center justify-center h-full text-saddle-brown/40">No photo yet</div>
-        )}
+      <PhotoGallery images={listing.images ?? []} alt={`${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`}>
         <FavoriteButton listingId={listing.id} className="absolute top-3 right-3" />
-      </div>
+      </PhotoGallery>
 
       <div>
         <h1 className="text-2xl font-bold text-saddle-brown">
