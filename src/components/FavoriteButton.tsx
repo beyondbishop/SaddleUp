@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { goToSignIn } from '@/lib/return-to';
 
 export default function FavoriteButton({
   listingId,
@@ -34,7 +35,7 @@ export default function FavoriteButton({
     e.preventDefault();
     e.stopPropagation();
     if (!userId) {
-      window.location.href = '/auth/login';
+      goToSignIn();
       return;
     }
     setLoading(true);

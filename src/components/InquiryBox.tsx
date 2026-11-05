@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { goToSignIn } from '@/lib/return-to';
 
 export default function InquiryBox({ listingId, sellerId }: { listingId: string; sellerId: string }) {
   const supabase = createClient();
@@ -20,7 +21,7 @@ export default function InquiryBox({ listingId, sellerId }: { listingId: string;
       data: { user }
     } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = `/auth/login?next=/saddles`;
+      goToSignIn();
       return;
     }
     if (user.id === sellerId) {

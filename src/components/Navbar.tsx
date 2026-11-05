@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import AccountMenu from './AccountMenu';
+import SignInLink from './SignInLink';
 
 export default async function Navbar() {
   const supabase = createClient();
@@ -34,12 +35,11 @@ export default async function Navbar() {
           {user ? (
             <AccountMenu isAdmin={isAdmin} pendingCount={pendingCount} />
           ) : (
-            <Link
-              href="/auth/login"
+            <SignInLink
               className="text-[13px] font-semibold text-saddle-brown border border-saddle-tan-line px-[18px] py-[9px] rounded-sm whitespace-nowrap transition-colors hover:bg-saddle-brown hover:text-saddle-cream hover:border-saddle-brown"
             >
               Sign In
-            </Link>
+            </SignInLink>
           )}
         </div>
       </div>

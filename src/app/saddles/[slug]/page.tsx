@@ -7,6 +7,9 @@ import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import type { Metadata } from 'next';
+import { CONDITION_LABELS, type Condition } from '@/lib/search';
+
+const NotStated = () => <span className="text-gray-500 italic">Not stated</span>;
 import { notFound } from 'next/navigation';
 
 async function getListing(slug: string) {
@@ -120,19 +123,19 @@ export default async function ListingPage({ params }: { params: { slug: string }
             </a>
           </dd>
           <dt className="text-gray-500">Tree Width</dt>
-          <dd>{TREE_WIDTH_LABELS[listing.tree_width]}</dd>
+          <dd>{TREE_WIDTH_LABELS[listing.tree_width]} <span className="text-gray-500 text-xs">(seller-reported)</span></dd>
           <dt className="text-gray-500">Leather Color</dt>
-          <dd className="capitalize">{listing.color ?? '—'}</dd>
+          <dd className="capitalize">{listing.color ?? <NotStated />}</dd>
           <dt className="text-gray-500">Panels</dt>
-          <dd>{listing.panel_flocking ? PANEL_FLOCKING_LABELS[listing.panel_flocking] : '—'}</dd>
+          <dd>{listing.panel_flocking ? PANEL_FLOCKING_LABELS[listing.panel_flocking] : <NotStated />}</dd>
           <dt className="text-gray-500">Flap / Panel</dt>
-          <dd>{listing.panel_type ?? '—'}</dd>
+          <dd>{listing.panel_type ?? <NotStated />}</dd>
           <dt className="text-gray-500">Condition</dt>
-          <dd className="capitalize">{listing.condition ?? '—'}</dd>
+          <dd>{listing.condition ? CONDITION_LABELS[listing.condition as Condition] ?? listing.condition : <NotStated />}</dd>
           <dt className="text-gray-500">Year</dt>
-          <dd>{listing.year_manufactured ?? '—'}</dd>
+          <dd>{listing.year_manufactured ?? <NotStated />}</dd>
           <dt className="text-gray-500">Location</dt>
-          <dd>{[listing.location_city, listing.location_state].filter(Boolean).join(', ') || '—'}</dd>
+          <dd>{[listing.location_city, listing.location_state].filter(Boolean).join(', ') || <NotStated />}</dd>
           <dt className="text-gray-500">Trials</dt>
           <dd>{listing.trial_policy ? TRIAL_POLICY_LABELS[listing.trial_policy as keyof typeof TRIAL_POLICY_LABELS] : 'Ask the seller'}</dd>
         </dl>

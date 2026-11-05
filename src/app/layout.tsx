@@ -3,6 +3,8 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Analytics } from '@vercel/analytics/next';
+import { Suspense } from 'react';
+import ScrollRestorer from '@/components/ScrollRestorer';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://saddleup.me'),
@@ -36,6 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Navbar />
         <main className="max-w-7xl mx-auto px-4">{children}</main>
+        <Suspense fallback={null}>
+          <ScrollRestorer />
+        </Suspense>
         <Footer />
         <Analytics />
       </body>

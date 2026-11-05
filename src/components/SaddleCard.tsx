@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Listing, TREE_WIDTH_LABELS } from '@/lib/types';
 import FavoriteButton from './FavoriteButton';
+import { CONDITION_LABELS, type Condition } from '@/lib/search';
 
 export default function SaddleCard({ listing }: { listing: Listing }) {
   const price = (listing.price_cents / 100).toLocaleString('en-US', {
@@ -35,6 +36,11 @@ export default function SaddleCard({ listing }: { listing: Listing }) {
           <p className="text-sm text-gray-600">
             {TREE_WIDTH_LABELS[listing.tree_width]} Tree
             {listing.location_state ? ` · ${listing.location_state}` : ''}
+          </p>
+          <p className="text-xs text-gray-500">
+            {listing.condition
+              ? `${CONDITION_LABELS[listing.condition as Condition] ?? listing.condition} condition`
+              : 'Condition not stated'}
           </p>
           <p className="font-bold mt-1">{price}</p>
         </div>

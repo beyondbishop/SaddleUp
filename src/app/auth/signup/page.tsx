@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { safeNext } from '@/lib/safe-next';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import GoogleButton from '@/components/GoogleButton';
 
-export default function SignupPage() {
+function SignupForm() {
   const supabase = createClient();
+  const next = safeNext(useSearchParams().get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -21,7 +24,11 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } }
+      options: {
+        data: { full_name: fullName },
+        // After confirming their email, bring them back to where they started.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      }
     });
     setLoading(false);
     if (error) return setError(error.message);
@@ -40,7 +47,7 @@ export default function SignupPage() {
   return (
     <div className="py-16 max-w-sm mx-auto">
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Create Account</h1>
-      <GoogleButton next="/dashboard" label="Sign up with Google" />
+      <GoogleButton next={next} label="Sign up with Google" />
       <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
         <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
       </div>
@@ -63,8 +70,16 @@ export default function SignupPage() {
         </button>
       </form>
       <p className="text-sm mt-4">
-        Already have an account? <Link href="/auth/login" className="underline">Sign in</Link>
+        Already have an account? <Link href={`/auth/login?next=${encodeURIComponent(next)}`} className="underline">Sign in</Link>
       </p>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center">Loading…</div>}>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -5,6 +5,9 @@ import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import type { Metadata } from 'next';
 import { brandPath, disciplinePath } from '@/lib/seo';
 import type { Discipline } from '@/lib/types';
+import { applyCriteria, describeCriteria, filtersOnOptionalDetails, parseCriteria, searchUrl } from '@/lib/search';
+
+const PAGE_SIZE = 48;
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -42,53 +45,55 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
 
 export default async function SaddlesPage({ searchParams }: { searchParams: SP }) {
   const supabase = createClient();
-  const { data: brands } = await supabase.from('brands').select('id, name, slug');
+  const { data: brands } = await supabase.from('brands').select('id, name, slug').order('name');
+  const criteria = parseCriteria(searchParams);
+  const brand = criteria.brand ? brands?.find((b) => b.slug === criteria.brand) : undefined;
 
-  let query = supabase
-    .from('listings')
-    .select('*, brands(name, slug)')
-    .eq('status', 'active')
-    .order('created_at', { ascending: false });
-
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
-  if (one(searchParams.discipline)) query = query.eq('discipline', one(searchParams.discipline)!);
-  if (one(searchParams.brand)) {
-    const brand = brands?.find((b) => b.slug === one(searchParams.brand));
-    if (brand) query = query.eq('brand_id', brand.id);
-  }
-  if (one(searchParams.seat_min)) query = query.gte('seat_size', Number(one(searchParams.seat_min)));
-  if (one(searchParams.seat_max)) query = query.lte('seat_size', Number(one(searchParams.seat_max)));
-  if (one(searchParams.price_max)) query = query.lte('price_cents', Number(one(searchParams.price_max)) * 100);
-  if (searchParams.panels) {
-    const panels = (Array.isArray(searchParams.panels) ? searchParams.panels : [searchParams.panels]).filter((p) =>
-      ['wool', 'foam', 'cair'].includes(p)
-    );
-    if (panels.length) query = query.in('panel_flocking', panels);
-  }
-  if (searchParams.tree) {
-    const trees = Array.isArray(searchParams.tree) ? searchParams.tree : [searchParams.tree];
-    query = query.in('tree_width', trees);
-  }
-
-  const { data: listings, error } = await query.limit(48);
+  const query = applyCriteria(
+    supabase
+      .from('listings')
+      .select('*, brands(name, slug)', { count: 'exact' })
+      .eq('status', 'active')
+      .order('created_at', { ascending: false }),
+    criteria,
+    brand?.id ?? null
+  );
+  const { data: listings, count, error } = await query.limit(PAGE_SIZE);
+  const total = count ?? listings?.length ?? 0;
+  const summary = describeCriteria(criteria, brand?.name);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 py-8">
-      <FilterSidebar brands={brands ?? []} searchParams={searchParams} />
+      <FilterSidebar brands={brands ?? []} criteria={criteria} />
       <div>
-        <h1 className="text-2xl font-bold text-saddle-brown mb-4">
-          {listings?.length ?? 0} saddles found
+        <h1 className="text-2xl font-bold text-saddle-brown">
+          {total} {total === 1 ? 'saddle' : 'saddles'} found
         </h1>
-        {error && <p className="text-red-600 text-sm mb-4">{error.message}</p>}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {summary.length > 0 && (
+          <p className="text-sm text-gray-600 mt-1">
+            {summary.join(' · ')} ·{' '}
+            <a href="/saddles" className="underline">Clear filters</a>
+          </p>
+        )}
+        {total > PAGE_SIZE && (
+          <p className="text-sm text-gray-500 mt-1">Showing the newest {PAGE_SIZE}. Narrow your filters to see more.</p>
+        )}
+        {error && <p className="text-red-600 text-sm my-4">Something went wrong loading saddles. Please try again.</p>}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {(listings as unknown as Listing[] | null)?.map((listing) => (
             <SaddleCard key={listing.id} listing={listing} />
           ))}
         </div>
-        {listings?.length === 0 && (
+        {!error && total === 0 && (
           <div className="text-center py-16">
-            <p className="mb-4">No saddles match those filters yet.</p>
+            <p className="mb-2">No saddles match those filters yet.</p>
+            {filtersOnOptionalDetails(criteria) && !criteria.include_unknown && (
+              <p className="mb-4 text-sm">
+                <a href={searchUrl({ ...criteria, include_unknown: true })} className="text-saddle-green underline">
+                  Include saddles where the seller didn&apos;t state those details
+                </a>
+              </p>
+            )}
             <a href="/watchlist" className="text-saddle-green underline">
               Save this search and we&apos;ll email you when one is listed
             </a>

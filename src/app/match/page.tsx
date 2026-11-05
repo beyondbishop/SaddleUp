@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { matchCriteria, inchesToCm } from '@/lib/matching';
 import { TREE_WIDTH_LABELS } from '@/lib/types';
 import Link from 'next/link';
+import { criteriaToParams } from '@/lib/search';
 
 export default function MatchPage() {
   const [horseUnit, setHorseUnit] = useState<'cm' | 'in'>('in');
@@ -16,10 +17,11 @@ export default function MatchPage() {
 
   const result = matchCriteria({ horseBackWidthCm: horseCm, riderInseamCm: inseamCm });
 
-  const params = new URLSearchParams();
-  result.treeWidths?.forEach((t) => params.append('tree', t));
-  if (result.seatSizeMin) params.set('seat_min', String(result.seatSizeMin));
-  if (result.seatSizeMax) params.set('seat_max', String(result.seatSizeMax));
+  const params = criteriaToParams({
+    tree: result.treeWidths,
+    seat_min: result.seatSizeMin,
+    seat_max: result.seatSizeMax
+  });
 
   return (
     <div className="py-12 max-w-xl mx-auto">

@@ -5,11 +5,14 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import GoogleButton from '@/components/GoogleButton';
+import { safeNext } from '@/lib/safe-next';
 
 function LoginForm() {
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Only ever return to a page on this site.
+  const next = safeNext(searchParams.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +25,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return setError(error.message);
-    router.push(searchParams.get('next') ?? '/dashboard');
+    router.push(next);
     router.refresh();
   }
 
@@ -34,7 +37,7 @@ function LoginForm() {
           Google sign-in didn&apos;t finish. Please try again, or use your email and password.
         </p>
       )}
-      <GoogleButton next={searchParams.get('next') ?? '/dashboard'} />
+      <GoogleButton next={next} />
       <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
         <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
       </div>
@@ -53,7 +56,7 @@ function LoginForm() {
         </button>
       </form>
       <p className="text-sm mt-4">
-        No account? <Link href="/auth/signup" className="underline">Create one</Link>
+        No account? <Link href={`/auth/signup?next=${encodeURIComponent(next)}`} className="underline">Create one</Link>
       </p>
     </div>
   );

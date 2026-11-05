@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
+import { matchListing, type SearchCriteria } from '@/lib/search';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const since = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
   const { data: newListings } = await admin
     .from('listings')
-    .select('*, brands(name)')
+    .select('*, brands(name, slug)')
     .eq('status', 'active')
     .gte('created_at', since);
 
@@ -27,20 +28,21 @@ export async function GET(req: Request) {
 
   const { data: savedSearches } = await admin
     .from('saved_searches')
-    .select('*, profiles(email)');
+    .select('*, profiles(email), brands(slug)');
 
   let notified = 0;
 
   for (const search of savedSearches ?? []) {
-    const matches = newListings.filter((l) => {
-      if (search.discipline && l.discipline !== search.discipline) return false;
-      if (search.brand_id && l.brand_id !== search.brand_id) return false;
-      if (search.seat_size_min && l.seat_size < search.seat_size_min) return false;
-      if (search.seat_size_max && l.seat_size > search.seat_size_max) return false;
-      if (search.tree_widths?.length && !search.tree_widths.includes(l.tree_width)) return false;
-      if (search.price_max_cents && l.price_cents > search.price_max_cents) return false;
-      return true;
-    });
+    // Same matching rules as the browse page (src/lib/search.ts).
+    const criteria: SearchCriteria = {
+      discipline: search.discipline ?? undefined,
+      brand: (search as any).brands?.slug ?? undefined,
+      seat_min: search.seat_size_min ?? undefined,
+      seat_max: search.seat_size_max ?? undefined,
+      tree: search.tree_widths?.length ? search.tree_widths : undefined,
+      price_max: search.price_max_cents != null ? search.price_max_cents / 100 : undefined
+    };
+    const matches = newListings.filter((l) => matchListing(l, criteria).matches);
 
     if (!matches.length) continue;
 
