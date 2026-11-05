@@ -14,14 +14,16 @@ export default async function EditListingPage({
   if (!user) redirect('/auth/login');
 
   const { data: brands } = await supabase.from('brands').select('id, name').order('name');
-  const { data: listing } = await supabase
-    .from('listings')
-    .select('*')
-    .eq('id', params.id)
-    .eq('seller_id', user.id)
-    .single();
+  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+  const isAdmin = !!profile?.is_admin;
+
+  // Sellers edit their own listings; admins can edit any (row-level security enforces the same).
+  let query = supabase.from('listings').select('*').eq('id', params.id);
+  if (!isAdmin) query = query.eq('seller_id', user.id);
+  const { data: listing } = await query.single();
 
   if (!listing) return notFound();
+  const editingForSeller = isAdmin && listing.seller_id !== user.id;
 
   return (
     <div className="py-8">
@@ -34,8 +36,13 @@ export default async function EditListingPage({
           </p>
         </div>
       )}
+      {editingForSeller && (
+        <div className="max-w-2xl bg-saddle-sand border border-saddle-line rounded p-3 mb-4 text-sm text-saddle-brown">
+          You&apos;re editing someone else&apos;s listing as an admin. Your changes save to their listing.
+        </div>
+      )}
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Edit Listing</h1>
-      <ListingForm brands={brands ?? []} existing={listing as any} />
+      <ListingForm brands={brands ?? []} existing={listing as any} afterSave={editingForSeller ? '/admin/listings' : '/dashboard'} />
     </div>
   );
 }

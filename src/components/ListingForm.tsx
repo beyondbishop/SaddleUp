@@ -53,7 +53,8 @@ export default function ListingForm({
   prefill,
   prefillImages,
   ebaySource,
-  onSeeded
+  onSeeded,
+  afterSave = '/dashboard'
 }: {
   brands: { id: number; name: string }[];
   existing?: Listing;
@@ -65,6 +66,8 @@ export default function ListingForm({
    * back its claim token instead of redirecting. The seller adds their own photos when they claim.
    */
   onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
+  /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
+  afterSave?: string;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -187,7 +190,7 @@ export default function ListingForm({
       return;
     }
 
-    router.push('/dashboard');
+    router.push(afterSave);
     router.refresh();
   }
 

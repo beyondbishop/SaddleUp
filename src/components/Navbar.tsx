@@ -8,6 +8,18 @@ export default async function Navbar() {
     data: { user }
   } = await supabase.auth.getUser();
 
+  // Admins get an Admin section and a count of listings waiting for review.
+  let isAdmin = false;
+  let pendingCount = 0;
+  if (user) {
+    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+    isAdmin = !!profile?.is_admin;
+    if (isAdmin) {
+      const { count } = await supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'draft');
+      pendingCount = count ?? 0;
+    }
+  }
+
   return (
     <nav className="sticky top-0 z-50 bg-saddle-cream/90 backdrop-blur-md border-b border-saddle-line">
       <div className="max-w-[1200px] mx-auto px-[18px] py-[14px] sm:px-8 sm:py-4 flex flex-wrap sm:flex-nowrap gap-2.5 items-center justify-between">
@@ -20,7 +32,7 @@ export default async function Navbar() {
           <Link href="/match" className="hover:text-saddle-brown">Find My Fit</Link>
           <Link href="/dashboard" className="hover:text-saddle-brown">Sell a Saddle</Link>
           {user ? (
-            <AccountMenu />
+            <AccountMenu isAdmin={isAdmin} pendingCount={pendingCount} />
           ) : (
             <Link
               href="/auth/login"

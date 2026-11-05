@@ -35,6 +35,14 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
   const price = listing.price_cents / 100;
 
+  // Owners and admins can open listings that aren't public yet; tell them so.
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const notPublic = listing.status !== 'active';
+  const canEdit = !!user && (listing.seller_id === user.id || notPublic);
+
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
   // exact saddle when someone searches "16.5 medium tree Antares for sale".
   const jsonLd = {
@@ -60,6 +68,22 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
   return (
     <div className="py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+      {(notPublic || canEdit) && (
+        <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 bg-saddle-sand border border-saddle-line rounded p-3 text-sm">
+          <span>
+            {notPublic
+              ? listing.status === 'draft'
+                ? 'Waiting for review — only you and SaddleUp admins can see this listing.'
+                : `This listing is ${listing.status.replace('_', ' ')} and isn't public.`
+              : 'This is your listing.'}
+          </span>
+          {canEdit && (
+            <a href={`/dashboard/listings/${listing.id}/edit`} className="underline font-semibold text-saddle-brown">
+              Edit listing
+            </a>
+          )}
+        </div>
+      )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="relative aspect-[4/3] bg-white border border-saddle-tan rounded-lg overflow-hidden">
