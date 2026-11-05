@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import ConnectPayoutsButton from '@/components/ConnectPayoutsButton';
 import DeleteListingButton from '@/components/DeleteListingButton';
+import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -12,6 +13,11 @@ export default async function DashboardPage() {
   if (!user) redirect('/auth/login?next=/dashboard');
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  // Started payout setup but not marked ready yet (e.g. just back from Stripe): ask Stripe.
+  const payoutsReady =
+    !!profile?.stripe_connect_onboarded ||
+    (!!profile?.stripe_connect_account_id && (await refreshSellerPayoutStatus(user.id)));
+  const payoutsStarted = !!profile?.stripe_connect_account_id;
   const { data: listings } = await supabase
     .from('listings')
     .select('*, brands(name)')
@@ -41,13 +47,14 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {!profile?.stripe_connect_onboarded && (
-        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6 flex items-center justify-between">
+      {!payoutsReady && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
           <p className="text-sm">
-            Set up payouts to start receiving money from sales (SaddleUp uses Stripe Connect —
-            you keep 80% of every sale, or the sale price minus $500, whichever is less).
+            {payoutsStarted
+              ? 'Your payout setup isn’t finished yet. Buyers can’t check out on your saddles until Stripe has the details it needs. If you just finished, Stripe may still be reviewing them; check back shortly.'
+              : 'Set up payouts to start receiving money from sales (SaddleUp uses Stripe Connect — you keep 80% of every sale, or the sale price minus $500, whichever is less).'}
           </p>
-          <ConnectPayoutsButton />
+          <ConnectPayoutsButton label={payoutsStarted ? 'Finish Payout Setup' : 'Set Up Payouts'} />
         </div>
       )}
 

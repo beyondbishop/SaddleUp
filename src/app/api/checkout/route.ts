@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
+import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
 
 // Stripe's minimum Checkout Session lifetime is 30 minutes. The reservation lasts a little
 // longer so a payment completed at the last second still matches it.
@@ -32,7 +33,10 @@ export async function POST(req: Request) {
   }
 
   const seller = (listing as any).profiles;
-  if (!seller?.stripe_connect_onboarded || !seller?.stripe_connect_account_id) {
+  const sellerReady =
+    !!seller?.stripe_connect_account_id &&
+    (seller.stripe_connect_onboarded || (await refreshSellerPayoutStatus(listing.seller_id)));
+  if (!sellerReady) {
     return NextResponse.json(
       { error: 'This seller has not finished payout setup yet. Check back soon.' },
       { status: 400 }

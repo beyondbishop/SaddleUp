@@ -39,7 +39,8 @@ export async function POST(req: Request) {
         const account = event.data.object as Stripe.Account;
         await createAdminClient()
           .from('profiles')
-          .update({ stripe_connect_onboarded: !!account.charges_enabled })
+          // Sellers only receive transfers, so "ready" means the transfers capability is active.
+          .update({ stripe_connect_onboarded: account.capabilities?.transfers === 'active' })
           .eq('stripe_connect_account_id', account.id);
         break;
       }
