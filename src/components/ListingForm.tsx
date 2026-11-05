@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
 import ZipField from './ZipField';
@@ -17,6 +16,34 @@ import {
   treeOptionsFor
 } from '@/lib/saddle-catalog';
 import type { Discipline } from '@/lib/types';
+
+/** POST to one of our API routes, giving up after `ms` so the form can never hang on "Saving…". */
+async function postWithTimeout(url: string, body: BodyInit, ms = 30_000, json = true) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body,
+      signal: controller.signal,
+      ...(json ? { headers: { 'Content-Type': 'application/json' } } : {})
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data } as { ok: boolean; data: Record<string, any> };
+  } catch (e) {
+    const timedOut = e instanceof DOMException && e.name === 'AbortError';
+    return {
+      ok: false,
+      data: {
+        error: timedOut
+          ? 'Saving took too long — check your connection and try again.'
+          : "Couldn't reach SaddleUp — check your connection and try again."
+      }
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const field = 'w-full border border-saddle-line rounded p-2 bg-saddle-paper disabled:opacity-50';
 
@@ -39,7 +66,6 @@ export default function ListingForm({
    */
   onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setErrorText] = useState<string | null>(null);
@@ -77,21 +103,18 @@ export default function ListingForm({
     const files = e.target.files;
     if (!files?.length) return;
     setUploading(true);
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
     for (const file of Array.from(files)) {
-      const path = `${user!.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('saddle-images').upload(path, file);
-      if (uploadError) {
-        setError(uploadError.message);
+      const body = new FormData();
+      body.append('file', file);
+      const { ok, data } = await postWithTimeout('/api/listings/upload-image', body, 60_000, false);
+      if (!ok) {
+        setError(data.error ?? `Couldn't upload ${file.name}.`);
         continue;
       }
-      const { data: publicUrl } = supabase.storage.from('saddle-images').getPublicUrl(path);
-      setImages((prev) => [...prev, publicUrl.publicUrl]);
+      setImages((prev) => [...prev, data.url]);
     }
     setUploading(false);
+    e.target.value = '';
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -102,15 +125,6 @@ export default function ListingForm({
     }
     setSaving(true);
     setError(null);
-
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setError('You must be signed in.');
-      setSaving(false);
-      return;
-    }
 
     const form = new FormData(e.currentTarget);
     const model = String(form.get('model'));
@@ -124,7 +138,6 @@ export default function ListingForm({
     });
 
     const payload = {
-      seller_id: onSeeded ? null : user.id,
       brand_id: brandId,
       model,
       discipline: form.get('discipline'),
@@ -144,8 +157,6 @@ export default function ListingForm({
       location_zip: form.get('location_zip') || null,
       ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
-      status: existing ? existing.status : onSeeded ? 'unclaimed' : 'draft',
-      ...(onSeeded ? { source: 'seeded' } : {}),
       slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`,
       ...(ebaySource && !existing
         ? {
@@ -158,37 +169,24 @@ export default function ListingForm({
         : {})
     };
 
-    if (onSeeded && !existing) {
-      const { data: seeded, error: seedError } = await supabase
-        .from('listings')
-        .insert(payload)
-        .select('id, claim_token')
-        .single();
-      setSaving(false);
-      if (seedError || !seeded) return setError(seedError?.message ?? 'Could not save.');
+    const mode = existing ? 'update' : onSeeded ? 'seed' : 'create';
+    const { ok, data } = await postWithTimeout(
+      '/api/listings/save',
+      JSON.stringify({ mode, id: existing?.id, listing: payload })
+    );
+    setSaving(false);
+    if (!ok) return setError(data.error ?? "Couldn't save — please try again.");
+
+    if (mode === 'seed') {
       const brandName = brands.find((b) => b.id === brandId)?.name;
-      onSeeded({
-        id: seeded.id,
-        claim_token: seeded.claim_token,
+      onSeeded!({
+        id: data.id,
+        claim_token: data.claim_token,
         saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`
       });
       return;
     }
 
-    const query = existing
-      ? supabase.from('listings').update(payload).eq('id', existing.id)
-      : supabase.from('listings').insert(payload);
-
-    const { error: saveError } = await query;
-    setSaving(false);
-    if (saveError) {
-      console.error('Listing save failed', saveError);
-      return setError(
-        saveError.code === '23505' && ebaySource
-          ? 'That eBay listing has already been imported to SaddleUp.'
-          : `Couldn't save: ${saveError.message}`
-      );
-    }
     router.push('/dashboard');
     router.refresh();
   }
