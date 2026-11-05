@@ -1,63 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect } from 'react';
 import { goToSignIn } from '@/lib/return-to';
+import { loadSaved, openPicker, useSavedState } from '@/lib/saved-store';
 
-export default function FavoriteButton({
-  listingId,
-  className = ''
-}: {
-  listingId: string;
-  className?: string;
-}) {
-  const supabase = createClient();
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+/** Heart: filled when the saddle is on any of the buyer's lists; opens the list picker. */
+export default function FavoriteButton({ listingId, className = '' }: { listingId: string; className?: string }) {
+  const { loaded, signedIn, ids } = useSavedState();
+  const saved = ids.has(listingId);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null);
-      if (data.user) {
-        supabase
-          .from('favorites')
-          .select('listing_id')
-          .eq('user_id', data.user.id)
-          .eq('listing_id', listingId)
-          .maybeSingle()
-          .then(({ data: fav }) => setIsFavorited(!!fav));
-      }
-    });
-  }, [listingId]);
+    loadSaved();
+  }, []);
 
-  async function toggle(e: React.MouseEvent) {
+  function onClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!userId) {
-      goToSignIn();
+    if (loaded && !signedIn) {
+      // After sign-in, come back here with the picker open for this saddle.
+      const url = new URL(window.location.href);
+      url.searchParams.set('save', listingId);
+      goToSignIn(url.pathname + url.search);
       return;
     }
-    setLoading(true);
-    if (isFavorited) {
-      await supabase.from('favorites').delete().eq('user_id', userId).eq('listing_id', listingId);
-      setIsFavorited(false);
-    } else {
-      await supabase.from('favorites').insert({ user_id: userId, listing_id: listingId });
-      setIsFavorited(true);
-    }
-    setLoading(false);
+    openPicker(listingId);
   }
 
   return (
     <button
-      onClick={toggle}
-      disabled={loading}
-      aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+      type="button"
+      onClick={onClick}
+      aria-haspopup="dialog"
+      aria-label={saved ? 'Saved to your lists. Change lists' : 'Save to a list'}
       className={`bg-white/90 rounded-full w-9 h-9 flex items-center justify-center shadow ${className}`}
     >
-      <span className={isFavorited ? 'text-red-500' : 'text-gray-400'}>
-        {isFavorited ? '♥' : '♡'}
+      <span aria-hidden="true" className={saved ? 'text-red-500' : 'text-gray-400'}>
+        {saved ? '♥' : '♡'}
       </span>
     </button>
   );

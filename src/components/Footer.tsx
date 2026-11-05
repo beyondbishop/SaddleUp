@@ -13,7 +13,7 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
     title: 'Account',
     links: [
       ['Sign in', '/auth/login'],
-      ['Favorites', '/favorites'],
+      ['My lists', '/lists'],
       ['Orders', '/orders']
     ]
   },

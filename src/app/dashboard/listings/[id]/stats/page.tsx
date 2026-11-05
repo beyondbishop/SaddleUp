@@ -109,14 +109,15 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
   ]);
   const views = (viewData ?? []) as ViewRow[];
 
-  // Favorites and message threads belong to buyers, so count them with the service key
-  // (only the totals are shown — never who).
+  // Saves and message threads belong to buyers, so count them with the service key
+  // (only the totals are shown — never who). A buyer who saved it to several lists counts once.
   const admin = createAdminClient();
-  const [{ count: favorites }, { count: conversations }] = await Promise.all([
-    admin.from('favorites').select('listing_id', { count: 'exact', head: true }).eq('listing_id', listing.id),
+  const [{ data: saves }, { count: conversations }] = await Promise.all([
+    admin.from('buyer_list_items').select('user_id').eq('listing_id', listing.id).limit(10_000),
     admin.from('conversations').select('id', { count: 'exact', head: true }).eq('listing_id', listing.id)
   ]);
 
+  const favorites = new Set((saves ?? []).map((s) => s.user_id)).size;
   const visitors = new Set(views.map((v) => v.visitor_hash)).size;
 
   // Daily views for the last 30 days (UTC days), oldest → newest.
@@ -171,7 +172,7 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
         {[
           ['Views', views.length],
           ['Visitors', visitors],
-          ['Favorited', favorites ?? 0],
+          ['Saved by buyers', favorites],
           ['Messages', conversations ?? 0]
         ].map(([label, n]) => (
           <div key={label} className="bg-saddle-paper border border-saddle-line rounded p-4">

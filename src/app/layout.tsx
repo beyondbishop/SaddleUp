@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import { Analytics } from '@vercel/analytics/next';
 import { Suspense } from 'react';
 import ScrollRestorer from '@/components/ScrollRestorer';
+import ListPicker from '@/components/ListPicker';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://saddleup.me'),
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="max-w-7xl mx-auto px-4">{children}</main>
         <Suspense fallback={null}>
           <ScrollRestorer />
+          <ListPicker />
         </Suspense>
         <Footer />
         <Analytics />

@@ -2,7 +2,13 @@
 // Send a signed-out visitor to sign in and bring them back to exactly where they were:
 // same page, same filters (they're in the URL), same scroll position.
 
-const SCROLL_KEY = (url: string) => `saddleup:scroll:${url}`;
+// The ?save=<listing> marker (reopen the list picker after sign-in) isn't part of "where they were".
+function placeKey(url: string) {
+  const u = new URL(url, 'http://x');
+  u.searchParams.delete('save');
+  return u.pathname + u.search;
+}
+const SCROLL_KEY = (url: string) => `saddleup:scroll:${placeKey(url)}`;
 
 export function currentUrl() {
   return window.location.pathname + window.location.search;
