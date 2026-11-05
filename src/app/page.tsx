@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
+import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing, type Discipline } from '@/lib/types';
+import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 
 const eyebrow = 'font-mono uppercase text-saddle-gold';
 const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
@@ -103,6 +104,23 @@ export default async function HomePage() {
 
   return (
     <div className="full-bleed">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'SaddleUp',
+              url: SITE_URL,
+              logo: `${SITE_URL}/images/logo.png`,
+              description:
+                'A marketplace for buying and selling used English and Western saddles, listed by seat size and tree width so riders can shop by fit.'
+            },
+            { '@context': 'https://schema.org', '@type': 'WebSite', name: 'SaddleUp', url: SITE_URL }
+          ])
+        }}
+      />
       {/* Hero */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-12 min-[900px]:pt-[76px] pb-14 grid grid-cols-1 min-[900px]:grid-cols-[1.05fr_0.95fr] gap-9 min-[900px]:gap-16 items-center">
         <div>
@@ -168,7 +186,7 @@ export default async function HomePage() {
             return (
               <Link
                 key={key}
-                href={`/saddles?discipline=${key}`}
+                href={disciplinePath(key as Discipline)}
                 className="group relative block aspect-[3/4] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper transition-colors hover:border-saddle-brown"
               >
                 {tile?.photo ? (
@@ -214,7 +232,7 @@ export default async function HomePage() {
             {brands.map((b) => (
               <Link
                 key={b.slug}
-                href={`/saddles?brand=${b.slug}`}
+                href={brandPath(b.slug)}
                 className="bg-saddle-paper border border-saddle-line rounded-full px-[18px] py-[9px] text-sm text-saddle-nav transition-colors hover:border-saddle-brown hover:text-saddle-brown"
               >
                 {b.name}

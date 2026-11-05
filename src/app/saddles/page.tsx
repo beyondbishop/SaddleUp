@@ -3,6 +3,8 @@ import FilterSidebar from '@/components/FilterSidebar';
 import SaddleCard from '@/components/SaddleCard';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import type { Metadata } from 'next';
+import { brandPath, disciplinePath } from '@/lib/seo';
+import type { Discipline } from '@/lib/types';
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -20,9 +22,21 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
     parts.push(DISCIPLINE_LABELS[searchParams.discipline as keyof typeof DISCIPLINE_LABELS] ?? '');
   }
   const title = parts.length ? `${parts.join(' ')} Saddles For Sale` : 'Browse Saddles For Sale';
+  const used = Object.entries(searchParams).filter(([, v]) => v !== undefined && v !== '');
+  const only = used.length === 1 ? used[0] : null;
+  const disciplineKey = only?.[0] === 'discipline' ? String(only[1]) : null;
+  const canonical =
+    disciplineKey && disciplineKey in DISCIPLINE_LABELS
+      ? disciplinePath(disciplineKey as Discipline)
+      : only?.[0] === 'brand'
+        ? brandPath(String(only[1]))
+        : '/saddles';
   return {
     title,
-    description: `${title} on SaddleUp — matched to your horse's back width and your seat size. Buy direct from verified sellers.`
+    description: `${title} on SaddleUp — matched to your horse's back width and your seat size. Buy direct from verified sellers.`,
+    alternates: { canonical },
+    // Combinations of several filters are for shoppers, not for search results.
+    robots: used.length > 1 ? { index: false, follow: true } : undefined
   };
 }
 

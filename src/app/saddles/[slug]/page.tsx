@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
 import PhotoGallery from '@/components/PhotoGallery';
+import { SITE_URL, disciplinePath } from '@/lib/seo';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import type { Metadata } from 'next';
@@ -26,7 +27,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     description:
       listing.meta_description ??
       `${title}, ${DISCIPLINE_LABELS[listing.discipline]} saddle for sale on SaddleUp. Condition: ${listing.condition ?? 'used'}.`,
-    openGraph: { images: listing.images?.[0] ? [listing.images[0]] : [] }
+    alternates: { canonical: `/saddles/${listing.slug}` },
+    openGraph: { images: listing.images?.[0] ? [listing.images[0]] : [] },
+    // Only live listings belong in search results.
+    robots: listing.status === 'active' ? undefined : { index: false, follow: false }
   };
 }
 
@@ -57,7 +61,13 @@ export default async function ListingPage({ params }: { params: { slug: string }
       '@type': 'Offer',
       priceCurrency: 'USD',
       price,
-      availability: 'https://schema.org/InStock',
+      availability:
+        listing.status === 'active'
+          ? 'https://schema.org/InStock'
+          : listing.status === 'sold'
+            ? 'https://schema.org/SoldOut'
+            : 'https://schema.org/LimitedAvailability',
+      url: `${SITE_URL}/saddles/${listing.slug}`,
       itemCondition: 'https://schema.org/UsedCondition'
     },
     additionalProperty: [
@@ -101,7 +111,11 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
         <dl className="grid grid-cols-2 gap-y-2 text-sm mb-6">
           <dt className="text-gray-500">Discipline</dt>
-          <dd>{DISCIPLINE_LABELS[listing.discipline]}</dd>
+          <dd>
+            <a href={disciplinePath(listing.discipline)} className="underline hover:text-saddle-brown">
+              {DISCIPLINE_LABELS[listing.discipline]}
+            </a>
+          </dd>
           <dt className="text-gray-500">Tree Width</dt>
           <dd>{TREE_WIDTH_LABELS[listing.tree_width]}</dd>
           <dt className="text-gray-500">Leather Color</dt>
