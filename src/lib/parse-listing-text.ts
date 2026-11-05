@@ -270,6 +270,11 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
     location_state: state
   };
 
+  return { prefill, ...summarizeFill(prefill) };
+}
+
+/** Which of the key fields a fill found, and which the person still needs to add. */
+export function summarizeFill(prefill: ListingPrefill): { found: string[]; missing: string[] } {
   const labels: [keyof ListingPrefill, string][] = [
     ['discipline', 'discipline'],
     ['brand_id', 'brand'],
@@ -281,5 +286,5 @@ export function parseListingText(text: string, brands: Brand[]): ParsedListing {
   ];
   const found = labels.filter(([k]) => prefill[k] != null && prefill[k] !== '').map(([, l]) => l);
   const missing = labels.filter(([k]) => prefill[k] == null || prefill[k] === '').map(([, l]) => l);
-  return { prefill, found, missing };
+  return { found, missing };
 }

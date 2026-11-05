@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import ListingForm from './ListingForm';
-import { parseListingText, type ParsedListing } from '@/lib/parse-listing-text';
+import type { ParsedListing } from '@/lib/parse-listing-text';
+import { readListingText } from '@/lib/read-listing-text';
 
 interface Created {
   saddle: string;
@@ -46,10 +47,13 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   const [parsed, setParsed] = useState<(ParsedListing & { key: string }) | null>(null);
   const [created, setCreated] = useState<Created[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
 
-  function fill(e: React.FormEvent) {
+  async function fill(e: React.FormEvent) {
     e.preventDefault();
-    const result = parseListingText(text, brands);
+    setReading(true);
+    const result = await readListingText(text, brands);
+    setReading(false);
     if (!result.found.length) {
       setError("Couldn't pick out any saddle details from that text.");
       return;
@@ -120,8 +124,8 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             />
           </div>
           {error && <p className="text-red-700 text-sm">{error}</p>}
-          <button type="submit" className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold">
-            Fill in details
+          <button type="submit" disabled={reading} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
+            {reading ? 'Reading…' : 'Fill in details'}
           </button>
         </form>
       ) : (

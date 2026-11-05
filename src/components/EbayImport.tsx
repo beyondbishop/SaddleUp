@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import ListingForm from './ListingForm';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
-import { parseListingText } from '@/lib/parse-listing-text';
+import { readListingText } from '@/lib/read-listing-text';
 
 interface Fill {
   key: string;
@@ -32,10 +32,12 @@ export default function NewListingWithEbayImport({
   const [error, setError] = useState<string | null>(null);
   const [fill, setFill] = useState<Fill | null>(null);
 
-  function handlePaste(e: React.FormEvent) {
+  async function handlePaste(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const { prefill, found, missing } = parseListingText(text, brands);
+    setLoading(true);
+    const { prefill, found, missing } = await readListingText(text, brands);
+    setLoading(false);
     if (!found.length) {
       setError("We couldn't pick out any saddle details — try including the brand, seat size and price.");
       return;
@@ -118,8 +120,8 @@ export default function NewListingWithEbayImport({
               placeholder={'e.g. Antares Spirit 17.5" MW tree, 3A flaps. Excellent condition. $2,850 OBO. Wellington, FL'}
               className="w-full border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
             />
-            <button type="submit" className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold">
-              {fill && !fill.ebay ? 'Fill in again' : 'Fill in the form'}
+            <button type="submit" disabled={loading} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
+              {loading ? 'Reading…' : fill && !fill.ebay ? 'Fill in again' : 'Fill in the form'}
             </button>
           </form>
         ) : (
