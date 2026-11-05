@@ -34,7 +34,11 @@ export default function AccountMenu({ isAdmin, pendingCount = 0 }: { isAdmin: bo
       </button>
       {open && (
         <div
-          onClick={() => setOpen(false)}
+          // Close after following a link — but not for the Sign out form, which must stay on the
+          // page until it submits (closing it first silently cancelled the sign-out).
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('a')) setOpen(false);
+          }}
           className="absolute right-0 mt-2 w-56 bg-saddle-paper border border-saddle-line rounded-lg shadow-lg py-1 z-50 text-saddle-ink"
         >
           <div className={heading}>Selling</div>

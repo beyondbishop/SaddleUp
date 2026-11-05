@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing, type TrialPolicy } from '@/lib/types';
 import slugify from 'slugify';
@@ -80,6 +80,26 @@ export default function ListingForm({
     if (message) setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
   };
   const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
+
+  // When editing a listing that already exists, save photo changes right away (add, remove,
+  // reorder) so they're never lost if the person forgets — or their phone misses — "Save Changes".
+  const [photoSave, setPhotoSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const savedImages = useRef(JSON.stringify(existing?.images ?? []));
+  useEffect(() => {
+    if (!existing) return;
+    const json = JSON.stringify(images);
+    if (json === savedImages.current) return;
+    const timer = setTimeout(async () => {
+      setPhotoSave('saving');
+      const { ok } = await postWithTimeout(
+        '/api/listings/save',
+        JSON.stringify({ mode: 'update', id: existing.id, listing: { images } })
+      );
+      if (ok) savedImages.current = json;
+      setPhotoSave(ok ? 'saved' : 'error');
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [images, existing]);
 
   // The discipline is chosen first and drives everything else: English vs Western brands,
   // model suggestions, seat sizes and tree widths.
@@ -408,7 +428,16 @@ export default function ListingForm({
           No photos needed — the seller adds their own when they claim the listing.
         </p>
       ) : (
-      <PhotoUploader images={images} setImages={setImages} />
+      <div>
+        <PhotoUploader images={images} setImages={setImages} />
+        {existing && photoSave !== 'idle' && (
+          <p className={`text-sm mt-1 ${photoSave === 'error' ? 'text-red-700' : 'text-saddle-green'}`}>
+            {photoSave === 'saving' && 'Saving photos…'}
+            {photoSave === 'saved' && 'Photos saved ✓'}
+            {photoSave === 'error' && "Couldn't save photo changes — click Save Changes below to try again."}
+          </p>
+        )}
+      </div>
       )}
 
       {ebaySource && !existing && (
