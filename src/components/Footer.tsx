@@ -55,7 +55,10 @@ export default function Footer() {
         ))}
       </div>
       <div className="max-w-[1200px] mx-auto px-8 pb-[34px] text-[12.5px] text-saddle-faint">
-        © {new Date().getFullYear()} SaddleUp. All rights reserved.
+        © {new Date().getFullYear()} SaddleUp. All rights reserved. ·{' '}
+        <a href="mailto:hello@saddleup.me" className="hover:text-saddle-brown underline">
+          hello@saddleup.me
+        </a>
       </div>
     </footer>
   );
