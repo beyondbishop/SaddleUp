@@ -243,6 +243,75 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* Why not Facebook */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16">
+        <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Why SaddleUp</div>
+        <h2 className={`${sectionH2} mb-3 max-w-[760px]`}>Most saddles are hidden. Yours shouldn&apos;t be.</h2>
+        <p className="text-saddle-muted text-[16px] leading-relaxed mb-8 max-w-[720px]">
+          Selling on Facebook means your saddle is only seen by whoever happens to scroll past. SaddleUp puts every saddle
+          in one open marketplace, so the riders who need yours can actually find it, and buyers can see every option
+          and price in one place.
+        </p>
+        <div className="grid grid-cols-1 min-[800px]:grid-cols-2 gap-5">
+          {(
+            [
+              {
+                title: 'Selling on Facebook',
+                tone: 'muted',
+                points: [
+                  'Only people in your groups or nearby see your post.',
+                  "Buyers can't search by seat size or tree width.",
+                  "Posts are behind logins, so Google and AI assistants can't find them.",
+                  'Your post gets buried in a day or two.'
+                ]
+              },
+              {
+                title: 'Selling on SaddleUp',
+                tone: 'strong',
+                points: [
+                  'Riders across the US can find your saddle, and we handle the shipping label.',
+                  'Buyers search by brand, seat size, tree width and style, so they find yours.',
+                  'Built to show up on Google and AI search when riders look for a saddle like yours.',
+                  'A level playing field: independent sellers and buyers, every saddle and price in one place.'
+                ]
+              }
+            ] as const
+          ).map((col) => (
+            <div
+              key={col.title}
+              className={`rounded-[3px] p-7 border ${
+                col.tone === 'strong' ? 'border-saddle-green bg-saddle-paper' : 'border-saddle-line bg-saddle-sand'
+              }`}
+            >
+              <h3 className={`font-serif text-[23px] mb-4 ${col.tone === 'strong' ? 'text-saddle-green' : 'text-saddle-muted'}`}>
+                {col.title}
+              </h3>
+              <ul className="space-y-3">
+                {col.points.map((p) => (
+                  <li key={p} className="flex gap-3 text-[15px] leading-snug text-saddle-body">
+                    <span aria-hidden className={col.tone === 'strong' ? 'text-saddle-green font-semibold' : 'text-saddle-faint'}>
+                      {col.tone === 'strong' ? '✓' : '✕'}
+                    </span>
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Link
+            href="/dashboard"
+            className="bg-saddle-green text-saddle-cream px-6 py-3.5 rounded-sm font-semibold text-[14.5px] hover:bg-saddle-green-dark"
+          >
+            List your saddle free →
+          </Link>
+          <Link href="/about" className="text-sm underline text-saddle-brown">
+            Why I built SaddleUp
+          </Link>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="mt-[52px] border-t border-saddle-line bg-saddle-sand">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-[60px]">

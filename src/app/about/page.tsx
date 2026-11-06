@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/seo';
 export const metadata = {
   title: 'Our story',
   description:
-    'SaddleUp was started by a horse mom whose custom saddle turned out not to fit. It helps riders find a used saddle that fits their horse, without the hassle.',
+    'SaddleUp was started by Danielle Bishop, a horse mom whose custom saddle turned out not to fit her horse. It helps riders find a used saddle that fits their horse, without the hassle.',
   alternates: { canonical: `${SITE_URL}/about` }
 };
 
@@ -27,7 +27,7 @@ export default function AboutPage() {
             SaddleUp started with a saddle that didn&apos;t fit.
           </h1>
           <p className="text-lg leading-relaxed text-saddle-body">
-            Hi, I&apos;m Danielle. I&apos;m a mom of three boys, and two of them have horses of their own. SaddleUp isn&apos;t a
+            Hi, I&apos;m Danielle Bishop. I&apos;m a mom of three boys, and two of them have horses of their own. SaddleUp isn&apos;t a
             big company. It&apos;s my answer to a problem my family has lived with.
           </p>
         </div>
@@ -35,7 +35,7 @@ export default function AboutPage() {
           <div className="relative aspect-[4/3] rounded-[3px] overflow-hidden border border-saddle-line bg-saddle-paper">
             <Image
               src="/images/founder-family.jpg"
-              alt="Danielle, SaddleUp's founder, with two of her sons and a stuffed toy horse at a horse event"
+              alt="Danielle Bishop, SaddleUp's founder, with two of her sons and a stuffed toy horse at a horse event"
               fill
               priority
               sizes="(max-width: 900px) 100vw, 520px"
@@ -51,7 +51,7 @@ export default function AboutPage() {
           <div className="relative aspect-[4/3] rounded-[3px] overflow-hidden border border-saddle-line bg-saddle-paper">
             <Image
               src="/images/founder-riding.jpg"
-              alt="Danielle riding a dapple grey horse at the edge of a ploughed field in early morning light"
+              alt="Danielle Bishop riding a dapple grey horse at the edge of a ploughed field in early morning light"
               fill
               sizes="(max-width: 900px) 100vw, 480px"
               className="object-cover"
@@ -61,8 +61,8 @@ export default function AboutPage() {
         </figure>
         <div className="order-1 min-[900px]:order-2 space-y-5 text-[17px] leading-[1.7] text-saddle-body">
           <p>
-            A few years ago, I had a saddle custom made for my horse. Two years later, I found out it didn&apos;t fit. It
-            had been pinching his withers, which led to ulcers and a series of problems that took a very long time, and a
+            A few years ago, I had a saddle custom made for my horse, Lionel. Two years later, I found out it didn&apos;t
+            fit. It had been pinching his withers, which led to ulcers and a series of problems that took a very long time, and a
             lot of money, to unwind.
           </p>
           <p>
@@ -93,7 +93,7 @@ export default function AboutPage() {
           We&apos;re new and still growing, so thank you for being here early. Every saddle listed helps another rider find
           the right fit.
         </p>
-        <p className="font-serif text-xl text-saddle-ink mb-8">Danielle</p>
+        <p className="font-serif text-xl text-saddle-ink mb-8">Danielle Bishop, founder</p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link
             href="/match"
