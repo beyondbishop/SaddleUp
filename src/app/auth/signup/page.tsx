@@ -40,6 +40,11 @@ function SignupForm() {
       <div className="py-16 max-w-sm mx-auto text-center">
         <h1 className="text-2xl font-bold text-saddle-brown mb-2">Check your email</h1>
         <p>We sent you a confirmation link to finish creating your account.</p>
+        {next.includes('from=home') && (
+          <p className="text-sm text-saddle-muted mt-3">
+            Open the link on this device and your saddle&apos;s photos and details will be waiting for you.
+          </p>
+        )}
       </div>
     );
   }

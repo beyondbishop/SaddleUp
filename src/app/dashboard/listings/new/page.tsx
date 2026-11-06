@@ -3,10 +3,12 @@ import { redirect } from 'next/navigation';
 import NewListingWithEbayImport from '@/components/EbayImport';
 import { ebayConfigured } from '@/lib/ebay/client';
 
-export default async function NewListingPage() {
+export default async function NewListingPage({ searchParams }: { searchParams: { from?: string } }) {
+  // ?from=home: a "What's your saddle worth?" check from the home page is waiting in this browser.
+  const fromHome = searchParams.from === 'home';
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/auth/login?next=/dashboard/listings/new');
+  if (!user) redirect(`/auth/signup?next=${encodeURIComponent(`/dashboard/listings/new${fromHome ? '?from=home' : ''}`)}`);
 
   const { data: brands } = await supabase.from('brands').select('id, name').order('name');
 
@@ -16,7 +18,7 @@ export default async function NewListingPage() {
       <p className="text-sm text-gray-600 mb-6">
         New listings go through a quick review (usually same-day) before they appear publicly.
       </p>
-      <NewListingWithEbayImport brands={brands ?? []} ebayEnabled={ebayConfigured()} />
+      <NewListingWithEbayImport brands={brands ?? []} ebayEnabled={ebayConfigured()} fromHome={fromHome} />
     </div>
   );
 }

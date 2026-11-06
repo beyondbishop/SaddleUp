@@ -5,6 +5,7 @@ import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 import { brandsForDiscipline } from '@/lib/saddle-catalog';
 import { searchUrl } from '@/lib/search';
+import SaddleValueCheck from '@/components/sell/SaddleValueCheck';
 import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 const eyebrow = 'font-mono uppercase text-saddle-gold';
@@ -69,7 +70,7 @@ function ListingCard({ listing }: { listing: Listing }) {
 export default async function HomePage() {
   const supabase = createClient();
   const [{ data: allBrands }, { data: listings }] = await Promise.all([
-    supabase.from('brands').select('name, slug').order('name'),
+    supabase.from('brands').select('id, name, slug').order('name'),
     supabase
       .from('listings')
       .select('*, brands(name, slug)')
@@ -108,22 +109,22 @@ export default async function HomePage() {
             Find the saddle that fits your horse and your budget.
           </h1>
           <p className="text-lg leading-[1.55] text-saddle-body max-w-[520px] mb-[34px]">
-            Every used close contact saddle on SaddleUp is listed with its seat size and tree width, so you can match it
-            to your horse&apos;s back and your own measurements, and stop guessing. Buyers pay no commission; sellers keep {SELLER_KEEPS_PERCENT}% during our beta.
+            Every saddle is listed with its seat size and tree width, so you can stop guessing. Buyers pay no commission;
+            sellers keep {SELLER_KEEPS_PERCENT}% during our beta.
           </p>
           <div className="flex gap-3.5 flex-wrap">
             <Link
-              href="/match"
+              href="/saddles"
               className="inline-flex items-center gap-[9px] bg-saddle-green text-saddle-cream px-7 py-[15px] rounded-sm font-semibold text-[14.5px] tracking-[0.02em] transition-colors hover:bg-saddle-green-dark"
             >
-              Find My Fit →
+              Browse saddles →
             </Link>
-            <Link
-              href={disciplinePath(FOCUS)}
+            <a
+              href="#worth"
               className="inline-flex items-center text-saddle-brown border border-saddle-brown px-7 py-[15px] rounded-sm font-semibold text-[14.5px] tracking-[0.02em] transition-colors hover:bg-saddle-brown hover:text-saddle-cream"
             >
-              Browse close contact saddles
-            </Link>
+              What&apos;s my saddle worth?
+            </a>
           </div>
         </div>
         <div className="relative">
@@ -156,14 +157,25 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Close contact by seat size */}
+      {/* What's your saddle worth? (the AI seller tool, no account needed) */}
+      <section id="worth" className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-6 scroll-mt-20">
+        <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Selling a saddle?</div>
+        <h2 className={`${sectionH2} mb-3`}>Curious what your saddle&apos;s worth?</h2>
+        <p className="text-saddle-muted text-[16px] leading-relaxed mb-6 max-w-[680px]">
+          Use our saddle seller tool to easily create a listing based on photos. Add 4–5 photos, including the stamp
+          under the flap, and we&apos;ll tell you what it&apos;s worth and show you your listing.
+        </p>
+        <SaddleValueCheck brands={(allBrands ?? []).map(({ id, name }) => ({ id, name }))} />
+      </section>
+
+      {/* Shop by seat size */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-10">
-        <SectionHeader title="Shop close contact by seat size" href={disciplinePath(FOCUS)} cta="All close contact saddles" />
+        <SectionHeader title="Shop by seat size" href="/saddles" cta="All saddles" />
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
           {SEATS.map((seat) => (
             <Link
               key={seat}
-              href={searchUrl({ discipline: FOCUS, seat_min: seat, seat_max: seat })}
+              href={searchUrl({ seat_min: seat, seat_max: seat })}
               className="border border-saddle-line rounded-[3px] bg-saddle-paper py-5 text-center transition-colors hover:border-saddle-brown"
             >
               <div className="font-serif text-[26px] text-saddle-ink">{seat}&Prime;</div>
@@ -171,19 +183,12 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
-        <p className="text-sm text-saddle-muted mt-4">
-          Not sure of your size?{' '}
-          <Link href="/match" className="underline text-saddle-brown">
-            Find My Fit
-          </Link>{' '}
-          narrows it down from two measurements.
-        </p>
       </section>
 
       {/* Newly listed */}
       {listings && listings.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-5 sm:px-8 py-9">
-          <SectionHeader title="Newly listed close contact saddles" href={disciplinePath(FOCUS)} cta="See all" />
+          <SectionHeader title="Newly listed" href="/saddles" cta="See all" />
           <div className="grid grid-cols-1 sm:grid-cols-2 min-[900px]:grid-cols-3 gap-[22px]">
             {(listings as Listing[]).map((l) => (
               <ListingCard key={l.id} listing={l} />
@@ -195,7 +200,7 @@ export default async function HomePage() {
       {/* Brands */}
       {brands.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-11 pb-2">
-          <h2 className="font-serif font-medium text-[26px] text-saddle-ink mb-[18px]">Close contact saddles by brand</h2>
+          <h2 className="font-serif font-medium text-[26px] text-saddle-ink mb-[18px]">Shop by brand</h2>
           <div className="flex flex-wrap gap-[11px]">
             {brands.map((b) => (
               <Link
@@ -267,12 +272,12 @@ export default async function HomePage() {
           ))}
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-4">
-          <Link
-            href="/dashboard"
+          <a
+            href="#worth"
             className="bg-saddle-green text-saddle-cream px-6 py-3.5 rounded-sm font-semibold text-[14.5px] hover:bg-saddle-green-dark"
           >
-            List your saddle free →
-          </Link>
+            See what your saddle&apos;s worth →
+          </a>
           <Link href="/about" className="text-sm underline text-saddle-brown">
             Why I built SaddleUp
           </Link>
@@ -284,19 +289,18 @@ export default async function HomePage() {
         <div className="bg-saddle-green rounded p-9 min-[900px]:p-14 grid grid-cols-1 min-[900px]:grid-cols-[1fr_auto] gap-[22px] min-[900px]:gap-10 items-center">
           <div>
             <h2 className="font-serif font-normal text-[38px] leading-[1.08] text-saddle-cream mb-3">
-              Not sure what fits? Start with two measurements.
+              Selling a saddle? Start with a few photos.
             </h2>
             <p className="text-saddle-green-mist text-base max-w-[560px]">
-              Enter your horse&apos;s back width and your inseam. We&apos;ll narrow the whole marketplace down to the
-              tree widths and seat sizes most likely to fit.
+              We&apos;ll read the stamp, write your listing and tell you what it&apos;s worth. No account needed to check.
             </p>
           </div>
-          <Link
-            href="/match"
+          <a
+            href="#worth"
             className="justify-self-start whitespace-nowrap bg-saddle-cream text-saddle-green px-[30px] py-4 rounded-sm font-semibold text-[15px] tracking-[0.02em] transition-colors hover:bg-saddle-paper"
           >
-            Find My Fit →
-          </Link>
+            What&apos;s it worth? →
+          </a>
         </div>
       </section>
     </div>

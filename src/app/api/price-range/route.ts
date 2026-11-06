@@ -1,12 +1,13 @@
 // POST /api/price-range  { brand_id, model, discipline, seat_size, tree_width, condition, ... }
 // Suggests a low / typical / high asking price for a saddle using Claude and a web search of
-// current used prices. Signed-in users only, since each estimate costs money.
+// current used prices. Visitors who aren't signed in get a few a day, since each costs money.
 
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
 import { aiPriceRange, type SaddleDetails } from '@/lib/ai-price-range';
 import { aiReaderConfigured } from '@/lib/ai-parse-listing';
+import { allowAnonymousAiCall, ANON_LIMIT_MESSAGE } from '@/lib/ai-quota';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -19,7 +20,6 @@ export async function POST(req: Request) {
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
   if (!aiReaderConfigured()) return NextResponse.json({ error: "Price suggestions aren't switched on yet." }, { status: 503 });
 
   const body = ((await req.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
@@ -27,6 +27,9 @@ export async function POST(req: Request) {
   const model = str(body.model, 80);
   if (!brandId && !model) {
     return NextResponse.json({ error: 'Choose the brand (and model if you know it) first.' }, { status: 400 });
+  }
+  if (!user && !(await allowAnonymousAiCall(req))) {
+    return NextResponse.json({ error: ANON_LIMIT_MESSAGE }, { status: 429 });
   }
 
   const { data: brand } = brandId ? await supabase.from('brands').select('name').eq('id', brandId).maybeSingle() : { data: null };

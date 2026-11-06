@@ -1,7 +1,8 @@
 // POST /api/parse-listing  { text: string, photos?: { media_type, data (base64) }[] }
 // Reads pasted listing text (and optional photos: stamps, logos, screenshots) into form fields.
 // Photos are only read, never stored. Uses Claude when ANTHROPIC_API_KEY is set,
-// otherwise (or if the AI call fails) the rule-based reader. Signed-in users only, since
+// otherwise (or if the AI call fails) the rule-based reader. Visitors who aren't signed in
+// can use it a few times a day (the home page's "What's your saddle worth?" check), since
 // each AI read costs money.
 
 import { NextResponse } from 'next/server';
@@ -11,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { aiParseListing, aiReaderConfigured, type ListingPhoto } from '@/lib/ai-parse-listing';
 import { parseListingText, summarizeFill } from '@/lib/parse-listing-text';
 import { zipForCity } from '@/lib/zip-lookup';
+import { allowAnonymousAiCall, ANON_LIMIT_MESSAGE } from '@/lib/ai-quota';
 import type { ListingPrefill } from '@/lib/ebay/map';
 
 export const dynamic = 'force-dynamic';
@@ -21,8 +23,6 @@ export async function POST(req: Request) {
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
-
   const body = (await req.json().catch(() => ({}))) as { text?: unknown; photos?: unknown };
   const text = typeof body.text === 'string' ? body.text : '';
   const photos = readPhotos(body.photos);
@@ -34,6 +34,9 @@ export async function POST(req: Request) {
   }
   if (text.length > 8000) {
     return NextResponse.json({ error: 'That’s too long — paste just the one listing.' }, { status: 400 });
+  }
+  if (!user && aiReaderConfigured() && !(await allowAnonymousAiCall(req))) {
+    return NextResponse.json({ error: ANON_LIMIT_MESSAGE }, { status: 429 });
   }
 
   const { data: brands } = await supabase.from('brands').select('id, name');
