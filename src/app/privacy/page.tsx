@@ -30,10 +30,7 @@ export default function PrivacyPage() {
         (payments and payouts), Shippo (shipping labels), Anthropic (the AI tools), and our email and text message
         providers. They only use your information to provide these services to us.
       </p>
-      <p className="mt-4">
-        To ask for a copy of your data or to have it deleted, message us from your SaddleUp account and we&apos;ll take
-        care of it.
-      </p>
+      {/* TODO: add the contact email for data access and deletion requests once saddleup.me email is set up. */}
     </div>
   );
 }
