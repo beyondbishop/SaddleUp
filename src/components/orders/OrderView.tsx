@@ -112,6 +112,12 @@ export default function OrderView({ order, events, role }: { order: any; events:
         </dd>
       </dl>
 
+      {role !== 'admin' && (
+        <p className="text-xs text-gray-600">
+          We email you at each step. <a href="/account/notifications" className="underline">Get text updates too</a>
+        </p>
+      )}
+
       <section>
         <h2 className="font-semibold text-saddle-brown mb-2">History</h2>
         {events.length === 0 ? (

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { releasePayout } from '@/lib/payouts';
 import { recordMissingRewards } from '@/lib/rewards';
 import { syncOpenShipments } from '@/lib/shipment-sync';
+import { sendDailyReminders } from '@/lib/reminders';
 
 // Daily: pay sellers whose buyer confirmed receipt or whose inspection window (which starts at
 // confirmed delivery) has ended, and free saddles left reserved by abandoned checkouts.
@@ -39,6 +40,11 @@ export async function GET(req: Request) {
     return 0;
   });
 
+  const remindersSent = await sendDailyReminders().catch((e) => {
+    console.error('Daily reminders failed', e);
+    return 0;
+  });
+
   const rewardsRecorded = await recordMissingRewards().catch((e) => {
     console.error('Importer reward catch-up failed', e);
     return 0;
@@ -46,6 +52,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     shipmentsChecked,
+    remindersSent,
     rewardsRecorded,
     checked: dueOrders?.length ?? 0,
     released,
