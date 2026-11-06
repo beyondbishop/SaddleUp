@@ -4,9 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import { isUuid } from '@/lib/lists-server';
 import { claimMessage, claimUrlFor } from '@/lib/claim-message';
-import CopyButton from '@/components/imports/CopyButton';
-import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
-import OpenPostLink from '@/components/imports/OpenPostLink';
+import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import { REWARD_PERCENT } from '@/lib/rewards';
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -51,10 +49,11 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   const importsQuery = (cols: string) =>
     admin.from('listing_imports').select(cols).eq('importer_id', importerId).order('created_at', { ascending: false }).limit(500);
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
-    // Link-open tracking columns come from 20261109_claim_link_opens.sql; until that's run, load without them.
-    importsQuery(`${IMPORT_COLS}, link_first_opened_at, link_last_opened_at, link_open_count`).then((res) =>
-      res.error ? importsQuery(IMPORT_COLS) : res
-    ),
+    // Newer columns (20261109_claim_link_opens.sql, 20261110_import_message.sql): if one hasn't been
+    // run yet, fall back step by step so the page still loads.
+    importsQuery(`${IMPORT_COLS}, link_first_opened_at, link_last_opened_at, link_open_count, message`)
+      .then((res) => (res.error ? importsQuery(`${IMPORT_COLS}, link_first_opened_at, link_last_opened_at, link_open_count`) : res))
+      .then((res) => (res.error ? importsQuery(IMPORT_COLS) : res)),
     importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null }),
     admin.from('importer_rewards').select('listing_id, amount_cents, status, void_reason, paid_at').eq('importer_id', importerId)
   ]);
@@ -67,7 +66,9 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     const saddle = l ? `${l.seat_size}" ${l.brands?.name && l.brands.name !== 'Other' ? `${l.brands.name} ` : ''}${l.model}` : 'Saddle';
     const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at, r.link_first_opened_at ?? null);
     const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
-    return { ...r, l, saddle, stage, claimUrl, message: claimUrl ? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0 }) : null };
+    // The importer's saved message (with any tips from import time), else a fresh one.
+    const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0 }) : null;
+    return { ...r, l, saddle, stage, claimUrl, message };
   });
   const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);
 
@@ -108,7 +109,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
 
       <ul className="space-y-3">
         {items.map((i) => (
-          <li key={i.listing_id} className="bg-white border border-saddle-line rounded p-4">
+          <li key={i.listing_id} id={`import-${i.listing_id}`} className="bg-white border border-saddle-line rounded p-4 scroll-mt-24">
             <div className="flex flex-wrap justify-between gap-2">
               <div>
                 <p className="font-semibold text-saddle-brown">{i.saddle}</p>
@@ -122,13 +123,17 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
             </div>
 
             {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting' || i.stage === 'opened') && i.message && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <CopyButton text={i.message} label={i.stage === 'follow_up' ? 'Copy message to resend' : 'Copy message'} />
-                <CopyButton text={i.claimUrl!} label="Copy claim link" />
-                {i.source_url && (
-                  <OpenPostLink url={i.source_url} />
-                )}
-                {!who && <MarkMessagedButton listingId={i.listing_id} messagedAt={i.messaged_at} />}
+              <div className="mt-3 border-t border-saddle-line pt-3">
+                <SellerMessageCard
+                  listingId={i.listing_id}
+                  sellerName={i.seller_name}
+                  suggested={i.message}
+                  saved={i.message}
+                  sourceUrl={i.source_url}
+                  claimUrl={i.claimUrl!}
+                  messagedAt={i.messaged_at}
+                  showMarkMessaged={!who}
+                />
               </div>
             )}
             {i.link_open_count > 0 && !['live', 'sold', 'removed'].includes(i.stage) && (

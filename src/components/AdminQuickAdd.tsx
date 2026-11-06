@@ -6,8 +6,7 @@ import type { ParsedListing } from '@/lib/parse-listing-text';
 import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
 import { claimMessage, type ClaimTips } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
-import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
-import OpenPostLink from '@/components/imports/OpenPostLink';
+import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import Link from 'next/link';
 
 const MAX_READ_PHOTOS = 6;
@@ -190,18 +189,18 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-saddle-gold mb-1">Message to send</div>
-            <p className="text-sm whitespace-pre-wrap bg-saddle-sand border border-saddle-line rounded p-3 mb-2">{messageFor(latest)}</p>
+            <SellerMessageCard
+              key={latest.id}
+              listingId={latest.id}
+              sellerName={latest.sellerName}
+              suggested={messageFor(latest)}
+              sourceUrl={latest.sourceUrl || null}
+              claimUrl={latest.claimUrl}
+              messagedAt={null}
+            />
             {ranges[latest.key] === 'loading' && (
-              <p className="text-xs text-saddle-muted mb-2">Checking what similar saddles sell for, to add a price tip if it would help…</p>
+              <p className="text-xs text-saddle-muted mt-2">Checking what similar saddles sell for, to add a price tip if it would help…</p>
             )}
-            <div className="flex flex-wrap gap-2">
-              <CopyButton text={messageFor(latest)} label="Copy message" />
-              {latest.sourceUrl && (
-                <OpenPostLink url={latest.sourceUrl} label="Open their post to message them" className="text-sm underline text-saddle-brown self-center" />
-              )}
-              <MarkMessagedButton listingId={latest.id} messagedAt={null} />
-            </div>
             <p className="text-xs text-saddle-muted mt-2">
               Every saddle you add is on <Link href="/imports" className="underline">My imports</Link>, so you can come back to it.
             </p>
@@ -368,10 +367,9 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
                   <strong>{c.saddle}</strong>
                   {c.sellerName ? ` · ${c.sellerName}` : ''}
                 </span>
-                <span className="flex flex-wrap gap-2 items-center">
-                  <CopyButton text={messageFor(c)} label="Copy message" />
-                  <MarkMessagedButton listingId={c.id} messagedAt={null} />
-                </span>
+                <Link href={`/imports#import-${c.id}`} className="underline text-saddle-brown">
+                  See message &amp; post →
+                </Link>
               </li>
             ))}
           </ul>
