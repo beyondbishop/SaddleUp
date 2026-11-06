@@ -37,8 +37,13 @@ export default function NewListingWithEbayImport({
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { prefill, found, missing, warnings, reader } = await readListingText(text, brands);
+    const result = await readListingText(text, brands);
     setLoading(false);
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    const { prefill, found, missing, warnings, reader } = result;
     if (!found.length) {
       setError("We couldn't pick out any saddle details — try including the brand, seat size and price.");
       return;

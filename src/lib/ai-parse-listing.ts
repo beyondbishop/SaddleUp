@@ -33,7 +33,8 @@ function schemaFor(brandNames: string[]) {
     trial_policy: z.enum(['local_trial', 'trial', 'no_trial']).nullable(),
     panel_flocking: z.enum(['wool', 'foam', 'cair']).nullable(),
     description: z.string(),
-    warnings: z.array(z.string())
+    warnings: z.array(z.string()),
+    photo_findings: z.array(z.string())
   });
 }
 
@@ -61,15 +62,31 @@ description: write a clean listing description from the post, for buyers on Sadd
 - Drop marketplace page clutter (e.g. "Listed a few seconds ago in ...", "Door pickup", "Details", "Message seller", "Is this still available?"), the price, and the location - those have their own fields.
 - Keep useful facts: what the saddle is, condition details, specifications (tree, flap, panels, serial number, date made), what's included, shipping/pickup and trial terms.
 - Make it consistent: one way of writing each thing (17.5", Havana), no repeated facts, plain sentences. Plain text only - no markdown, no asterisks or headings with #.
-- Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.`;
+- Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.
+
+Photos: you may also get photos of the saddle and/or screenshots of the post. The listing text may then be short or empty.
+- Treat text in a screenshot of the post exactly like pasted listing text.
+- Use the saddle photos to fill fields the text leaves blank. Look for the maker's stamp, plate or tag (usually under the flap, on the skirt, the stirrup bar area or the cantle) and read seat size, tree width or gullet number, flap size, serial number and date/year from it. Read brand logos and nameplates on the cantle, flap or pommel.
+- Only fill a field from a photo when it is clearly legible. Never guess a seat size, tree or year from how the saddle looks. Brand from a clear logo or stamp is fine; model only if it is written on the saddle.
+- color may come from the photos. condition only when wear is obvious (e.g. cracked or very worn leather = fair); otherwise leave it null.
+- The seller's text wins. If a photo clearly disagrees with the text (stamp says 17, post says 17.5), keep the text's value and add a warning naming both.
+- Put stamp details that have no field of their own (serial number, date code, flap size) into the description's Specifications section, and only facts you can read.
+- photo_findings: one short note per thing you read or saw in the photos that you used, e.g. "Stamp: 17.5 seat, 2A flap, serial 0412" or "Logo on cantle: CWD". Empty list when no photos were sent or nothing useful was readable.`;
 
 export interface AiParseResult {
   prefill: ListingPrefill;
   warnings: string[];
+  photoFindings: string[];
 }
 
+export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string };
+
 /** Throws on any failure (API error, refusal, unparseable output) — callers fall back to rules. */
-export async function aiParseListing(text: string, brands: { id: number; name: string }[]): Promise<AiParseResult> {
+export async function aiParseListing(
+  text: string,
+  brands: { id: number; name: string }[],
+  photos: ListingPhoto[] = []
+): Promise<AiParseResult> {
   const brandNames = brands.map((b) => b.name);
   if (!brandNames.length) throw new Error('No brands loaded');
 
@@ -83,12 +100,19 @@ export async function aiParseListing(text: string, brands: { id: number; name: s
     max_tokens: 16000,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    output_config: { effort: 'low', format: betaZodOutputFormat(schemaFor(brandNames)) },
+    // Reading stamps in photos benefits from a closer look; plain text stays cheap.
+    output_config: { effort: photos.length ? 'medium' : 'low', format: betaZodOutputFormat(schemaFor(brandNames)) },
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [
       {
         role: 'user',
-        content: `Allowed brands: ${brandList}\n\n<listing>\n${text}\n</listing>`
+        content: [
+          ...photos.map((p) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: p.media_type, data: p.data } })),
+          {
+            type: 'text' as const,
+            text: `Allowed brands: ${brandList}\n\n${photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'} attached above.\n\n` : ''}<listing>\n${text.trim() || '(no text pasted - use the photos)'}\n</listing>`
+          }
+        ]
       }
     ]
   });
@@ -124,6 +148,7 @@ export async function aiParseListing(text: string, brands: { id: number; name: s
       panel_flocking: out.panel_flocking,
       location_zip: out.zip && /^\d{5}$/.test(out.zip.trim()) ? out.zip.trim() : null
     },
-    warnings: out.warnings.filter((w) => w.trim()).slice(0, 5)
+    warnings: out.warnings.filter((w) => w.trim()).slice(0, 5),
+    photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 8)
   };
 }

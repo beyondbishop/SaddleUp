@@ -1,13 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ListingForm from './ListingForm';
 import type { ParsedListing } from '@/lib/parse-listing-text';
-import { readListingText } from '@/lib/read-listing-text';
+import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
 import { claimMessage } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
 import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
 import Link from 'next/link';
+
+const MAX_READ_PHOTOS = 6;
+const READ_SIDE = 1568; // Claude reads images at up to about this size, enough for a stamp close-up
+
+/** Shrinks a photo in the browser to a JPEG for the reader. It is never uploaded to storage. */
+async function toReadPhoto(file: File): Promise<ReadPhoto & { preview: string }> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, READ_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  let url = '';
+  for (const quality of [0.85, 0.7, 0.55]) {
+    url = canvas.toDataURL('image/jpeg', quality);
+    if (url.length < 700_000) break;
+  }
+  return { media_type: 'image/jpeg', data: url.slice(url.indexOf(',') + 1), preview: url };
+}
 
 interface Created {
   id: string;
@@ -22,18 +42,47 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   const [text, setText] = useState('');
   const [sellerName, setSellerName] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [parsed, setParsed] = useState<(ParsedListing & { key: string; reader: 'ai' | 'rules' }) | null>(null);
+  const [parsed, setParsed] = useState<(ParsedListing & { key: string; reader: 'ai' | 'rules'; photoFindings?: string[] }) | null>(null);
+  const [photos, setPhotos] = useState<(ReadPhoto & { preview: string })[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
+
+  async function addPhotos(list: FileList | File[]) {
+    const files = Array.from(list).filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    const room = MAX_READ_PHOTOS - photos.length;
+    const problems: string[] = [];
+    if (files.length > room) problems.push(`Up to ${MAX_READ_PHOTOS} photos - the extras were skipped.`);
+    const added: (ReadPhoto & { preview: string })[] = [];
+    for (const f of files.slice(0, Math.max(0, room))) {
+      try {
+        added.push(await toReadPhoto(f));
+      } catch {
+        problems.push(`Couldn't open ${f.name}. Try a JPEG or PNG.`);
+      }
+    }
+    setPhotos((prev) => [...prev, ...added].slice(0, MAX_READ_PHOTOS));
+    setPhotoError(problems.join(' ') || null);
+  }
   const [created, setCreated] = useState<Created[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
 
   async function fill(e: React.FormEvent) {
     e.preventDefault();
+    if (!text.trim() && !photos.length) {
+      setError('Paste the post or add a photo first.');
+      return;
+    }
     setReading(true);
-    const result = await readListingText(text, brands);
+    const result = await readListingText(text, brands, photos.map(({ media_type, data }) => ({ media_type, data })));
     setReading(false);
-    if (!result.found.length) {
-      setError("Couldn't pick out any saddle details from that text.");
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    if (!result.found.length && !result.photoFindings?.length) {
+      setError(photos.length ? "Couldn't pick out any saddle details from that text or those photos." : "Couldn't pick out any saddle details from that text.");
       return;
     }
     setError(null);
@@ -44,6 +93,8 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
     setText('');
     setSellerName('');
     setSourceUrl('');
+    setPhotos([]);
+    setPhotoError(null);
     setParsed(null);
   }
 
@@ -87,10 +138,63 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={6}
-            required
             placeholder={'e.g. Devoucoux Biarritz 17 1/2 seat 2A flap, med tree, black. 3.3k. Ocala, Florida'}
             className="w-full border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
           />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => photoInput.current?.click()}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && photoInput.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              if (e.dataTransfer.files.length) addPhotos(e.dataTransfer.files);
+            }}
+            className={`rounded border-2 border-dashed px-4 py-4 text-center cursor-pointer text-sm transition-colors ${
+              dragging ? 'border-saddle-green bg-saddle-green/10' : 'border-saddle-line bg-saddle-paper hover:border-saddle-brown'
+            }`}
+          >
+            <span className="font-semibold text-saddle-ink">📷 Add photos to read (optional)</span>
+            <span className="block text-saddle-muted">
+              The stamp under the flap, the logo, or screenshots of the post. We read them to fill in blanks. They aren&apos;t saved or
+              put on the listing.
+            </span>
+            <input
+              ref={photoInput}
+              type="file"
+              accept="image/*,.heic,.heif"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) addPhotos(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          {photos.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {photos.map((p, i) => (
+                <li key={p.preview.slice(-40) + i} className="relative">
+                  <img src={p.preview} alt={`Photo ${i + 1}`} className="h-20 w-20 object-cover rounded border border-saddle-line" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                    aria-label={`Remove photo ${i + 1}`}
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-saddle-ink text-saddle-cream text-xs leading-none"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {photoError && <p className="text-saddle-brown text-sm">{photoError}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               value={sellerName}
@@ -107,20 +211,29 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
           </div>
           {error && <p className="text-red-700 text-sm">{error}</p>}
           <button type="submit" disabled={reading} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
-            {reading ? 'Reading…' : 'Fill in details'}
+            {reading ? (photos.length ? 'Reading text and photos…' : 'Reading…') : 'Fill in details'}
           </button>
         </form>
       ) : (
         <section className="space-y-3">
           <div className="max-w-2xl flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-saddle-green">
-              Filled in {parsed.found.join(', ')}{parsed.reader === 'ai' ? ' and tidied up the description' : ''}.
+              {parsed.found.length ? `Filled in ${parsed.found.join(', ')}` : 'Read the photos'}
+              {parsed.reader === 'ai' ? ' and tidied up the description' : ''}.
               {parsed.missing.length > 0 && <span className="text-saddle-brown"> Please add the {parsed.missing.join(', ')}.</span>}
             </p>
             <button type="button" onClick={() => setParsed(null)} className="text-sm underline text-saddle-brown">
               ← Back to the pasted text
             </button>
           </div>
+          {parsed.photoFindings && parsed.photoFindings.length > 0 && (
+            <ul className="max-w-2xl text-sm text-saddle-ink bg-saddle-paper border border-saddle-green rounded p-2 space-y-1">
+              <li className="font-semibold">Read from the photos:</li>
+              {parsed.photoFindings.map((f) => (
+                <li key={f}>📷 {f}</li>
+              ))}
+            </ul>
+          )}
           {parsed.warnings.length > 0 && (
             <ul className="max-w-2xl text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
               <li className="font-semibold">Double-check before saving (this won't stop you saving):</li>
