@@ -69,8 +69,8 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
       ? `${tipLines.length === 1 ? 'A quick tip' : 'Two quick tips'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
       : null,
     tips.fromFounder
-      ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy.`
-      : `SaddleUp was started by a rider who's been through the pain of trying to sell a saddle, to make it easy.`,
+      ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy. We're a small family, not a big company: ${siteUrl()}/about`
+      : `SaddleUp was started by a horse mom who's been through the pain of trying to sell a saddle, to make it easy. Her story: ${siteUrl()}/about`,
     `Facebook posts only show up on Facebook. I made you a free SaddleUp listing${fix ? ' (spelling fixed)' : ''}${
       tips.hasPhotos ? ' with your photos' : ''
     }. We're new, so there aren't many listings yet, but once you claim it, yours can show up on Google and AI search when riders look for "${searchFor}":\n${claimUrl}`,
@@ -81,7 +81,12 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
     .join('\n\n');
 }
 
-export function claimUrlFor(token: string) {
+/** The public site address (never localhost, since messages go to real people). */
+function siteUrl() {
   const site = process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost') ? 'https://saddleup.me' : process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me';
-  return `${site.replace(/\/$/, '')}/claim/${token}`;
+  return site.replace(/\/$/, '');
+}
+
+export function claimUrlFor(token: string) {
+  return `${siteUrl()}/claim/${token}`;
 }
