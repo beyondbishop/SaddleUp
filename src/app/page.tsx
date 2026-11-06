@@ -215,6 +215,40 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* Family story */}
+      <section className="mt-16 border-y border-saddle-line bg-saddle-sand">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-14 grid grid-cols-1 min-[900px]:grid-cols-[0.9fr_1.1fr] gap-8 min-[900px]:gap-14 items-center">
+          <div className="relative aspect-[4/3] rounded-[3px] overflow-hidden border border-saddle-line bg-saddle-paper">
+            <Image
+              src="/images/founder-family.jpg"
+              alt="Danielle Bishop, SaddleUp's founder, with two of her sons"
+              fill
+              sizes="(max-width: 900px) 100vw, 500px"
+              className="object-cover"
+            />
+          </div>
+          <div>
+            <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Family-run, not a big company</div>
+            <h2 className={`${sectionH2} mb-4`}>Built by a horse family, for horse families.</h2>
+            <p className="text-[17px] leading-[1.7] text-saddle-body mb-4">
+              Hi, I&apos;m Danielle, a mom of three boys, two of whom ride. I once had a saddle custom made for my horse,
+              Lionel, only to find out two years later it was pinching his withers. Untangling that took a long time and a
+              lot of money.
+            </p>
+            <p className="text-[17px] leading-[1.7] text-saddle-body mb-6">
+              SaddleUp is my answer: an honest, hassle-free place to find a saddle that fits your horse, and to sell the
+              one that doesn&apos;t.
+            </p>
+            <Link
+              href="/about"
+              className="inline-flex items-center text-saddle-brown border border-saddle-brown px-6 py-3.5 rounded-sm font-semibold text-[14.5px] transition-colors hover:bg-saddle-brown hover:text-saddle-cream"
+            >
+              Read our story →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Why not Facebook */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16">
         <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Why SaddleUp</div>
