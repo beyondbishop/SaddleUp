@@ -63,12 +63,13 @@ Field guidance:
 - trial_policy: whether the seller allows a trial ride before buying. local_trial = trial only in person/locally; trial = trial offered including shipped trials (or not limited to local); no_trial = no trials, sale only ("no trials", "sold as is", "first come first served, no holds or trials"). null if trials aren't mentioned.
 - warnings: short notes for anything the seller must check because the text disagrees with itself or is unclear - e.g. two different prices ("Two prices in the post: $3,950 and $4,250 - check the price"), two different locations, a seat size or tree that conflicts. Use the value you think is the asking price/location for the field and explain the conflict here. Empty list when nothing conflicts.
 
-description: write a clean listing description from the post, for buyers on SaddleUp.
-- Use only facts in the post. Don't add claims, opinions or selling points it doesn't make; you may keep the seller's own descriptive claims.
-- Drop marketplace page clutter (e.g. "Listed a few seconds ago in ...", "Door pickup", "Details", "Message seller", "Is this still available?"), the price, and the location - those have their own fields.
-- Keep useful facts: what the saddle is, condition details, specifications (tree, flap, panels, serial number, date made), what's included, shipping/pickup and trial terms.
-- Make it consistent: one way of writing each thing (17.5", Havana), no repeated facts, plain sentences. Plain text only - no markdown, no asterisks or headings with #.
-- Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.
+description: write the listing ad buyers will read on SaddleUp. Make it compelling, warm and easy to scan, like a good saddle-shop listing, while staying honest.
+- Open with a 1-2 sentence hook that sells the saddle on its real strengths: the brand and model, the most useful fact for a buyer (one owner, barely used, popular size, wool panels, extras included) and who it suits (e.g. "a great fit for the hunter ring or jumper who wants close contact").
+- Facts must come from the post or the photos (e.g. condition you can see, what's included). You may add widely known, general facts about the brand or model (e.g. "Pessoa saddles are known for their secure, balanced close contact feel") but never invent specs, history, measurements or condition. If the condition is mixed, say so plainly ("light wear on the seat and cantle, consistent with careful use") - buyers trust honest listings.
+- Leave out anything another field or the site already covers: price, location, shipping, delivery and pickup, and trials. SaddleUp handles shipping and the seller picks trial options on the form, so don't write a Shipping section.
+- Drop marketplace page clutter, including Facebook's delivery options ("Public meetup", "Door pickup", "Door dropoff"), "Listed ... ago in ...", "Details", "Message seller", "Is this still available?".
+- After the hook, short sections each starting with a label line ("Highlights", "Specifications", "Condition", "Included"), each followed by lines starting with "• ". Specifications: brand/model, seat, tree, flap, panels, serial number, year when known. Skip a section that would be empty.
+- Plain text only - no markdown, asterisks or # headings, no emoji, no exclamation-mark hype. One way of writing each thing (17.5", Havana). About 60-150 words.
 
 Photos: you may also get photos of the saddle and/or screenshots of the post. The listing text may then be short or empty. Photos are there to fill in what the post leaves out, so read them closely and fill every field you can support.
 - Treat text in a screenshot of the post exactly like pasted listing text.
