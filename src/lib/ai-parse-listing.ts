@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod/v4';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import type { ListingPrefill } from './ebay/map';
-import { brandInfo } from './saddle-catalog';
+import { brandInfo, modelsFor } from './saddle-catalog';
 
 export const aiReaderConfigured = () => !!process.env.ANTHROPIC_API_KEY;
 
@@ -38,7 +38,8 @@ function schemaFor(brandNames: string[]) {
     description: z.string(),
     warnings: z.array(z.string()),
     photo_findings: z.array(z.string()),
-    photo_kinds: z.array(z.enum(['saddle', 'stamp', 'screenshot', 'other']))
+    photo_kinds: z.array(z.enum(['saddle', 'stamp', 'screenshot', 'other'])),
+    model_candidates: z.array(z.string())
   });
 }
 
@@ -79,10 +80,11 @@ Photos: you may also get photos of the saddle and/or screenshots of the post. Th
 - year_manufactured from a date stamp, or from a serial or date code only when you know that maker's format.
 - color from the photos. condition from the photos when the leather is clearly visible: excellent (no visible wear), good (normal wear, some marks on seat or flaps), fair (cracking, scuffs through the finish, torn stitching, very worn). Mention what you saw in photo_findings.
 - Never guess a seat size from how the saddle looks.
-- Model: the form needs one, so always try to name it. Use the post or anything written on the saddle (stamp, plate, flap or cantle) first. Otherwise identify it from the saddle's look - brand logo, cantle shape and plate, knee/thigh block shape, flap cut, stitching and panel design, seat shape - using what you know of that maker's line-up. When you name a model from its look rather than from text, put it in model and add a warning like "Model identified from the photos (Devoucoux Biarritz by its cantle and blocks) - please confirm". Leave model empty only if you can't make a reasonable guess.
+- Model: the form needs one, so never leave it blank when you know the brand. Use the post or anything legible on the saddle first. If the model name is missing or a stamp is unreadable, still give your best guess: compare the saddle's look (cantle shape and plate, knee/thigh blocks, flap cut, stitching, panels, seat depth) and its discipline with that maker's line-up, using the known models listed with the brands where given. Put the most likely model in model and add a warning like "Model is a best guess from the photos (Gen X by its blocks and cantle) - please confirm or pick another".
 - The seller's text wins. If a photo clearly disagrees with the text (stamp says 17, post says 17.5), keep the text's value and add a warning naming both.
 - Put stamp details with no field of their own (serial number, date code, flap size) in the description's Specifications section, only as facts you can read.
 - photo_findings: one short note per thing you read or saw in the photos and used, e.g. "Stamp: 17.5 seat, MW tree, 2A flap, serial 0412" or "Condition: light wear on seat and knee rolls". Empty list when there were no photos or nothing useful in them.
+- model_candidates: when the model isn't stated in the text or clearly legible on the saddle, up to 3 likely model names for this brand, best first (the first one matching model). Empty list when the model is certain.
 - photo_kinds: one entry per photo, in the order sent: saddle (shows the saddle or a part of it), stamp (close-up of a stamp, plate or tag), screenshot (a screenshot of the post, a message or a web page), other. Empty list when no photos were sent.`;
 
 export interface AiParseResult {
@@ -91,6 +93,8 @@ export interface AiParseResult {
   photoFindings: string[];
   /** One per photo sent: what it shows. Screenshots shouldn't go on the listing. */
   photoKinds: ('saddle' | 'stamp' | 'screenshot' | 'other')[];
+  /** Likely models when the model was a guess, best first. */
+  modelCandidates: string[];
 }
 
 export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string };
@@ -106,8 +110,13 @@ export async function aiParseListing(
 
   const client = new Anthropic({ timeout: photos.length ? 55_000 : 45_000, maxRetries: photos.length ? 0 : 1 });
   const brandList = brands
-    .map((b) => `${b.name} (${brandInfo(b.name).type === 'western' ? 'western' : brandInfo(b.name).type === 'english' ? 'english' : 'any'})`)
-    .join(', ');
+    .map((b) => {
+      const info = brandInfo(b.name);
+      const kind = info.type === 'western' ? 'western' : info.type === 'english' ? 'english' : 'any';
+      const models = modelsFor(b.name, null);
+      return `${b.name} (${kind}${models.length ? `; known models: ${models.join(', ')}` : ''})`;
+    })
+    .join('\n');
 
   const response = await client.beta.messages.parse({
     model: 'claude-opus-5-5',
@@ -124,7 +133,7 @@ export async function aiParseListing(
           ...photos.map((p) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: p.media_type, data: p.data } })),
           {
             type: 'text' as const,
-            text: `Allowed brands: ${brandList}\n\n${photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'} attached above.\n\n` : ''}<listing>\n${text.trim() || '(no text pasted - use the photos)'}\n</listing>`
+            text: `Allowed brands:\n${brandList}\n\n${photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'} attached above.\n\n` : ''}<listing>\n${text.trim() || '(no text pasted - use the photos)'}\n</listing>`
           }
         ]
       }
@@ -166,6 +175,7 @@ export async function aiParseListing(
     },
     warnings: out.warnings.filter((w) => w.trim()).slice(0, 5),
     photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 10),
-    photoKinds: photos.map((_, i) => out.photo_kinds[i] ?? 'saddle')
+    photoKinds: photos.map((_, i) => out.photo_kinds[i] ?? 'saddle'),
+    modelCandidates: [...new Set(out.model_candidates.map((m) => m.trim().slice(0, 80)).filter(Boolean))].slice(0, 3)
   };
 }

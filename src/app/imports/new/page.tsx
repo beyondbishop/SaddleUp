@@ -21,7 +21,7 @@ export default async function NewImportPage() {
       <p className="text-saddle-muted mb-6 max-w-2xl">
         Paste a saddle you found (Facebook post, ad, text) and add photos of the stamp or post if you have them. We&apos;ll
         fill in the details, you check them, and you get a hidden listing plus a claim link and message to send the seller.
-        Nothing is public until they claim it. Photos are only read, never put on the listing, and please keep messages personal.
+        Nothing is public until they claim it. Saddle photos go on the hidden listing so the seller starts with them. Please keep messages personal.
       </p>
       <AdminQuickAdd brands={brands ?? []} siteUrl={process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost') ? 'https://saddleup.me' : process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me'} />
     </div>

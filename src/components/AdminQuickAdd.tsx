@@ -57,9 +57,18 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   const [sellerName, setSellerName] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [parsed, setParsed] = useState<
-    (ParsedListing & { key: string; reader: 'ai' | 'rules'; photoFindings?: string[]; images: string[]; photoNote: string | null }) | null
+    | (ParsedListing & {
+        key: string;
+        reader: 'ai' | 'rules';
+        photoFindings?: string[];
+        modelCandidates?: string[];
+        images: string[];
+        photoNote: string | null;
+      })
+    | null
   >(null);
   const [step, setStep] = useState<string | null>(null);
+  const [pickedModel, setPickedModel] = useState<string | null>(null);
   const [photos, setPhotos] = useState<(ReadPhoto & { preview: string })[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -124,6 +133,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
     setReading(false);
     setStep(null);
     setError(null);
+    setPickedModel(null);
     setParsed({ ...result, images, photoNote, key: String(Date.now()) });
   }
 
@@ -271,6 +281,27 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
                 <li key={f}>📷 {f}</li>
               ))}
             </ul>
+          )}
+          {parsed.modelCandidates && parsed.modelCandidates.length > 0 && (
+            <div className="max-w-2xl text-sm bg-saddle-paper border border-saddle-line rounded p-2 flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Model guess - pick the right one:</span>
+              {parsed.modelCandidates.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('model') as HTMLInputElement | null;
+                    if (input) input.value = m;
+                    setPickedModel(m);
+                  }}
+                  className={`rounded border px-2 py-1 ${
+                    (pickedModel ?? parsed.prefill.model) === m ? 'border-saddle-green bg-saddle-green/10' : 'border-saddle-line bg-white hover:border-saddle-brown'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
           )}
           {parsed.photoNote && <p className="max-w-2xl text-sm text-saddle-brown">{parsed.photoNote}</p>}
           {parsed.warnings.length > 0 && (
