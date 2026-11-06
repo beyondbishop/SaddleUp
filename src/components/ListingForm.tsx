@@ -68,7 +68,7 @@ export default function ListingForm({
    * Admin "quick add" mode: saves a HIDDEN listing with no seller (status 'unclaimed') and hands
    * back its claim token instead of redirecting. Photos are optional; the seller can add or change them after claiming.
    */
-  onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
+  onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean }) => void;
   /** Quick add: where the saddle was found and the seller's name, recorded with the import. */
   importMeta?: { sourceUrl?: string; sellerName?: string };
   /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
@@ -196,7 +196,9 @@ export default function ListingForm({
       onSeeded!({
         id: data.id,
         claim_token: data.claim_token,
-        saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`
+        saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`,
+        price,
+        hasPhotos: images.length > 0
       });
       return;
     }

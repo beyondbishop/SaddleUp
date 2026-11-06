@@ -1,3 +1,5 @@
+import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
+
 export const metadata = { title: 'Seller Agreement' };
 
 export default function SellerAgreementPage() {
@@ -10,8 +12,8 @@ export default function SellerAgreementPage() {
 
       <h2 className="font-semibold mt-6 mb-2">Commission</h2>
       <p>
-        SaddleUp charges a commission of 20% of the final sale price, capped at $500 per
-        transaction. This is deducted before your payout — you never receive an invoice.
+        During our beta, SaddleUp charges a commission of {SELLER_FEE_PERCENT}% of the final sale price, capped at $
+        {SELLER_FEE_CAP_DOLLARS} per transaction. This is deducted before your payout — you never receive an invoice.
       </p>
 
       <h2 className="font-semibold mt-6 mb-2">Payout Timing</h2>

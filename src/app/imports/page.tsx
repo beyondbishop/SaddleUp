@@ -47,7 +47,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
     admin
       .from('listing_imports')
-      .select('listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, brands(name))')
+      .select('listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, images, brands(name))')
       .eq('importer_id', importerId)
       .order('created_at', { ascending: false })
       .limit(500),
@@ -63,7 +63,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     const saddle = l ? `${l.seat_size}" ${l.brands?.name && l.brands.name !== 'Other' ? `${l.brands.name} ` : ''}${l.model}` : 'Saddle';
     const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at);
     const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
-    return { ...r, l, saddle, stage, claimUrl, message: claimUrl ? claimMessage(r.seller_name, saddle, claimUrl) : null };
+    return { ...r, l, saddle, stage, claimUrl, message: claimUrl ? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0 }) : null };
   });
   const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);
 

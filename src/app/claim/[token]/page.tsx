@@ -5,6 +5,17 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
 import GoogleButton from '@/components/GoogleButton';
+import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
+
+const PERKS = [
+  ['Found by the right riders', 'Buyers search by seat size and tree width, so the people who see your saddle are the ones it fits.'],
+  [
+    `Just ${SELLER_FEE_PERCENT}% when it sells`,
+    `We're in beta, so it's free to list and ${SELLER_FEE_PERCENT}% only if it sells (never more than $${SELLER_FEE_CAP_DOLLARS}). No sale, no fee.`
+  ],
+  ['Payment and shipping handled', 'Buyers pay through SaddleUp and we give you the shipping label. No meetups with strangers or chasing payments.'],
+  ['Buyers buy with confidence', 'Every buyer gets a 5-day inspection window, which makes them more willing to buy a saddle they haven’t sat in.']
+] as const;
 
 interface Claimable {
   id: string;
@@ -125,8 +136,10 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
 
   return (
     <div className="py-12 max-w-md mx-auto">
-      <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-saddle-gold mb-2">Free listing</div>
-      <h1 className="font-serif text-3xl text-saddle-ink mb-3">Claim your saddle</h1>
+      <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-saddle-gold mb-2">
+        Free listing · Beta pricing: {SELLER_FEE_PERCENT}% fee
+      </div>
+      <h1 className="font-serif text-3xl text-saddle-ink mb-3">Your saddle is ready to sell</h1>
       <div className="bg-saddle-paper border border-saddle-line rounded p-4 mb-5">
         {images.length > 0 && (
           <div className="flex gap-2 mb-3 overflow-x-auto">
@@ -146,13 +159,25 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           {(listing!.price_cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </div>
       </div>
-      <p className="text-saddle-body mb-6">
-        We set up a free listing for your saddle on SaddleUp, where riders search by tree width and seat size.{' '}
+      <p className="text-saddle-body mb-4">
+        We set up a free listing for your saddle on SaddleUp, the saddle marketplace built around fit.{' '}
         {images.length
-          ? 'It already has your photos and details. Claim it, check everything and add any photos you like'
-          : 'Claim it, add your photos and check the details'}
-        {' '}— it goes live after a quick review. No cost, no obligation to sell here.
+          ? 'It already has your photos and details, so claiming takes about a minute: check everything, add any photos you like, and save'
+          : 'Claim it, add a few photos and check the details'}
+        {' '}— it goes live after a quick review. No obligation: keep it listed elsewhere too, and if it sells there first, just remove it here.
       </p>
+      <ul className="space-y-3 mb-6">
+        {PERKS.map(([title, body]) => (
+          <li key={title} className="flex gap-3">
+            <span className="text-saddle-green font-semibold" aria-hidden>
+              ✓
+            </span>
+            <span className="text-sm">
+              <strong className="text-saddle-ink">{title}.</strong> <span className="text-saddle-body">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
 
       {error && <p className="text-red-700 text-sm mb-3">{error}</p>}
 

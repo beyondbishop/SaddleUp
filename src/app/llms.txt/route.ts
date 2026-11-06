@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SITE_URL, DISCIPLINE_INTROS, brandPath, disciplinePath } from '@/lib/seo';
 import { DISCIPLINE_LABELS, type Discipline } from '@/lib/types';
+import { SELLER_FEE_PERCENT, SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 export const revalidate = 3600;
 
@@ -28,7 +29,7 @@ export async function GET() {
   const lines = [
     '# SaddleUp',
     '',
-    '> SaddleUp (saddleup.me) is a US marketplace for buying and selling used English and Western horse saddles. Every listing includes the exact seat size and tree width (or western bar type), so riders can shop by fit for their horse and themselves. Buyers pay no commission, sellers keep 80%+ of the sale, and every purchase includes a 5-day inspection period with payment held until the buyer confirms the saddle fits.',
+    `> SaddleUp (saddleup.me) is a US marketplace for buying and selling used English and Western horse saddles. Every listing includes the exact seat size and tree width (or western bar type), so riders can shop by fit for their horse and themselves. Buyers pay no commission, sellers keep ${SELLER_KEEPS_PERCENT}% of the sale during the beta (a ${SELLER_FEE_PERCENT}% fee), and every purchase includes a 5-day inspection period with payment held until the buyer confirms the saddle fits.`,
     '',
     '## Key pages',
     `- [Browse all saddles](${SITE_URL}/saddles): filter by discipline, brand, seat size, tree width, panels (wool flocked, foam, CAIR) and price`,

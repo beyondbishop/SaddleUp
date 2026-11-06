@@ -1,3 +1,5 @@
+import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
+
 export const metadata = { title: 'Terms of Service' };
 
 export default function TermsPage() {
@@ -13,7 +15,8 @@ export default function TermsPage() {
         SaddleUp is a marketplace that connects buyers and sellers of used saddles. We are not
         a party to the sale itself — the contract of sale is between the buyer and seller. We
         facilitate payment processing, hold funds during an inspection period, and charge sellers
-        a commission of 20% of the sale price, capped at $500 per transaction.
+        a commission of {SELLER_FEE_PERCENT}% of the sale price during our beta, capped at $
+        {SELLER_FEE_CAP_DOLLARS} per transaction.
       </p>
 
       <h2 className="font-semibold mt-6 mb-2">2. Inspection / Trial Window</h2>

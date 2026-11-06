@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import ListingForm from './ListingForm';
 import type { ParsedListing } from '@/lib/parse-listing-text';
 import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
-import { claimMessage } from '@/lib/claim-message';
+import { claimMessage, type ClaimTips } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
 import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
 import Link from 'next/link';
@@ -43,13 +43,17 @@ async function uploadReadPhoto(photo: ReadPhoto, i: number): Promise<string | nu
   }
 }
 
+type PriceRange = { low: number; typical: number; high: number };
+
 interface Created {
   id: string;
+  /** The read it came from, to look up its price check (which may finish after saving). */
+  key: string;
   saddle: string;
   sellerName: string;
   sourceUrl: string;
   claimUrl: string;
-  message: string;
+  tips: ClaimTips;
 }
 
 export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: number; name: string }[]; siteUrl: string }) {
@@ -62,6 +66,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
         reader: 'ai' | 'rules';
         photoFindings?: string[];
         modelCandidates?: string[];
+        spellingFixes?: string[];
         images: string[];
         photoNote: string | null;
       })
@@ -69,6 +74,12 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   >(null);
   const [step, setStep] = useState<string | null>(null);
   const [pickedModel, setPickedModel] = useState<string | null>(null);
+  // Price checks for the seller message, by read key: a range, null if it failed, or 'loading'.
+  const [ranges, setRanges] = useState<Record<string, PriceRange | null | 'loading'>>({});
+  const messageFor = (c: Created) => {
+    const r = ranges[c.key];
+    return claimMessage(c.sellerName, c.saddle, c.claimUrl, { ...c.tips, priceRange: r && r !== 'loading' ? r : null });
+  };
   const [photos, setPhotos] = useState<(ReadPhoto & { preview: string })[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -134,7 +145,24 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
     setStep(null);
     setError(null);
     setPickedModel(null);
-    setParsed({ ...result, images, photoNote, key: String(Date.now()) });
+    const key = String(Date.now());
+    setParsed({ ...result, images, photoNote, key });
+    // Check what similar saddles sell for, in the background, for the price tip in the seller message.
+    const p = result.prefill;
+    if (result.reader === 'ai' && (p.brand_id || p.model)) {
+      setRanges((prev) => ({ ...prev, [key]: 'loading' }));
+      fetch('/api/price-range', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand_id: p.brand_id, model: p.model, discipline: p.discipline, seat_size: p.seat_size, tree_width: p.tree_width,
+          condition: p.condition, year_manufactured: p.year_manufactured, panel_type: p.panel_type, description: p.description
+        })
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then((r) => setRanges((prev) => ({ ...prev, [key]: r && r.typical ? { low: r.low, typical: r.typical, high: r.high } : null })));
+    }
   }
 
   function reset() {
@@ -162,9 +190,12 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
           </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-[0.14em] text-saddle-gold mb-1">Message to send</div>
-            <p className="text-sm whitespace-pre-wrap bg-saddle-sand border border-saddle-line rounded p-3 mb-2">{latest.message}</p>
+            <p className="text-sm whitespace-pre-wrap bg-saddle-sand border border-saddle-line rounded p-3 mb-2">{messageFor(latest)}</p>
+            {ranges[latest.key] === 'loading' && (
+              <p className="text-xs text-saddle-muted mb-2">Checking what similar saddles sell for, to add a price tip if it would help…</p>
+            )}
             <div className="flex flex-wrap gap-2">
-              <CopyButton text={latest.message} label="Copy message" />
+              <CopyButton text={messageFor(latest)} label="Copy message" />
               {latest.sourceUrl && (
                 <a href={latest.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline text-saddle-brown self-center">
                   Open their post to message them
@@ -318,12 +349,10 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             prefill={parsed.prefill}
             prefillImages={parsed.images}
             importMeta={{ sourceUrl, sellerName }}
-            onSeeded={({ id, claim_token, saddle }) => {
+            onSeeded={({ id, claim_token, saddle, price, hasPhotos }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;
-              setCreated((prev) => [
-                { id, saddle, sellerName, sourceUrl, claimUrl, message: claimMessage(sellerName, saddle, claimUrl) },
-                ...prev
-              ]);
+              const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos };
+              setCreated((prev) => [{ id, key: parsed.key, saddle, sellerName, sourceUrl, claimUrl, tips }, ...prev]);
               reset();
             }}
           />
@@ -341,7 +370,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
                   {c.sellerName ? ` · ${c.sellerName}` : ''}
                 </span>
                 <span className="flex flex-wrap gap-2 items-center">
-                  <CopyButton text={c.message} label="Copy message" />
+                  <CopyButton text={messageFor(c)} label="Copy message" />
                   <MarkMessagedButton listingId={c.id} messagedAt={null} />
                 </span>
               </li>

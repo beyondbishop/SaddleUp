@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import ConnectPayoutsButton from '@/components/ConnectPayoutsButton';
 import DeleteListingButton from '@/components/DeleteListingButton';
 import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
+import { SELLER_FEE_CAP_DOLLARS, SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -52,7 +53,7 @@ export default async function DashboardPage() {
           <p className="text-sm">
             {payoutsStarted
               ? 'Your payout setup isn’t finished yet. Buyers can’t check out on your saddles until Stripe has the details it needs. If you just finished, Stripe may still be reviewing them; check back shortly.'
-              : 'Set up payouts to start receiving money from sales (SaddleUp uses Stripe Connect — you keep 80% of every sale, or the sale price minus $500, whichever is less).'}
+              : `Set up payouts to start receiving money from sales (SaddleUp uses Stripe Connect — during our beta you keep ${SELLER_KEEPS_PERCENT}% of every sale, or the sale price minus $${SELLER_FEE_CAP_DOLLARS}, whichever is less).`}
           </p>
           <ConnectPayoutsButton label={payoutsStarted ? 'Finish Payout Setup' : 'Set Up Payouts'} />
         </div>

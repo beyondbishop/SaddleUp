@@ -3,12 +3,13 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing, type Discipline } from '@/lib/types';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
+import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 const eyebrow = 'font-mono uppercase text-saddle-gold';
 const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
 
 const TRUST = [
-  ['No buyer commission', 'You pay the sticker price. Sellers keep 80%+ of every sale.'],
+  ['No buyer commission', `You pay the sticker price. Sellers keep ${SELLER_KEEPS_PERCENT}% of every sale during our beta.`],
   ['5-day inspection', "Your payment is held until you confirm the saddle fits — or it's returned."],
   ['Fit-first search', 'Filter by tree width, seat size and discipline — not just brand.']
 ];
@@ -130,7 +131,7 @@ export default async function HomePage() {
           </h1>
           <p className="text-lg leading-[1.55] text-saddle-body max-w-[520px] mb-[34px]">
             Every used saddle on SaddleUp is matched to your horse&apos;s back and your own measurements — so you
-            stop guessing and start riding. Buyers pay no commission; sellers keep over 80%.
+            stop guessing and start riding. Buyers pay no commission; sellers keep {SELLER_KEEPS_PERCENT}% during our beta.
           </p>
           <div className="flex gap-3.5 flex-wrap">
             <Link
