@@ -110,7 +110,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
  * saw), set the seller's dispatch deadline, and start the order's history. Never throws: the
  * order already exists, and these details must not make Stripe retry the payment event.
  */
-async function recordPurchaseDetails(session: Stripe.Checkout.Session, listingId: string) {
+async function recordPurchaseDetails(sessionArg: Stripe.Checkout.Session, listingId: string) {
+  let session = sessionArg;
   const sessionId = session.id;
   try {
     const admin = createAdminClient();
@@ -125,8 +126,16 @@ async function recordPurchaseDetails(session: Stripe.Checkout.Session, listingId
     if (!order) return;
     const dispatchDue = addBusinessDays(new Date(order.created_at), DISPATCH_BUSINESS_DAYS);
 
-    // Where it's going (needed for the label). Stripe API 2024-06-20 puts it in shipping_details.
-    const ship = (session as any).shipping_details;
+    // Where it's going (needed for the label). Webhook payloads use the Stripe account's API
+    // version, which may have moved this field, so read the session back with our pinned version
+    // (2024-06-20: shipping_details) and fall back to the newer location.
+    const fresh = await stripe.checkout.sessions.retrieve(sessionId).catch(() => null);
+    const ship =
+      (fresh as any)?.shipping_details ??
+      (fresh as any)?.collected_information?.shipping_details ??
+      (session as any).shipping_details ??
+      (session as any).collected_information?.shipping_details;
+    if (fresh?.customer_details) session = { ...session, customer_details: fresh.customer_details };
     const shipTo = ship?.address
       ? {
           name: ship.name ?? session.customer_details?.name ?? '',
