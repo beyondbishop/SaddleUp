@@ -10,46 +10,70 @@ export interface ClaimTips {
   priceRange?: { low: number; typical: number; high: number } | null;
   /** Whether the hidden listing already has their photos. */
   hasPhotos?: boolean;
+  /** The saddle's discipline, to show what buyers would search for. */
+  discipline?: string | null;
 }
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+
+/** How riders describe each discipline when they search. */
+const STYLE: Record<string, string> = {
+  hunter_jumper: 'close contact',
+  dressage: 'dressage',
+  all_purpose: 'all purpose',
+  eventing: 'eventing',
+  pony_child: 'pony',
+  western: 'western',
+  endurance: 'endurance'
+};
+
+function spelling(t: ClaimTips): { wrong: string; right: string } | null {
+  const [wrong, right] = (t.spellingFixes?.[0] ?? '').split(/\s*(?:→|->)\s*/);
+  return wrong && right ? { wrong, right } : null;
+}
 
 /** Suggest a price only when theirs is clearly above what similar saddles go for. */
 function priceTip(t: ClaimTips): string | null {
   const r = t.priceRange;
   if (!r || !t.askingPrice || t.askingPrice <= r.typical * 1.1) return null;
-  return (
-    `Similar saddles listed right now go for about ${usd(r.low)}–${usd(r.high)}, ` +
-    `so asking around ${usd(r.typical)} would likely help it sell faster.`
-  );
-}
-
-function spellingTip(t: ClaimTips): string | null {
-  const fix = t.spellingFixes?.[0];
-  if (!fix) return null;
-  const [wrong, right] = fix.split(/\s*(?:→|->)\s*/);
-  return right
-    ? `Your post says "${wrong}" - it's spelled "${right}", so riders searching for ${right} on Facebook may not be finding it.`
-    : null;
+  return `Similar saddles are selling for around ${usd(r.typical)}. At ${usd(t.askingPrice)} it may sit longer.`;
 }
 
 /**
- * The message an importer pastes into Messenger. Honest: the listing isn't public until
- * claimed, the fee is the real one, and price advice says where it comes from.
+ * The message an importer pastes into Messenger. Short and useful even if the seller never
+ * claims: tips first, then the free listing. Honest throughout: the listing isn't public until
+ * claimed, the fee is the real one, and the price tip doesn't claim SaddleUp sales data.
+ *
+ * `saddle` reads like `17.5" Pessoa A/O`.
  */
 export function claimMessage(sellerName: string | null | undefined, saddle: string, claimUrl: string, tips: ClaimTips = {}) {
   const first = (sellerName ?? '').trim().split(/\s+/)[0];
-  const noticed = [spellingTip(tips), priceTip(tips)].filter((t): t is string => !!t);
+  const fix = spelling(tips);
+  const price = priceTip(tips);
+  const style = tips.discipline ? STYLE[tips.discipline] : null;
+
+  // What a buyer would type: seat + brand (+ style), e.g. "17.5 Pessoa close contact".
+  const seatBrand = saddle.replace(/"/g, '').split(' ').slice(0, 2).join(' ');
+  const searchFor = `${seatBrand}${style ? ` ${style}` : ''}`;
+
+  const tipLines = [
+    fix ? `• "${fix.wrong}" is spelled "${fix.right}". Buyers search by brand, so fixing it on Facebook helps them find you.` : null,
+    price ? `• ${price}` : null
+  ].filter(Boolean);
 
   return [
-    `Hi${first ? ` ${first}` : ''}! I saw your ${saddle} for sale. I'm with SaddleUp, a new saddle marketplace where riders shop by seat size and tree width, so buyers know it will fit before they buy.`,
-    `I've set up a free listing for yours${tips.hasPhotos ? ' with your photos and details' : ''}, ready to go live: ${claimUrl}`,
-    `We're in beta, so it's just a ${SELLER_FEE_PERCENT}% fee when it sells - nothing to list and nothing if it doesn't sell. We handle the payment and shipping label, and buyers get a 5-day inspection window, so they can buy with confidence.`,
-    ...(noticed.length
-      ? [`${noticed.length === 1 ? 'One thing I noticed' : 'A couple of things I noticed'} that might help:\n${noticed.map((n) => `• ${n}`).join('\n')}`]
-      : []),
-    `If you'd rather not, just ignore this and it never goes public.`
-  ].join('\n\n');
+    `Hi${first ? ` ${first}` : ''}! I came across your ${saddle} saddle.`,
+    tipLines.length
+      ? `${tipLines.length === 1 ? 'A quick tip' : 'Two quick tips'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
+      : null,
+    `Facebook posts only show up on Facebook. I made you a free SaddleUp listing${fix ? ' (spelling fixed)' : ''}${
+      tips.hasPhotos ? ' with your photos' : ''
+    }. Once you claim it, riders can find it on Google and AI search when they look for "${searchFor}":\n${claimUrl}`,
+    `We're in beta: free to list, just ${SELLER_FEE_PERCENT}% if it sells. If you ever want to ship it, we handle the payment and shipping label.`,
+    `No pressure. If you don't claim it, it never goes public.`
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function claimUrlFor(token: string) {
