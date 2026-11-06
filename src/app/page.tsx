@@ -119,10 +119,10 @@ export default async function HomePage() {
               Find My Fit →
             </Link>
             <Link
-              href="/saddles"
+              href={disciplinePath(FOCUS)}
               className="inline-flex items-center text-saddle-brown border border-saddle-brown px-7 py-[15px] rounded-sm font-semibold text-[14.5px] tracking-[0.02em] transition-colors hover:bg-saddle-brown hover:text-saddle-cream"
             >
-              Browse all saddles
+              Browse close contact saddles
             </Link>
           </div>
         </div>
