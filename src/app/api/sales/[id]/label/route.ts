@@ -52,7 +52,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   let label;
   try {
     label = await buyLabel(
-      from,
+      // Shippo requires a sender email; use the seller's account email (not saved to ship_from).
+      { ...from, email: user.email ?? null },
       to,
       parcelFor(order.listing_snapshot as any),
       order.sale_price_cents,

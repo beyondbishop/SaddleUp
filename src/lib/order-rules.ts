@@ -36,7 +36,11 @@ export function addBusinessDays(from: Date, days: number, timeZone = BUSINESS_TZ
 
 export function formatDeadline(iso: string | null | undefined, timeZone = BUSINESS_TZ) {
   if (!iso) return '';
-  return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone, timeZoneName: 'short' });
+  // (dateStyle/timeStyle can't be combined with timeZoneName, so spell the fields out.)
+  return new Date(iso).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZone, timeZoneName: 'short'
+  });
 }
 
 export const ISSUE_REASONS = {
