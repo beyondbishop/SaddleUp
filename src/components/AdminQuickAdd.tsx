@@ -29,6 +29,20 @@ async function toReadPhoto(file: File): Promise<ReadPhoto & { preview: string }>
   return { media_type: 'image/jpeg', data: url.slice(url.indexOf(',') + 1), preview: url };
 }
 
+/** Saves a read photo to listing storage so it can go on the hidden listing. */
+async function uploadReadPhoto(photo: ReadPhoto, i: number): Promise<string | null> {
+  try {
+    const bytes = Uint8Array.from(atob(photo.data), (c) => c.charCodeAt(0));
+    const body = new FormData();
+    body.append('file', new File([bytes], `import-${Date.now()}-${i + 1}.jpg`, { type: 'image/jpeg' }));
+    const res = await fetch('/api/listings/upload-image', { method: 'POST', body, signal: AbortSignal.timeout(60_000) });
+    const data = await res.json().catch(() => ({}));
+    return res.ok && data.url ? data.url : null;
+  } catch {
+    return null;
+  }
+}
+
 interface Created {
   id: string;
   saddle: string;
@@ -42,7 +56,10 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
   const [text, setText] = useState('');
   const [sellerName, setSellerName] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [parsed, setParsed] = useState<(ParsedListing & { key: string; reader: 'ai' | 'rules'; photoFindings?: string[] }) | null>(null);
+  const [parsed, setParsed] = useState<
+    (ParsedListing & { key: string; reader: 'ai' | 'rules'; photoFindings?: string[]; images: string[]; photoNote: string | null }) | null
+  >(null);
+  const [step, setStep] = useState<string | null>(null);
   const [photos, setPhotos] = useState<(ReadPhoto & { preview: string })[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -75,18 +92,39 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
       return;
     }
     setReading(true);
-    const result = await readListingText(text, brands, photos.map(({ media_type, data }) => ({ media_type, data })));
-    setReading(false);
+    setStep(photos.length ? 'Reading the post and photos…' : 'Reading…');
+    const sent = photos.map(({ media_type, data }) => ({ media_type, data }));
+    const result = await readListingText(text, brands, sent);
     if ('error' in result) {
+      setReading(false);
       setError(result.error);
       return;
     }
     if (!result.found.length && !result.photoFindings?.length) {
+      setReading(false);
       setError(photos.length ? "Couldn't pick out any saddle details from that text or those photos." : "Couldn't pick out any saddle details from that text.");
       return;
     }
+    // Saddle and stamp photos go on the hidden listing so the seller starts with them; screenshots don't.
+    const keep = sent.filter((_, i) => (result.photoKinds?.[i] ?? 'saddle') === 'saddle' || result.photoKinds?.[i] === 'stamp');
+    let images: string[] = [];
+    if (keep.length) {
+      setStep(`Saving ${keep.length} photo${keep.length === 1 ? '' : 's'} to the listing…`);
+      images = (await Promise.all(keep.map(uploadReadPhoto))).filter((u): u is string => !!u);
+    }
+    const skipped = sent.length - keep.length;
+    const failed = keep.length - images.length;
+    const photoNote =
+      [
+        skipped ? `Left off ${skipped} screenshot${skipped === 1 ? '' : 's'}.` : '',
+        failed ? `${failed} photo${failed === 1 ? '' : 's'} couldn't be saved - add ${failed === 1 ? 'it' : 'them'} below.` : ''
+      ]
+        .filter(Boolean)
+        .join(' ') || null;
+    setReading(false);
+    setStep(null);
     setError(null);
-    setParsed({ ...result, key: String(Date.now()) });
+    setParsed({ ...result, images, photoNote, key: String(Date.now()) });
   }
 
   function reset() {
@@ -162,8 +200,8 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
           >
             <span className="font-semibold text-saddle-ink">📷 Add photos to read (optional)</span>
             <span className="block text-saddle-muted">
-              The stamp under the flap, the logo, or screenshots of the post. We read them to fill in blanks. They aren&apos;t saved or
-              put on the listing.
+              Saddle photos, the stamp under the flap, or screenshots of the post. We read them to fill in blanks, and the saddle
+              photos go on the listing so the seller starts with them.
             </span>
             <input
               ref={photoInput}
@@ -211,7 +249,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
           </div>
           {error && <p className="text-red-700 text-sm">{error}</p>}
           <button type="submit" disabled={reading} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
-            {reading ? (photos.length ? 'Reading text and photos…' : 'Reading…') : 'Fill in details'}
+            {reading ? step ?? 'Reading…' : 'Fill in details'}
           </button>
         </form>
       ) : (
@@ -234,6 +272,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
               ))}
             </ul>
           )}
+          {parsed.photoNote && <p className="max-w-2xl text-sm text-saddle-brown">{parsed.photoNote}</p>}
           {parsed.warnings.length > 0 && (
             <ul className="max-w-2xl text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 space-y-1">
               <li className="font-semibold">Double-check before saving (this won't stop you saving):</li>
@@ -246,6 +285,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             key={parsed.key}
             brands={brands}
             prefill={parsed.prefill}
+            prefillImages={parsed.images}
             importMeta={{ sourceUrl, sellerName }}
             onSeeded={({ id, claim_token, saddle }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;

@@ -31,8 +31,10 @@ export default async function EditListingPage({
         <div className="max-w-2xl bg-saddle-sand border border-saddle-line rounded p-4 mb-6">
           <p className="font-serif text-xl text-saddle-ink mb-1">It&apos;s yours — one last step</p>
           <p className="text-sm text-saddle-muted">
-            Add a few photos and check the details below, then save. Your listing goes live after a quick review
-            (usually same-day).
+            {listing.images?.length
+              ? 'Your photos are already on it. Check the details and photos below, add more if you like, then save.'
+              : 'Add a few photos and check the details below, then save.'}{' '}
+            Your listing goes live after a quick review (usually same-day).
           </p>
         </div>
       )}

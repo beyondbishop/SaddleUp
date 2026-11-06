@@ -28,13 +28,18 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
-      const [{ data }, { data: auth }] = await Promise.all([
+      const [{ data }, { data: auth }, photos] = await Promise.all([
         supabase.rpc('get_claimable_listing', { p_token: params.token }),
-        supabase.auth.getUser()
+        supabase.auth.getUser(),
+        fetch(`/api/claim/${params.token}`)
+          .then((r) => (r.ok ? r.json() : { images: [] }))
+          .catch(() => ({ images: [] }))
       ]);
+      setImages(Array.isArray(photos?.images) ? photos.images : []);
       const row = (data as Claimable[] | null)?.[0];
       if (!row) return setStatus('not_found');
       setListing(row);
@@ -123,6 +128,18 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
       <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-saddle-gold mb-2">Free listing</div>
       <h1 className="font-serif text-3xl text-saddle-ink mb-3">Claim your saddle</h1>
       <div className="bg-saddle-paper border border-saddle-line rounded p-4 mb-5">
+        {images.length > 0 && (
+          <div className="flex gap-2 mb-3 overflow-x-auto">
+            {images.map((src, i) => (
+              <img
+                key={src}
+                src={src}
+                alt={i === 0 ? saddleName : ''}
+                className={`${i === 0 ? 'h-40 w-56' : 'h-40 w-28'} shrink-0 object-cover rounded border border-saddle-line`}
+              />
+            ))}
+          </div>
+        )}
         <div className="font-serif text-xl text-saddle-ink">{saddleName}</div>
         <div className="text-sm text-saddle-muted">
           {TREE_WIDTH_LABELS[listing!.tree_width]} Tree · $
@@ -130,8 +147,11 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
         </div>
       </div>
       <p className="text-saddle-body mb-6">
-        We set up a free listing for your saddle on SaddleUp, where riders search by tree width and seat size. Claim it,
-        add your photos and check the details — it goes live after a quick review. No cost, no obligation to sell here.
+        We set up a free listing for your saddle on SaddleUp, where riders search by tree width and seat size.{' '}
+        {images.length
+          ? 'It already has your photos and details. Claim it, check everything and add any photos you like'
+          : 'Claim it, add your photos and check the details'}
+        {' '}— it goes live after a quick review. No cost, no obligation to sell here.
       </p>
 
       {error && <p className="text-red-700 text-sm mb-3">{error}</p>}

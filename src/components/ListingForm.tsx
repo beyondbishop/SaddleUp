@@ -65,7 +65,7 @@ export default function ListingForm({
   ebaySource?: EbaySource;
   /**
    * Admin "quick add" mode: saves a HIDDEN listing with no seller (status 'unclaimed') and hands
-   * back its claim token instead of redirecting. The seller adds their own photos when they claim.
+   * back its claim token instead of redirecting. Photos are optional; the seller can add or change them after claiming.
    */
   onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
   /** Quick add: where the saddle was found and the seller's name, recorded with the import. */
@@ -398,12 +398,12 @@ export default function ListingForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">Tree Width — exact (cm, optional)</label>
-          <input name="tree_width_cm" type="number" step="0.1" defaultValue={(existing as any)?.tree_width_cm ?? ''} className="w-full border rounded p-2" />
+          <input name="tree_width_cm" type="number" step="0.1" defaultValue={(existing as any)?.tree_width_cm ?? prefill?.tree_width_cm ?? ''} className="w-full border rounded p-2" />
           <p className="text-xs text-gray-500 mt-1">Fill this in if you know it — it powers the horse-fit matcher.</p>
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Panel Length (cm, optional)</label>
-          <input name="panel_length_cm" type="number" step="0.1" defaultValue={(existing as any)?.panel_length_cm ?? ''} className="w-full border rounded p-2" />
+          <input name="panel_length_cm" type="number" step="0.1" defaultValue={(existing as any)?.panel_length_cm ?? prefill?.panel_length_cm ?? ''} className="w-full border rounded p-2" />
         </div>
       </div>
 
@@ -467,12 +467,12 @@ export default function ListingForm({
         <textarea name="description" rows={5} defaultValue={existing?.description ?? prefill?.description ?? ''} className="w-full border rounded p-2" />
       </div>
 
-      {onSeeded ? (
-        <p className="text-sm text-saddle-muted bg-saddle-paper border border-saddle-line rounded p-3">
-          No photos needed — the seller adds their own when they claim the listing.
-        </p>
-      ) : (
       <div>
+        {onSeeded && (
+          <p className="text-xs text-saddle-muted mb-1">
+            Optional. Photos here go on the hidden listing, so the seller sees their saddle when they claim it and can add or change them.
+          </p>
+        )}
         <PhotoUploader images={images} setImages={setImages} />
         {existing && photoSave !== 'idle' && (
           <p className={`text-sm mt-1 ${photoSave === 'error' ? 'text-red-700' : 'text-saddle-green'}`}>
@@ -482,7 +482,6 @@ export default function ListingForm({
           </p>
         )}
       </div>
-      )}
 
       {ebaySource && !existing && (
         <label className="flex items-start gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-3">

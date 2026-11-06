@@ -4,7 +4,7 @@
 import { parseListingText, type ParsedListing } from './parse-listing-text';
 
 export type ReadPhoto = { media_type: 'image/jpeg'; data: string };
-export type ReadResult = ParsedListing & { reader: 'ai' | 'rules'; photoFindings?: string[] };
+export type ReadResult = ParsedListing & { reader: 'ai' | 'rules'; photoFindings?: string[]; photoKinds?: ('saddle' | 'stamp' | 'screenshot' | 'other')[] };
 
 export async function readListingText(
   text: string,

@@ -32,9 +32,12 @@ function schemaFor(brandNames: string[]) {
     panel_type: z.string().nullable(),
     trial_policy: z.enum(['local_trial', 'trial', 'no_trial']).nullable(),
     panel_flocking: z.enum(['wool', 'foam', 'cair']).nullable(),
+    tree_width_cm: z.number().nullable(),
+    panel_length_cm: z.number().nullable(),
     description: z.string(),
     warnings: z.array(z.string()),
-    photo_findings: z.array(z.string())
+    photo_findings: z.array(z.string()),
+    photo_kinds: z.array(z.enum(['saddle', 'stamp', 'screenshot', 'other']))
   });
 }
 
@@ -64,19 +67,27 @@ description: write a clean listing description from the post, for buyers on Sadd
 - Make it consistent: one way of writing each thing (17.5", Havana), no repeated facts, plain sentences. Plain text only - no markdown, no asterisks or headings with #.
 - Shape: a 1-3 sentence summary paragraph, then where useful short sections each starting with a label line ("Specifications", "Condition", "Included", "Shipping") followed by lines starting with "• ". Keep it about as long as the original or shorter.
 
-Photos: you may also get photos of the saddle and/or screenshots of the post. The listing text may then be short or empty.
+Photos: you may also get photos of the saddle and/or screenshots of the post. The listing text may then be short or empty. Photos are there to fill in what the post leaves out, so read them closely and fill every field you can support.
 - Treat text in a screenshot of the post exactly like pasted listing text.
-- Use the saddle photos to fill fields the text leaves blank. Look for the maker's stamp, plate or tag (usually under the flap, on the skirt, the stirrup bar area or the cantle) and read seat size, tree width or gullet number, flap size, serial number and date/year from it. Read brand logos and nameplates on the cantle, flap or pommel.
-- Only fill a field from a photo when it is clearly legible. Never guess a seat size, tree or year from how the saddle looks. Brand from a clear logo or stamp is fine; model only if it is written on the saddle.
-- color may come from the photos. condition only when wear is obvious (e.g. cracked or very worn leather = fair); otherwise leave it null.
+- Stamps: look for the maker's stamp, plate, tag or sticker (under the flap, on the skirt, by the stirrup bar, on the panel or the cantle) and read everything on it: seat size, tree width or gullet, flap size/length, panel size, serial number, date or year code, model. Read brand logos and nameplates on the cantle, flap, pommel or stirrup bar cover.
+- Tree from a stamp: letter codes map directly (N = narrow, MN = medium_narrow, M = medium, MW = medium_wide, W = wide, XW/XXW = x_wide). A gullet or tree measurement in cm (e.g. "31", "32 cm", "T32") goes in tree_width_cm; also set tree_width from it when you know that maker's size chart well, otherwise leave tree_width null and add a warning such as "Stamp shows a 32 cm tree - pick the width". Maker words ("normale", "regular", "large") follow the tree rules above. A changeable gullet system you can see (e.g. a gullet plate or Easy-Change) = adjustable.
+- panel_length_cm from a panel size on the stamp or text, in cm.
+- Flap code from a stamp (e.g. "2A", "3L", "+2 forward") goes in panel_type, along with what you can see: monoflap, long or short flap, forward or straight flap, knee blocks.
+- discipline may come from the saddle's shape when it's clear: forward flap close contact = hunter_jumper, long straight flap with deep seat = dressage, horn and fenders = western, moderately forward flap = all_purpose.
+- year_manufactured from a date stamp, or from a serial or date code only when you know that maker's format.
+- color from the photos. condition from the photos when the leather is clearly visible: excellent (no visible wear), good (normal wear, some marks on seat or flaps), fair (cracking, scuffs through the finish, torn stitching, very worn). Mention what you saw in photo_findings.
+- Never guess a seat size from how the saddle looks. Model only if it is written on the saddle or the post.
 - The seller's text wins. If a photo clearly disagrees with the text (stamp says 17, post says 17.5), keep the text's value and add a warning naming both.
-- Put stamp details that have no field of their own (serial number, date code, flap size) into the description's Specifications section, and only facts you can read.
-- photo_findings: one short note per thing you read or saw in the photos that you used, e.g. "Stamp: 17.5 seat, 2A flap, serial 0412" or "Logo on cantle: CWD". Empty list when no photos were sent or nothing useful was readable.`;
+- Put stamp details with no field of their own (serial number, date code, flap size) in the description's Specifications section, only as facts you can read.
+- photo_findings: one short note per thing you read or saw in the photos and used, e.g. "Stamp: 17.5 seat, MW tree, 2A flap, serial 0412" or "Condition: light wear on seat and knee rolls". Empty list when there were no photos or nothing useful in them.
+- photo_kinds: one entry per photo, in the order sent: saddle (shows the saddle or a part of it), stamp (close-up of a stamp, plate or tag), screenshot (a screenshot of the post, a message or a web page), other. Empty list when no photos were sent.`;
 
 export interface AiParseResult {
   prefill: ListingPrefill;
   warnings: string[];
   photoFindings: string[];
+  /** One per photo sent: what it shows. Screenshots shouldn't go on the listing. */
+  photoKinds: ('saddle' | 'stamp' | 'screenshot' | 'other')[];
 }
 
 export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string };
@@ -90,7 +101,7 @@ export async function aiParseListing(
   const brandNames = brands.map((b) => b.name);
   if (!brandNames.length) throw new Error('No brands loaded');
 
-  const client = new Anthropic({ timeout: 45_000, maxRetries: 1 });
+  const client = new Anthropic({ timeout: photos.length ? 55_000 : 45_000, maxRetries: photos.length ? 0 : 1 });
   const brandList = brands
     .map((b) => `${b.name} (${brandInfo(b.name).type === 'western' ? 'western' : brandInfo(b.name).type === 'english' ? 'english' : 'any'})`)
     .join(', ');
@@ -146,9 +157,12 @@ export async function aiParseListing(
       location_state: state,
       trial_policy: out.trial_policy,
       panel_flocking: out.panel_flocking,
-      location_zip: out.zip && /^\d{5}$/.test(out.zip.trim()) ? out.zip.trim() : null
+      location_zip: out.zip && /^\d{5}$/.test(out.zip.trim()) ? out.zip.trim() : null,
+      tree_width_cm: out.tree_width_cm != null && out.tree_width_cm >= 20 && out.tree_width_cm <= 45 ? Math.round(out.tree_width_cm * 10) / 10 : null,
+      panel_length_cm: out.panel_length_cm != null && out.panel_length_cm >= 30 && out.panel_length_cm <= 80 ? Math.round(out.panel_length_cm * 10) / 10 : null
     },
     warnings: out.warnings.filter((w) => w.trim()).slice(0, 5),
-    photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 8)
+    photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 10),
+    photoKinds: photos.map((_, i) => out.photo_kinds[i] ?? 'saddle')
   };
 }

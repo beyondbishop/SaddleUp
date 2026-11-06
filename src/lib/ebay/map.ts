@@ -36,6 +36,8 @@ export interface ListingPrefill {
   trial_policy?: import('../types').TrialPolicy | null;
   location_zip?: string | null;
   panel_flocking?: import('../types').PanelFlocking | null;
+  tree_width_cm?: number | null;
+  panel_length_cm?: number | null;
 }
 
 export interface EbaySource {

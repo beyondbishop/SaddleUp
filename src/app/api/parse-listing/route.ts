@@ -8,6 +8,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { aiParseListing, aiReaderConfigured, type ListingPhoto } from '@/lib/ai-parse-listing';
 import { parseListingText, summarizeFill } from '@/lib/parse-listing-text';
+import { zipForCity } from '@/lib/zip-lookup';
+import type { ListingPrefill } from '@/lib/ebay/map';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,8 +38,9 @@ export async function POST(req: Request) {
 
   if (aiReaderConfigured() && brands?.length) {
     try {
-      const { prefill, warnings, photoFindings } = await aiParseListing(text, brands, photos);
-      return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, photoFindings, reader: 'ai' });
+      const { prefill, warnings, photoFindings, photoKinds } = await aiParseListing(text, brands, photos);
+      await addZip(prefill);
+      return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, photoFindings, photoKinds, reader: 'ai' });
     } catch (e) {
       console.error('AI listing reader failed; using rules instead', e);
     }
@@ -49,7 +52,15 @@ export async function POST(req: Request) {
   if (!text.trim()) return NextResponse.json({ error: photoNote }, { status: 503 });
 
   const parsed = parseListingText(text, brands ?? []);
+  await addZip(parsed.prefill);
   return NextResponse.json({ ...parsed, warnings: photos.length ? [...parsed.warnings, photoNote] : parsed.warnings, reader: 'rules' });
+}
+
+/** Post gave a town but no ZIP: look one up so the ZIP box is filled in too. */
+async function addZip(prefill: ListingPrefill) {
+  if (prefill.location_zip) return;
+  const zip = await zipForCity(prefill.location_city, prefill.location_state);
+  if (zip) prefill.location_zip = zip;
 }
 
 const MAX_PHOTOS = 6;
