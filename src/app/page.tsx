@@ -105,7 +105,7 @@ export default async function HomePage() {
         <div>
           <div className={`${eyebrow} text-[11px] tracking-[0.24em] mb-[22px]`}>Used close contact jumping saddles</div>
           <h1 className="font-serif font-normal text-[34px] sm:text-[42px] min-[900px]:text-[60px] leading-[1.02] tracking-[-0.01em] text-saddle-ink mb-6">
-            The close contact saddle that fits — your horse, and your budget.
+            Find the saddle that fits your horse and your budget.
           </h1>
           <p className="text-lg leading-[1.55] text-saddle-body max-w-[520px] mb-[34px]">
             Every used close contact saddle on SaddleUp is listed with its seat size and tree width, so you can match it
