@@ -11,10 +11,12 @@ export default async function Navbar() {
 
   // Admins get an Admin section and a count of listings waiting for review.
   let isAdmin = false;
+  let isImporter = false;
   let pendingCount = 0;
   if (user) {
-    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('is_admin, is_importer').eq('id', user.id).single();
     isAdmin = !!profile?.is_admin;
+    isImporter = isAdmin || !!profile?.is_importer;
     if (isAdmin) {
       const { count } = await supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'draft');
       pendingCount = count ?? 0;
@@ -33,7 +35,7 @@ export default async function Navbar() {
           <Link href="/match" className="hover:text-saddle-brown">Find My Fit</Link>
           <Link href="/dashboard" className="hover:text-saddle-brown">Sell a Saddle</Link>
           {user ? (
-            <AccountMenu isAdmin={isAdmin} pendingCount={pendingCount} />
+            <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount} />
           ) : (
             <SignInLink
               className="text-[13px] font-semibold text-saddle-brown border border-saddle-tan-line px-[18px] py-[9px] rounded-sm whitespace-nowrap transition-colors hover:bg-saddle-brown hover:text-saddle-cream hover:border-saddle-brown"

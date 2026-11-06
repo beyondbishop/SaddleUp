@@ -4,40 +4,18 @@ import { useState } from 'react';
 import ListingForm from './ListingForm';
 import type { ParsedListing } from '@/lib/parse-listing-text';
 import { readListingText } from '@/lib/read-listing-text';
+import { claimMessage } from '@/lib/claim-message';
+import CopyButton from '@/components/imports/CopyButton';
+import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
+import Link from 'next/link';
 
 interface Created {
+  id: string;
   saddle: string;
   sellerName: string;
   sourceUrl: string;
   claimUrl: string;
   message: string;
-}
-
-function draftMessage(sellerName: string, saddle: string, claimUrl: string) {
-  const first = sellerName.trim().split(/\s+/)[0];
-  return (
-    `Hi${first ? ` ${first}` : ''}! I saw your ${saddle} for sale. I run SaddleUp, a marketplace where riders search ` +
-    `saddles by tree width and seat size. I set up a free listing for yours — if you'd like more buyers to see it, ` +
-    `you can claim it here (no cost, no obligation): ${claimUrl}\n` +
-    `If you'd rather not, just ignore this and it never goes public.`
-  );
-}
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="text-sm border border-saddle-brown text-saddle-brown px-3 py-1.5 rounded-sm hover:bg-saddle-brown hover:text-saddle-cream"
-    >
-      {copied ? 'Copied ✓' : label}
-    </button>
-  );
 }
 
 export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: number; name: string }[]; siteUrl: string }) {
@@ -93,7 +71,11 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
                   Open their post to message them
                 </a>
               )}
+              <MarkMessagedButton listingId={latest.id} messagedAt={null} />
             </div>
+            <p className="text-xs text-saddle-muted mt-2">
+              Every saddle you add is on <Link href="/imports" className="underline">My imports</Link>, so you can come back to it.
+            </p>
           </div>
         </section>
       )}
@@ -151,10 +133,11 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             key={parsed.key}
             brands={brands}
             prefill={parsed.prefill}
-            onSeeded={({ claim_token, saddle }) => {
+            importMeta={{ sourceUrl, sellerName }}
+            onSeeded={({ id, claim_token, saddle }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;
               setCreated((prev) => [
-                { saddle, sellerName, sourceUrl, claimUrl, message: draftMessage(sellerName, saddle, claimUrl) },
+                { id, saddle, sellerName, sourceUrl, claimUrl, message: claimMessage(sellerName, saddle, claimUrl) },
                 ...prev
               ]);
               reset();
@@ -173,8 +156,9 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
                   <strong>{c.saddle}</strong>
                   {c.sellerName ? ` · ${c.sellerName}` : ''}
                 </span>
-                <span className="flex gap-2">
+                <span className="flex flex-wrap gap-2 items-center">
                   <CopyButton text={c.message} label="Copy message" />
+                  <MarkMessagedButton listingId={c.id} messagedAt={null} />
                 </span>
               </li>
             ))}

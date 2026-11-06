@@ -55,6 +55,7 @@ export default function ListingForm({
   prefillImages,
   ebaySource,
   onSeeded,
+  importMeta,
   afterSave = '/dashboard'
 }: {
   brands: { id: number; name: string }[];
@@ -67,6 +68,8 @@ export default function ListingForm({
    * back its claim token instead of redirecting. The seller adds their own photos when they claim.
    */
   onSeeded?: (listing: { id: string; claim_token: string; saddle: string }) => void;
+  /** Quick add: where the saddle was found and the seller's name, recorded with the import. */
+  importMeta?: { sourceUrl?: string; sellerName?: string };
   /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
   afterSave?: string;
 }) {
@@ -178,7 +181,7 @@ export default function ListingForm({
     const mode = existing ? 'update' : onSeeded ? 'seed' : 'create';
     const { ok, data } = await postWithTimeout(
       '/api/listings/save',
-      JSON.stringify({ mode, id: existing?.id, listing: payload })
+      JSON.stringify({ mode, id: existing?.id, listing: payload, ...(mode === 'seed' ? { import: importMeta ?? {} } : {}) })
     );
     setSaving(false);
     if (!ok) return setError(data.error ?? "Couldn't save — please try again.");

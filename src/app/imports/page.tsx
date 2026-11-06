@@ -1,0 +1,119 @@
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { createAdminClient } from '@/lib/supabase/server';
+import { getViewer } from '@/lib/roles';
+import { isUuid } from '@/lib/lists-server';
+import { claimMessage, claimUrlFor } from '@/lib/claim-message';
+import CopyButton from '@/components/imports/CopyButton';
+import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
+
+export const dynamic = 'force-dynamic';
+export const metadata = { title: 'My imports', robots: { index: false } };
+
+const FOLLOW_UP_DAYS = 5;
+
+type Stage = 'to_message' | 'follow_up' | 'waiting' | 'claimed' | 'live' | 'sold' | 'removed';
+const STAGE_LABEL: Record<Stage, string> = {
+  to_message: 'Message the seller',
+  follow_up: 'Follow up',
+  waiting: 'Waiting for the seller',
+  claimed: 'Claimed: seller is finishing it',
+  live: 'Live',
+  sold: 'Sold',
+  removed: 'Removed'
+};
+const STAGE_ORDER: Stage[] = ['to_message', 'follow_up', 'waiting', 'claimed', 'live', 'sold', 'removed'];
+
+function stageOf(status: string | undefined, claimedAt: string | null, messagedAt: string | null): Stage {
+  if (status === 'sold') return 'sold';
+  if (status === 'active' || status === 'pending_sale') return 'live';
+  if (status === 'removed') return 'removed';
+  if (claimedAt) return 'claimed';
+  if (!messagedAt) return 'to_message';
+  return Date.now() - new Date(messagedAt).getTime() > FOLLOW_UP_DAYS * 86_400_000 ? 'follow_up' : 'waiting';
+}
+
+export default async function ImportsPage({ searchParams }: { searchParams: { importer?: string } }) {
+  const { user, isAdmin, isImporter } = await getViewer();
+  if (!user) redirect('/auth/login?next=/imports');
+  if (!isImporter) redirect('/');
+
+  // Admins can look at anyone's imports (linked from the Users page).
+  const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
+  const admin = createAdminClient();
+  const [{ data: rows }, { data: who }] = await Promise.all([
+    admin
+      .from('listing_imports')
+      .select('listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, brands(name))')
+      .eq('importer_id', importerId)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null })
+  ]);
+
+  const items = (rows ?? []).map((r: any) => {
+    const l = r.listings;
+    const saddle = l ? `${l.seat_size}" ${l.brands?.name && l.brands.name !== 'Other' ? `${l.brands.name} ` : ''}${l.model}` : 'Saddle';
+    const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at);
+    const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
+    return { ...r, l, saddle, stage, claimUrl, message: claimUrl ? claimMessage(r.seller_name, saddle, claimUrl) : null };
+  });
+  const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);
+
+  return (
+    <div className="py-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+        <h1 className="font-serif text-3xl text-saddle-ink">
+          {who ? `Imports by ${who.full_name || who.email}` : 'My imports'}
+        </h1>
+        {!who && <Link href="/imports/new" className="bg-saddle-green text-white rounded px-4 py-2 font-semibold text-sm">+ Add a saddle</Link>}
+      </div>
+      <p className="text-saddle-muted mb-4">{items.length} saddles added</p>
+
+      <ul className="flex flex-wrap gap-2 mb-6 text-sm">
+        {counts.filter(([, n]) => n > 0).map(([s, n]) => (
+          <li key={s} className="bg-white border border-saddle-line rounded px-3 py-1">{STAGE_LABEL[s]}: <strong>{n}</strong></li>
+        ))}
+      </ul>
+
+      {items.length === 0 && (
+        <p className="text-gray-600">Nothing yet. <Link href="/imports/new" className="underline">Add the first saddle you&apos;ve found.</Link></p>
+      )}
+
+      <ul className="space-y-3">
+        {items.map((i) => (
+          <li key={i.listing_id} className="bg-white border border-saddle-line rounded p-4">
+            <div className="flex flex-wrap justify-between gap-2">
+              <div>
+                <p className="font-semibold text-saddle-brown">{i.saddle}</p>
+                <p className="text-sm text-gray-600">
+                  {i.seller_name ? `${i.seller_name} · ` : ''}added {new Date(i.created_at).toLocaleDateString('en-US')}
+                </p>
+              </div>
+              <span className={`text-sm font-semibold ${i.stage === 'follow_up' || i.stage === 'to_message' ? 'text-saddle-brown' : i.stage === 'sold' || i.stage === 'live' ? 'text-saddle-green' : 'text-gray-600'}`}>
+                {STAGE_LABEL[i.stage as Stage]}
+              </span>
+            </div>
+
+            {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting') && i.message && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <CopyButton text={i.message} label={i.stage === 'follow_up' ? 'Copy message to resend' : 'Copy message'} />
+                <CopyButton text={i.claimUrl!} label="Copy claim link" />
+                {i.source_url && (
+                  <a href={i.source_url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-saddle-brown">Open their post</a>
+                )}
+                {!who && <MarkMessagedButton listingId={i.listing_id} messagedAt={i.messaged_at} />}
+              </div>
+            )}
+            {i.stage === 'follow_up' && (
+              <p className="text-xs text-gray-600 mt-2">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>
+            )}
+            {(i.stage === 'live' || i.stage === 'sold') && i.l?.slug && (
+              <Link href={`/saddles/${i.l.slug}`} className="text-sm underline mt-2 inline-block">View listing</Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

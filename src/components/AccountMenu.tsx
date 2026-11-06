@@ -6,7 +6,7 @@ import Link from 'next/link';
 const item = 'block px-4 py-2 text-sm hover:bg-saddle-cream';
 const heading = 'px-4 pt-2 pb-1 font-mono text-[10px] tracking-[0.16em] uppercase text-saddle-gold';
 
-export default function AccountMenu({ isAdmin, pendingCount = 0 }: { isAdmin: boolean; pendingCount?: number }) {
+export default function AccountMenu({ isAdmin, isImporter = false, pendingCount = 0 }: { isAdmin: boolean; isImporter?: boolean; pendingCount?: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -50,6 +50,14 @@ export default function AccountMenu({ isAdmin, pendingCount = 0 }: { isAdmin: bo
           <Link href="/orders" className={item}>Orders</Link>
           <Link href="/messages" className={item}>Messages</Link>
 
+          {isImporter && (
+            <>
+              <div className={heading}>Importing</div>
+              <Link href="/imports/new" className={item}>Add a saddle you found</Link>
+              <Link href="/imports" className={item}>My imports</Link>
+            </>
+          )}
+
           {isAdmin && (
             <>
               <div className={heading}>Admin</div>
@@ -57,7 +65,7 @@ export default function AccountMenu({ isAdmin, pendingCount = 0 }: { isAdmin: bo
                 Review listings
                 {pendingCount > 0 && <span className="text-saddle-green font-semibold">{pendingCount}</span>}
               </Link>
-              <Link href="/admin/quick-add" className={item}>Quick add a saddle</Link>
+              <Link href="/admin/users" className={item}>Users</Link>
             </>
           )}
 
