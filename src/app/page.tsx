@@ -228,7 +228,7 @@ export default async function HomePage() {
             />
           </div>
           <div>
-            <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Family-run, not a big company</div>
+            <div className={`${eyebrow} text-[11px] tracking-[0.2em] mb-3`}>Family-run</div>
             <h2 className={`${sectionH2} mb-4`}>Built by a horse family, for horse families.</h2>
             <p className="text-[17px] leading-[1.7] text-saddle-body mb-4">
               Hi, I&apos;m Danielle, a mom of three boys, two of whom ride. I once had a saddle custom made for my horse,

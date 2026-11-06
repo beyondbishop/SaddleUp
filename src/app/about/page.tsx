@@ -27,8 +27,8 @@ export default function AboutPage() {
             SaddleUp started with a saddle that didn&apos;t fit.
           </h1>
           <p className="text-lg leading-relaxed text-saddle-body">
-            Hi, I&apos;m Danielle Bishop. I&apos;m a mom of three boys, and two of them have horses of their own. SaddleUp isn&apos;t a
-            big company. It&apos;s my answer to a problem my family has lived with.
+            Hi, I&apos;m Danielle Bishop. I&apos;m a mom of three boys, and two of them have horses of their own.
+            SaddleUp is my answer to a problem my family has lived with.
           </p>
         </div>
         <figure>

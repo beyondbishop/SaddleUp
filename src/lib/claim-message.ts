@@ -69,7 +69,7 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
       ? `${tipLines.length === 1 ? 'A quick tip' : 'Two quick tips'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
       : null,
     tips.fromFounder
-      ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy. We're a small family, not a big company: ${siteUrl()}/about`
+      ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy. Our story: ${siteUrl()}/about`
       : `SaddleUp was started by a horse mom who's been through the pain of trying to sell a saddle, to make it easy. Her story: ${siteUrl()}/about`,
     `Facebook posts only show up on Facebook. I made you a free SaddleUp listing${fix ? ' (spelling fixed)' : ''}${
       tips.hasPhotos ? ' with your photos' : ''
