@@ -5,6 +5,8 @@
 // each AI read costs money.
 
 import { NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
+import { getViewer } from '@/lib/roles';
 import { createClient } from '@/lib/supabase/server';
 import { aiParseListing, aiReaderConfigured, type ListingPhoto } from '@/lib/ai-parse-listing';
 import { parseListingText, summarizeFill } from '@/lib/parse-listing-text';
@@ -36,6 +38,7 @@ export async function POST(req: Request) {
 
   const { data: brands } = await supabase.from('brands').select('id, name');
 
+  let aiError: string | null = null;
   if (aiReaderConfigured() && brands?.length) {
     try {
       const { prefill, warnings, photoFindings, photoKinds } = await aiParseListing(text, brands, photos);
@@ -43,17 +46,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, photoFindings, photoKinds, reader: 'ai' });
     } catch (e) {
       console.error('AI listing reader failed; using rules instead', e);
+      aiError = describeAiError(e);
     }
   }
 
   const photoNote = aiReaderConfigured()
     ? "The photo reader didn't respond, so the photos weren't read this time."
     : "Reading photos needs the AI reader, which isn't switched on yet (no ANTHROPIC_API_KEY).";
-  if (!text.trim()) return NextResponse.json({ error: photoNote }, { status: 503 });
+  // Importers see why the AI reader failed, so a setup problem (bad key, no credit) is visible.
+  const debug = aiError && (await getViewer()).isImporter ? { aiError } : {};
+  if (!text.trim()) return NextResponse.json({ error: photoNote, ...debug }, { status: 503 });
 
   const parsed = parseListingText(text, brands ?? []);
   await addZip(parsed.prefill);
-  return NextResponse.json({ ...parsed, warnings: photos.length ? [...parsed.warnings, photoNote] : parsed.warnings, reader: 'rules' });
+  return NextResponse.json({ ...parsed, warnings: photos.length ? [...parsed.warnings, photoNote] : parsed.warnings, reader: 'rules', ...debug });
+}
+
+/** A short, key-free reason the AI call failed. */
+function describeAiError(e: unknown): string {
+  if (e instanceof Anthropic.APIError) return `${e.status ?? 'network'} ${e.message}`.slice(0, 400);
+  return (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 400);
 }
 
 /** Post gave a town but no ZIP: look one up so the ZIP box is filled in too. */
