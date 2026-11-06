@@ -49,7 +49,7 @@ Give three whole-dollar asking prices for this saddle:
 
 How to price:
 - Base it on what this brand and model actually sell for used in the US, adjusted for condition, age, seat size and tree (popular sizes like 17-17.5" English seats and medium/medium-wide trees sell more easily; very small or very large seats and unusual trees sell for less), and options like custom flaps or panels.
-- Search the web for current used listings and sold prices for this make and model (eBay sold listings, saddle consignment shops, used-saddle sites) and weigh them above your own memory, since prices change. Sold prices count more than asking prices.
+- Before answering, always run at least one web search for current used listings and sold prices for this make and model (eBay sold listings, saddle consignment shops, used-saddle sites) and weigh them above your own memory, since prices change. Sold prices count more than asking prices.
 - New retail price is a ceiling, not a guide: used saddles usually sell well below it.
 - Keep low <= typical <= high. Round to sensible asking prices (e.g. 2,450 not 2,437).
 - If you don't recognise the model or details are missing, give a wider range and set confidence to low. Never refuse to give a range.
@@ -107,6 +107,8 @@ export async function aiPriceRange(details: SaddleDetails): Promise<PriceRange> 
     response = await ask(details, false);
   }
   if (response.stop_reason === 'refusal') throw new Error('Model declined');
+  // Whether a search actually ran (the model can skip it), so the page doesn't overclaim.
+  searched = searched && (response.usage.server_tool_use?.web_search_requests ?? 0) > 0;
   const out = response.parsed_output;
   if (!out) throw new Error(`No structured output (stop_reason: ${response.stop_reason})`);
 
