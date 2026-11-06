@@ -46,20 +46,34 @@ export default function AboutPage() {
         </figure>
       </div>
 
-      <div className="max-w-[680px] mx-auto space-y-5 text-[17px] leading-[1.7] text-saddle-body">
-        <p>
-          A few years ago, I had a saddle custom made for my horse. Two years later, I found out it didn&apos;t fit. It had
-          been pinching his withers, which led to ulcers and a series of problems that took a very long time, and a lot
-          of money, to unwind.
-        </p>
-        <p>
-          Finding the right fit is hard. We love our horses, and they work so hard for us. We want to do everything we can
-          to make sure they&apos;re comfortable.
-        </p>
-        <p>
-          So, out of my own pain and frustration, I created SaddleUp: a place to find a saddle that will make your horse
-          comfortable, without the hassle.
-        </p>
+      <div className="grid grid-cols-1 min-[900px]:grid-cols-[0.9fr_1.1fr] gap-8 min-[900px]:gap-14 items-center">
+        <figure className="order-2 min-[900px]:order-1">
+          <div className="relative aspect-[4/3] rounded-[3px] overflow-hidden border border-saddle-line bg-saddle-paper">
+            <Image
+              src="/images/founder-riding.jpg"
+              alt="Danielle riding a dapple grey horse at the edge of a ploughed field in early morning light"
+              fill
+              sizes="(max-width: 900px) 100vw, 480px"
+              className="object-cover"
+            />
+          </div>
+          <figcaption className="text-sm text-saddle-muted mt-2">Out for an early morning ride.</figcaption>
+        </figure>
+        <div className="order-1 min-[900px]:order-2 space-y-5 text-[17px] leading-[1.7] text-saddle-body">
+          <p>
+            A few years ago, I had a saddle custom made for my horse. Two years later, I found out it didn&apos;t fit. It
+            had been pinching his withers, which led to ulcers and a series of problems that took a very long time, and a
+            lot of money, to unwind.
+          </p>
+          <p>
+            Finding the right fit is hard. We love our horses, and they work so hard for us. We want to do everything we
+            can to make sure they&apos;re comfortable.
+          </p>
+          <p>
+            So, out of my own pain and frustration, I created SaddleUp: a place to find a saddle that will make your horse
+            comfortable, without the hassle.
+          </p>
+        </div>
       </div>
 
       <section className="max-w-[900px] mx-auto mt-14 border-y border-saddle-line py-10">
