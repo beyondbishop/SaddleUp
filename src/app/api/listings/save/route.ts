@@ -66,7 +66,9 @@ async function seedImport(values: Record<string, unknown>, userId: string, meta:
   const { error: importError } = await admin.from('listing_imports').insert({
     listing_id: listing.id,
     importer_id: userId,
-    source_url: typeof meta?.sourceUrl === 'string' ? meta.sourceUrl.trim().slice(0, 500) || null : null,
+    source_url: typeof meta?.sourceUrl === 'string' && meta.sourceUrl.trim()
+      ? (/^https?:\/\//i.test(meta.sourceUrl.trim()) ? meta.sourceUrl.trim() : `https://${meta.sourceUrl.trim()}`).slice(0, 500)
+      : null,
     source_key: key,
     seller_name: typeof meta?.sellerName === 'string' ? meta.sellerName.trim().slice(0, 100) || null : null
   });

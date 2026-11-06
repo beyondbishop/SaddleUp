@@ -7,6 +7,7 @@ import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
 import { claimMessage, type ClaimTips } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
 import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
+import OpenPostLink from '@/components/imports/OpenPostLink';
 import Link from 'next/link';
 
 const MAX_READ_PHOTOS = 6;
@@ -197,9 +198,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             <div className="flex flex-wrap gap-2">
               <CopyButton text={messageFor(latest)} label="Copy message" />
               {latest.sourceUrl && (
-                <a href={latest.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline text-saddle-brown self-center">
-                  Open their post to message them
-                </a>
+                <OpenPostLink url={latest.sourceUrl} label="Open their post to message them" className="text-sm underline text-saddle-brown self-center" />
               )}
               <MarkMessagedButton listingId={latest.id} messagedAt={null} />
             </div>

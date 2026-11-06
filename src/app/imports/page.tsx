@@ -6,6 +6,7 @@ import { isUuid } from '@/lib/lists-server';
 import { claimMessage, claimUrlFor } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
 import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
+import OpenPostLink from '@/components/imports/OpenPostLink';
 import { REWARD_PERCENT } from '@/lib/rewards';
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -15,23 +16,25 @@ export const metadata = { title: 'My imports', robots: { index: false } };
 
 const FOLLOW_UP_DAYS = 5;
 
-type Stage = 'to_message' | 'follow_up' | 'waiting' | 'claimed' | 'live' | 'sold' | 'removed';
+type Stage = 'to_message' | 'follow_up' | 'waiting' | 'opened' | 'claimed' | 'live' | 'sold' | 'removed';
 const STAGE_LABEL: Record<Stage, string> = {
   to_message: 'Message the seller',
   follow_up: 'Follow up',
   waiting: 'Waiting for the seller',
+  opened: 'Opened the link, not claimed yet',
   claimed: 'Claimed: seller is finishing it',
   live: 'Live',
   sold: 'Sold',
   removed: 'Removed'
 };
-const STAGE_ORDER: Stage[] = ['to_message', 'follow_up', 'waiting', 'claimed', 'live', 'sold', 'removed'];
+const STAGE_ORDER: Stage[] = ['to_message', 'follow_up', 'waiting', 'opened', 'claimed', 'live', 'sold', 'removed'];
 
-function stageOf(status: string | undefined, claimedAt: string | null, messagedAt: string | null): Stage {
+function stageOf(status: string | undefined, claimedAt: string | null, messagedAt: string | null, linkOpenedAt: string | null): Stage {
   if (status === 'sold') return 'sold';
   if (status === 'active' || status === 'pending_sale') return 'live';
   if (status === 'removed') return 'removed';
   if (claimedAt) return 'claimed';
+  if (linkOpenedAt) return 'opened';
   if (!messagedAt) return 'to_message';
   return Date.now() - new Date(messagedAt).getTime() > FOLLOW_UP_DAYS * 86_400_000 ? 'follow_up' : 'waiting';
 }
@@ -44,13 +47,14 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   // Admins can look at anyone's imports (linked from the Users page).
   const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
   const admin = createAdminClient();
+  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, images, brands(name))';
+  const importsQuery = (cols: string) =>
+    admin.from('listing_imports').select(cols).eq('importer_id', importerId).order('created_at', { ascending: false }).limit(500);
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
-    admin
-      .from('listing_imports')
-      .select('listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, images, brands(name))')
-      .eq('importer_id', importerId)
-      .order('created_at', { ascending: false })
-      .limit(500),
+    // Link-open tracking columns come from 20261109_claim_link_opens.sql; until that's run, load without them.
+    importsQuery(`${IMPORT_COLS}, link_first_opened_at, link_last_opened_at, link_open_count`).then((res) =>
+      res.error ? importsQuery(IMPORT_COLS) : res
+    ),
     importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null }),
     admin.from('importer_rewards').select('listing_id, amount_cents, status, void_reason, paid_at').eq('importer_id', importerId)
   ]);
@@ -61,7 +65,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   const items = (rows ?? []).map((r: any) => {
     const l = r.listings;
     const saddle = l ? `${l.seat_size}" ${l.brands?.name && l.brands.name !== 'Other' ? `${l.brands.name} ` : ''}${l.model}` : 'Saddle';
-    const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at);
+    const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at, r.link_first_opened_at ?? null);
     const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
     return { ...r, l, saddle, stage, claimUrl, message: claimUrl ? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0 }) : null };
   });
@@ -117,15 +121,22 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
               </span>
             </div>
 
-            {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting') && i.message && (
+            {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting' || i.stage === 'opened') && i.message && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <CopyButton text={i.message} label={i.stage === 'follow_up' ? 'Copy message to resend' : 'Copy message'} />
                 <CopyButton text={i.claimUrl!} label="Copy claim link" />
                 {i.source_url && (
-                  <a href={i.source_url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-saddle-brown">Open their post</a>
+                  <OpenPostLink url={i.source_url} />
                 )}
                 {!who && <MarkMessagedButton listingId={i.listing_id} messagedAt={i.messaged_at} />}
               </div>
+            )}
+            {i.link_open_count > 0 && !['live', 'sold', 'removed'].includes(i.stage) && (
+              <p className="text-sm text-saddle-green mt-2">
+                👀 Seller opened the link {i.link_open_count === 1 ? 'once' : `${i.link_open_count} times`}
+                {' '}· last {new Date(i.link_last_opened_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {i.stage === 'opened' ? '. They looked but haven’t claimed it yet, so a quick follow-up could help.' : ''}
+              </p>
             )}
             {i.stage === 'follow_up' && (
               <p className="text-xs text-gray-600 mt-2">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>
