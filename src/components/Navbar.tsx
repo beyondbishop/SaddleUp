@@ -32,7 +32,7 @@ export default async function Navbar() {
         </Link>
         <div className="flex flex-wrap items-center gap-4 sm:gap-[30px] text-[13px] sm:text-[13.5px] tracking-[0.03em] text-saddle-nav">
           <Link href="/saddles" className="hover:text-saddle-brown">Browse Saddles</Link>
-          <Link href="/match" className="hover:text-saddle-brown">Find My Fit</Link>
+          {/* Find My Fit (/match) is hidden until it's ready; the page still works. */}
           <Link href="/dashboard" className="hover:text-saddle-brown">Sell a Saddle</Link>
           {user ? (
             <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount} />

@@ -96,10 +96,10 @@ export default function AboutPage() {
         <p className="font-serif text-xl text-saddle-ink mb-8">Danielle Bishop, founder</p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Link
-            href="/match"
+            href="/saddles"
             className="bg-saddle-green text-saddle-cream px-6 py-3.5 rounded-sm font-semibold text-[14.5px] hover:bg-saddle-green-dark"
           >
-            Find My Fit →
+            Browse saddles →
           </Link>
           <Link
             href="/dashboard"

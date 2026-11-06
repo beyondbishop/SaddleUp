@@ -33,7 +33,6 @@ export async function GET() {
     '',
     '## Key pages',
     `- [Browse all saddles](${SITE_URL}/saddles): filter by discipline, brand, seat size, tree width, panels (wool flocked, foam, CAIR) and price`,
-    `- [Find My Fit](${SITE_URL}/match): narrows saddles to the tree widths and seat sizes likely to fit, from the horse's back width and the rider's measurements`,
     `- [Sell a saddle](${SITE_URL}/dashboard/listings/new)`,
     '',
     '## Saddles by discipline',

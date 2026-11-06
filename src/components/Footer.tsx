@@ -5,7 +5,6 @@ const COLUMNS: { title: string; links: [string, string][] }[] = [
     title: 'Marketplace',
     links: [
       ['Browse saddles', '/saddles'],
-      ['Find My Fit', '/match'],
       ['Sell a saddle', '/dashboard'],
       ['Our story', '/about']
     ]

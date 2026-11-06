@@ -7,7 +7,8 @@ export default function SellerAgreementPage() {
     <div className="py-12 max-w-2xl mx-auto prose">
       <h1 className="text-2xl font-bold text-saddle-brown mb-2">Seller Agreement</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Placeholder template — have a lawyer review and customize this before launch.
+        {/* Draft wording: have a lawyer review this before relying on it. */}
+        Last updated November 6, 2026
       </p>
 
       <h2 className="font-semibold mt-6 mb-2">Commission</h2>
