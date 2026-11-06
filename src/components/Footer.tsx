@@ -36,8 +36,8 @@ export default function Footer() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/logo.png" alt="SaddleUp" className="h-[52px] w-auto block mb-3 mix-blend-multiply" />
           <p className="text-[13.5px] text-saddle-muted max-w-[280px]">
-            The fitted marketplace for used English &amp; Western saddles — matched to your horse and
-            rider, protected by a 5-day inspection.
+            The fitted marketplace for used close contact jumping saddles, matched to your horse and
+            rider and protected by a 5-day inspection.
           </p>
         </div>
         {COLUMNS.map((col) => (

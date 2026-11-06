@@ -10,11 +10,11 @@ import ListPicker from '@/components/ListPicker';
 export const metadata: Metadata = {
   metadataBase: new URL('https://saddleup.me'),
   title: {
-    default: 'SaddleUp | Buy & Sell Used English and Western Saddles',
+    default: 'SaddleUp | Buy & Sell Used Close Contact Jumping Saddles',
     template: '%s | SaddleUp'
   },
   description:
-    'SaddleUp is a marketplace for buying and selling used saddles, matched to your exact horse and rider measurements. Search by brand, tree width, seat size, and discipline.',
+    'SaddleUp is a marketplace for buying and selling used close contact jumping saddles, listed by seat size and tree width so you can match them to your horse and yourself.',
   icons: { icon: '/favicon.png' },
   openGraph: {
     type: 'website',
@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     siteName: 'SaddleUp',
     title: 'SaddleUp — The fitted saddle marketplace',
     description:
-      "Buy & sell used saddles matched to your horse's back and your seat size. Insured, with a 5-day inspection window.",
+      "Buy & sell used close contact jumping saddles by seat size and tree width, with insured shipping and a 5-day inspection window.",
     images: [{ url: '/preview.png', width: 1200, height: 630, alt: 'SaddleUp — the fitted saddle marketplace' }]
   },
   twitter: {
     card: 'summary_large_image',
     title: 'SaddleUp — The fitted saddle marketplace',
-    description: 'Buy & sell used saddles matched to your horse and rider. Insured, with a 5-day inspection.',
+    description: 'Buy & sell used close contact jumping saddles by fit, with insured shipping and a 5-day inspection.',
     images: ['/preview.png']
   }
 };

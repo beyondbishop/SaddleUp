@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing, type Discipline } from '@/lib/types';
+import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
+import { brandsForDiscipline } from '@/lib/saddle-catalog';
+import { searchUrl } from '@/lib/search';
 import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 const eyebrow = 'font-mono uppercase text-saddle-gold';
@@ -11,29 +13,12 @@ const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
 const TRUST = [
   ['No buyer commission', `You pay the sticker price. Sellers keep ${SELLER_KEEPS_PERCENT}% of every sale during our beta.`],
   ['5-day inspection', "Your payment is held until you confirm the saddle fits — or it's returned."],
-  ['Fit-first search', 'Filter by tree width, seat size and discipline — not just brand.']
+  ['Fit-first search', 'Filter close contact saddles by seat size and tree width, not just brand.']
 ];
 
-const TESTIMONIALS = [
-  {
-    quote:
-      "I've bought saddles off Facebook before and always held my breath. Here it was three clicks — and knowing it was insured door to door was the reason I actually hit buy.",
-    name: 'Megan T.',
-    meta: 'Hunter/Jumper · Ocala, FL'
-  },
-  {
-    quote:
-      'The insurance is what sold me. A $4k saddle sight-unseen felt insane until I saw my payment was held and the shipment was covered. Fit was perfect, released the funds day four.',
-    name: 'Rebecca L.',
-    meta: 'Dressage · Lexington, KY'
-  },
-  {
-    quote:
-      "Selling was the easy part I didn't expect — listed in ten minutes, buyer covered, and my payout landed automatically once the inspection window closed. No chasing, no risk.",
-    name: 'James P.',
-    meta: 'Eventing · Aiken, SC'
-  }
-];
+// The niche we focus on for now: close contact jumping saddles.
+const FOCUS = 'hunter_jumper' as const;
+const SEATS = [16, 16.5, 17, 17.5, 18, 18.5];
 
 function SectionHeader({ title, href, cta }: { title: string; href: string; cta: string }) {
   return (
@@ -83,25 +68,18 @@ function ListingCard({ listing }: { listing: Listing }) {
 
 export default async function HomePage() {
   const supabase = createClient();
-  const [{ data: brands }, { data: listings }, { data: forTiles }] = await Promise.all([
-    supabase.from('brands').select('name, slug').order('name').limit(12),
+  const [{ data: allBrands }, { data: listings }] = await Promise.all([
+    supabase.from('brands').select('name, slug').order('name'),
     supabase
       .from('listings')
       .select('*, brands(name, slug)')
       .eq('status', 'active')
+      .eq('discipline', FOCUS)
       .order('created_at', { ascending: false })
-      .limit(6),
-    // Every live saddle's discipline + photos (small), for the discipline tiles' photo and count.
-    supabase.from('listings').select('discipline, images').eq('status', 'active').order('created_at', { ascending: false })
+      .limit(6)
   ]);
-
-  const tiles = new Map<string, { count: number; photo: string | null }>();
-  for (const l of forTiles ?? []) {
-    const t = tiles.get(l.discipline) ?? { count: 0, photo: null };
-    t.count += 1;
-    t.photo ??= l.images?.[0] ?? null; // newest listing with a photo
-    tiles.set(l.discipline, t);
-  }
+  // Brands that make close contact jumping saddles (no western-only makers, no "Other").
+  const brands = brandsForDiscipline(allBrands ?? [], FOCUS).filter((b) => b.name !== 'Other').slice(0, 16);
 
   return (
     <div className="full-bleed">
@@ -116,7 +94,7 @@ export default async function HomePage() {
               url: SITE_URL,
               logo: `${SITE_URL}/images/logo.png`,
               description:
-                'A marketplace for buying and selling used English and Western saddles, listed by seat size and tree width so riders can shop by fit.'
+                'A marketplace for buying and selling used close contact jumping saddles, listed by seat size and tree width so riders can shop by fit.'
             },
             { '@context': 'https://schema.org', '@type': 'WebSite', name: 'SaddleUp', url: SITE_URL }
           ])
@@ -125,13 +103,13 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-12 min-[900px]:pt-[76px] pb-14 grid grid-cols-1 min-[900px]:grid-cols-[1.05fr_0.95fr] gap-9 min-[900px]:gap-16 items-center">
         <div>
-          <div className={`${eyebrow} text-[11px] tracking-[0.24em] mb-[22px]`}>The fitted saddle marketplace</div>
+          <div className={`${eyebrow} text-[11px] tracking-[0.24em] mb-[22px]`}>Used close contact jumping saddles</div>
           <h1 className="font-serif font-normal text-[34px] sm:text-[42px] min-[900px]:text-[60px] leading-[1.02] tracking-[-0.01em] text-saddle-ink mb-6">
-            The saddle that fits — your horse, and your budget.
+            The close contact saddle that fits — your horse, and your budget.
           </h1>
           <p className="text-lg leading-[1.55] text-saddle-body max-w-[520px] mb-[34px]">
-            Every used saddle on SaddleUp is matched to your horse&apos;s back and your own measurements — so you
-            stop guessing and start riding. Buyers pay no commission; sellers keep {SELLER_KEEPS_PERCENT}% during our beta.
+            Every used close contact saddle on SaddleUp is listed with its seat size and tree width, so you can match it
+            to your horse&apos;s back and your own measurements, and stop guessing. Buyers pay no commission; sellers keep {SELLER_KEEPS_PERCENT}% during our beta.
           </p>
           <div className="flex gap-3.5 flex-wrap">
             <Link
@@ -178,45 +156,34 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Disciplines */}
+      {/* Close contact by seat size */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-10">
-        <SectionHeader title="Shop by discipline" href="/saddles" cta="View all" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 min-[900px]:grid-cols-4 gap-4">
-          {Object.entries(DISCIPLINE_LABELS).map(([key, label]) => {
-            const tile = tiles.get(key);
-            return (
-              <Link
-                key={key}
-                href={disciplinePath(key as Discipline)}
-                className="group relative block aspect-[3/4] border border-saddle-line rounded-[3px] overflow-hidden bg-saddle-paper transition-colors hover:border-saddle-brown"
-              >
-                {tile?.photo ? (
-                  <Image
-                    src={tile.photo}
-                    alt=""
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 900px) 33vw, 280px"
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-stripes" />
-                )}
-                <div className="absolute inset-x-0 bottom-0 p-4 pt-12 bg-gradient-to-t from-saddle-ink/80 to-saddle-ink/0">
-                  <div className="font-serif text-xl text-saddle-cream">{label}</div>
-                  <div className="text-xs text-saddle-cream/85 mt-0.5">
-                    {tile ? `${tile.count} saddle${tile.count === 1 ? '' : 's'}` : 'None listed yet'}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+        <SectionHeader title="Shop close contact by seat size" href={disciplinePath(FOCUS)} cta="All close contact saddles" />
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          {SEATS.map((seat) => (
+            <Link
+              key={seat}
+              href={searchUrl({ discipline: FOCUS, seat_min: seat, seat_max: seat })}
+              className="border border-saddle-line rounded-[3px] bg-saddle-paper py-5 text-center transition-colors hover:border-saddle-brown"
+            >
+              <div className="font-serif text-[26px] text-saddle-ink">{seat}&Prime;</div>
+              <div className="text-xs text-saddle-muted">seat</div>
+            </Link>
+          ))}
         </div>
+        <p className="text-sm text-saddle-muted mt-4">
+          Not sure of your size?{' '}
+          <Link href="/match" className="underline text-saddle-brown">
+            Find My Fit
+          </Link>{' '}
+          narrows it down from two measurements.
+        </p>
       </section>
 
       {/* Newly listed */}
       {listings && listings.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-5 sm:px-8 py-9">
-          <SectionHeader title="Newly listed" href="/saddles" cta="See all saddles" />
+          <SectionHeader title="Newly listed close contact saddles" href={disciplinePath(FOCUS)} cta="See all" />
           <div className="grid grid-cols-1 sm:grid-cols-2 min-[900px]:grid-cols-3 gap-[22px]">
             {(listings as Listing[]).map((l) => (
               <ListingCard key={l.id} listing={l} />
@@ -226,9 +193,9 @@ export default async function HomePage() {
       )}
 
       {/* Brands */}
-      {brands && brands.length > 0 && (
+      {brands.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-11 pb-2">
-          <h2 className="font-serif font-medium text-[26px] text-saddle-ink mb-[18px]">Shop by brand</h2>
+          <h2 className="font-serif font-medium text-[26px] text-saddle-ink mb-[18px]">Close contact saddles by brand</h2>
           <div className="flex flex-wrap gap-[11px]">
             {brands.map((b) => (
               <Link
@@ -309,37 +276,6 @@ export default async function HomePage() {
           <Link href="/about" className="text-sm underline text-saddle-brown">
             Why I built SaddleUp
           </Link>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="mt-[52px] border-t border-saddle-line bg-saddle-sand">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-[60px]">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 mb-2">
-            <h2 className={sectionH2}>Riders who found their fit</h2>
-            <div className={`${eyebrow} text-[11px] tracking-[0.16em]`}>4.9 ★ · 1,200+ sales</div>
-          </div>
-          <p className="text-saddle-muted text-[15px] mb-[30px] max-w-[560px]">
-            Every purchase is backed by SaddleUp Protection — full insurance on the saddle in transit and a 5-day
-            inspection, so your money is covered until the fit is confirmed.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 min-[900px]:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-saddle-paper border border-saddle-line rounded-[3px] p-[26px]">
-                <div className="text-saddle-tan text-[15px] tracking-[2px] mb-3.5" aria-label="5 out of 5 stars">★★★★★</div>
-                <p className="font-serif text-[19px] leading-[1.4] text-saddle-ink mb-5">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-[38px] h-[38px] rounded-full bg-saddle-tan flex items-center justify-center font-serif text-base text-saddle-brown-deep">
-                    {t.name[0]}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-saddle-ink">{t.name}</div>
-                    <div className="text-[12.5px] text-saddle-muted">{t.meta}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
