@@ -6,6 +6,7 @@ import { PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing,
 import slugify from 'slugify';
 import ZipField from './ZipField';
 import PhotoUploader from './PhotoUploader';
+import PriceSuggest from './PriceSuggest';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
   DISCIPLINE_CHOICES,
@@ -460,6 +461,7 @@ export default function ListingForm({
       <div>
         <label htmlFor="price" className="block text-sm font-semibold mb-1">Price (USD)</label>
         <input id="price" name="price" type="number" min={1} step="any" required defaultValue={existing ? existing.price_cents / 100 : prefill?.price ?? ''} className={field} />
+        <PriceSuggest />
       </div>
 
       <div>
