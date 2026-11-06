@@ -29,7 +29,11 @@ export default function OrderView({ order, events, role }: { order: any; events:
           </h1>
           <p className="text-gray-600 text-sm">
             {snap.tree_width ? `${TREE_WIDTH_LABELS[snap.tree_width as TreeWidth]} tree · ` : ''}
-            {role === 'seller' ? `Sale price ${usd(order.sale_price_cents)} · your payout ${usd(order.seller_payout_cents)}` : usd(order.sale_price_cents)}
+            {role === 'seller'
+              ? `Sale price ${usd(order.sale_price_cents)} · your payout ${usd(order.seller_payout_cents)}`
+              : order.shipping_cents
+                ? `${usd(order.sale_price_cents)} + ${usd(order.shipping_cents)} shipping = ${usd(order.sale_price_cents + order.shipping_cents)}`
+                : usd(order.sale_price_cents)}
           </p>
           <p className="text-gray-500 text-xs">Ordered {formatDeadline(order.created_at)}</p>
         </div>
