@@ -62,13 +62,12 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
           {isAdmin && (
             <>
               <div className={heading}>Admin</div>
-              <Link href="/admin/listings" className={`${item} flex justify-between`}>
+              <Link href="/admin" className={item}>Admin dashboard</Link>
+              <Link href="/admin/listings" className={item}>All listings</Link>
+              <Link href="/admin/listings?status=draft" className={`${item} flex justify-between`}>
                 Review listings
                 {pendingCount > 0 && <span className="text-saddle-green font-semibold">{pendingCount}</span>}
               </Link>
-              <Link href="/admin/orders" className={item}>Orders to review</Link>
-              <Link href="/admin/users" className={item}>Users</Link>
-              <Link href="/admin/rewards" className={item}>Importer rewards</Link>
             </>
           )}
 

@@ -101,7 +101,9 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
                 </td>
                 <td className="p-2 whitespace-nowrap">{new Date(p.created_at).toLocaleDateString('en-US')}</td>
                 <td className="p-2 whitespace-nowrap">
-                  {listingCount[p.id] ?? 0} listed · {liveCount[p.id] ?? 0} live
+                  {listingCount[p.id]
+                    ? <Link href={`/admin/listings?seller=${p.id}`} className="underline">{listingCount[p.id]} listed · {liveCount[p.id] ?? 0} live</Link>
+                    : '0 listed'}
                   <p className="text-xs text-gray-500">{p.stripe_connect_onboarded ? 'Payouts set up' : 'No payouts yet'}</p>
                 </td>
                 <td className="p-2">{boughtCount[p.id] ?? 0}</td>
