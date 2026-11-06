@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
 import { recordImporterReward } from '@/lib/rewards';
+import { logOrderEvent } from '@/lib/orders';
 
 export type PayoutResult =
   | { ok: true; transferId: string }
@@ -26,6 +27,9 @@ export async function releasePayout(orderId: string, opts: { byBuyer: boolean })
   if (claimError) throw claimError;
   const order = (claimed as any[] | null)?.[0];
   if (!order) return { ok: false, reason: 'not_eligible' };
+  if (!opts.byBuyer && !order.confirmed_at && !order.kept_at) {
+    await logOrderEvent(orderId, 'inspection_expired', 'system');
+  }
 
   const fail = async (reason: 'no_payout_account' | 'transfer_failed', message: string) => {
     await admin
@@ -33,6 +37,7 @@ export async function releasePayout(orderId: string, opts: { byBuyer: boolean })
       .update({ payout_status: 'held', payout_error: message })
       .eq('id', orderId)
       .eq('payout_status', 'releasing');
+    await logOrderEvent(orderId, 'payout_failed', 'system', null, { reason });
     return { ok: false as const, reason, message };
   };
 
@@ -71,6 +76,7 @@ export async function releasePayout(orderId: string, opts: { byBuyer: boolean })
       .from('orders')
       .update({ payout_status: 'transferred', stripe_transfer_id: transfer.id, payout_error: null })
       .eq('id', orderId);
+    await logOrderEvent(orderId, 'payout_sent', 'system', null, { transfer_id: transfer.id, amount: order.seller_payout_cents });
     // The sale is final: credit whoever imported the saddle. Never let this block a payout;
     // the daily job records anything missed here.
     await recordImporterReward(orderId).catch((e) => console.error(`Importer reward not recorded for ${orderId}`, e));

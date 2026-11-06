@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { stripe, calcCommissionCents } from '@/lib/stripe';
+import { stripe, calcCommissionCents, COMMISSION_PERCENT } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { voidRewardForRefund } from '@/lib/rewards';
+import { addBusinessDays, BUYER_TERMS_VERSION, DISPATCH_BUSINESS_DAYS, logOrderEvent } from '@/lib/orders';
 
 // Stripe requires the raw body to verify the webhook signature, so this
 // route must NOT run through Next's default JSON body parsing.
@@ -71,6 +72,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
   if (error) throw error;
 
+  if (outcome === 'created') await recordPurchaseDetails(session.id, listing_id!);
+
   if (outcome === 'conflict') {
     // Paid for a saddle this session no longer held (reservation expired and someone else
     // bought it, or the buyer started a newer checkout). Refund in full and log for support.
@@ -93,6 +96,39 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 }
 
+/**
+ * Freeze what the buyer bought (the listing can't be edited mid-sale, so this matches what they
+ * saw), set the seller's dispatch deadline, and start the order's history. Never throws: the
+ * order already exists, and these details must not make Stripe retry the payment event.
+ */
+async function recordPurchaseDetails(sessionId: string, listingId: string) {
+  try {
+    const admin = createAdminClient();
+    const [{ data: order }, { data: listing }] = await Promise.all([
+      admin.from('orders').select('id, created_at').eq('stripe_checkout_session_id', sessionId).single(),
+      admin
+        .from('listings')
+        .select('id, slug, model, discipline, seat_size, tree_width, panel_type, panel_flocking, year_manufactured, condition, color, price_cents, description, images, location_city, location_state, location_zip, trial_policy, brands(name)')
+        .eq('id', listingId)
+        .single()
+    ]);
+    if (!order) return;
+    const dispatchDue = addBusinessDays(new Date(order.created_at), DISPATCH_BUSINESS_DAYS);
+    await admin
+      .from('orders')
+      .update({
+        listing_snapshot: listing ?? null,
+        terms_version: BUYER_TERMS_VERSION,
+        fee_percent: COMMISSION_PERCENT,
+        dispatch_due_at: dispatchDue.toISOString()
+      })
+      .eq('id', order.id);
+    await logOrderEvent(order.id, 'paid', 'system', null, { dispatch_due_at: dispatchDue.toISOString() });
+  } catch (e) {
+    console.error(`Could not record purchase details for checkout ${sessionId}`, e);
+  }
+}
+
 async function releaseReservation(session: Stripe.Checkout.Session) {
   const { error } = await createAdminClient().rpc('release_reservation', { p_session_id: session.id });
   if (error) throw error;
@@ -102,22 +138,26 @@ async function handleRefund(charge: Stripe.Charge) {
   if (!charge.refunded || !charge.payment_intent) return; // partial refunds: handled manually for now
   const admin = createAdminClient();
   const pi = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent.id;
-  await admin.from('orders').update({ status: 'refunded' }).eq('stripe_payment_intent_id', pi);
+  const { data: orders } = await admin.from('orders').update({ status: 'refunded' }).eq('stripe_payment_intent_id', pi).select('id');
   await voidRewardForRefund(pi);
   // Stop any payout that hasn't gone out. (A refund after payout needs a manual transfer reversal.)
   await admin
     .from('orders')
     .update({ payout_status: 'cancelled' })
     .eq('stripe_payment_intent_id', pi)
-    .eq('payout_status', 'held');
+    .in('payout_status', ['held', 'on_hold']);
+  for (const o of orders ?? []) await logOrderEvent(o.id, 'refunded', 'system', null, { amount: charge.amount_refunded });
 }
 
 async function handleDispute(dispute: Stripe.Dispute) {
   const pi = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id;
   if (!pi) return;
-  await createAdminClient()
+  const admin = createAdminClient();
+  await admin
     .from('orders')
     .update({ payout_status: 'disputed' })
     .eq('stripe_payment_intent_id', pi)
-    .eq('payout_status', 'held');
+    .in('payout_status', ['held', 'on_hold']);
+  const { data: orders } = await admin.from('orders').select('id').eq('stripe_payment_intent_id', pi);
+  for (const o of orders ?? []) await logOrderEvent(o.id, 'disputed', 'system', null, { reason: dispute.reason });
 }

@@ -44,6 +44,7 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
           <div className={heading}>Selling</div>
           <Link href="/dashboard" className={item}>My listings</Link>
           <Link href="/dashboard/listings/new" className={item}>Sell a saddle</Link>
+          <Link href="/sales" className={item}>Sales</Link>
 
           <div className={heading}>Buying</div>
           <Link href="/lists" className={item}>My lists</Link>
@@ -65,6 +66,7 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
                 Review listings
                 {pendingCount > 0 && <span className="text-saddle-green font-semibold">{pendingCount}</span>}
               </Link>
+              <Link href="/admin/orders" className={item}>Orders to review</Link>
               <Link href="/admin/users" className={item}>Users</Link>
               <Link href="/admin/rewards" className={item}>Importer rewards</Link>
             </>

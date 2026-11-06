@@ -1,6 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { TIMELINE, orderStage } from '@/lib/order-rules';
+
+const STAGE_TEXT: Record<string, string> = {
+  ...Object.fromEntries(TIMELINE.map((t) => [t.stage, t.label])),
+  issue: 'Under review',
+  refunded: 'Refunded'
+};
 
 export default async function OrdersPage({ searchParams }: { searchParams: { purchased?: string } }) {
   const supabase = createClient();
@@ -35,13 +42,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { pur
               {o.listings?.seat_size}&quot; {o.listings?.brands?.name} {o.listings?.model}
             </p>
             <p className="text-sm text-gray-500">
-              ${(o.sale_price_cents / 100).toLocaleString()} · {o.status === 'refunded'
-                ? 'Refunded'
-                : o.payout_status === 'transferred'
-                  ? 'Complete'
-                  : o.release_at
-                    ? 'In inspection window'
-                    : 'Awaiting delivery'}
+              ${(o.sale_price_cents / 100).toLocaleString()} · {STAGE_TEXT[orderStage(o)]}
             </p>
           </Link>
         ))}
