@@ -23,6 +23,14 @@ export type ListItemView = {
 
 type ListInfo = { id: string; name: string; description: string | null; isDefault: boolean; archived: boolean };
 
+export type SuggestionView = {
+  listing: NonNullable<ListItemView['listing']> & { id: string };
+  reasons: string[];
+  unknown: string[];
+};
+
+type CriteriaView = { summary: string[]; editUrl: string; browseUrl: string; justUpdated: boolean } | null;
+
 async function call(url: string, init: RequestInit) {
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } }).catch(() => null);
   const data = await res?.json().catch(() => ({}));
@@ -30,7 +38,19 @@ async function call(url: string, init: RequestInit) {
   return data;
 }
 
-export default function ListDetail({ list: initial, initialItems }: { list: ListInfo; initialItems: ListItemView[] }) {
+export default function ListDetail({
+  list: initial,
+  initialItems,
+  criteria,
+  initialSuggestions = [],
+  totalMatches = 0
+}: {
+  list: ListInfo;
+  initialItems: ListItemView[];
+  criteria?: CriteriaView;
+  initialSuggestions?: SuggestionView[];
+  totalMatches?: number;
+}) {
   const router = useRouter();
   const [list, setList] = useState(initial);
   const [items, setItems] = useState(initialItems);
@@ -39,6 +59,9 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
   const [description, setDescription] = useState(initial.description ?? '');
   const [headerError, setHeaderError] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ item: ListItemView; index: number; note: string | null } | null>(null);
+  const [suggestions, setSuggestions] = useState(initialSuggestions);
+  const [undoDismiss, setUndoDismiss] = useState<{ s: SuggestionView; index: number } | null>(null);
+  const [suggestionBusy, setSuggestionBusy] = useState<Record<string, boolean>>({});
   const [toastError, setToastError] = useState<string | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -78,6 +101,7 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
     try {
       const data = await call(`/api/lists/${list.id}/items?listing=${item.listingId}`, { method: 'DELETE' });
       clearTimeout(undoTimer.current);
+      setUndoDismiss(null);
       setUndo({ item, index, note: data.note ?? item.note });
       undoTimer.current = setTimeout(() => setUndo(null), 8000);
       loadSaved(true);
@@ -98,6 +122,66 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
       loadSaved(true);
     } catch (err: any) {
       setToastError(err.message);
+    }
+  }
+
+  async function addSuggestion(sg: SuggestionView) {
+    const id = sg.listing.id;
+    if (suggestionBusy[id]) return;
+    setToastError(null);
+    setSuggestionBusy((b) => ({ ...b, [id]: true }));
+    try {
+      await call(`/api/lists/${list.id}/items`, { method: 'PUT', body: JSON.stringify({ listingId: id, via: 'suggestion' }) });
+      setSuggestions((all) => all.filter((x) => x.listing.id !== id));
+      setItems((all) => [
+        { listingId: id, note: null, savedAt: new Date().toISOString(), availability: 'available', listing: sg.listing, similarUrl: criteria?.browseUrl ?? '/saddles' },
+        ...all
+      ]);
+      loadSaved(true);
+    } catch (err: any) {
+      setToastError(err.message);
+    } finally {
+      setSuggestionBusy((b) => ({ ...b, [id]: false }));
+    }
+  }
+
+  async function dismissSuggestion(sg: SuggestionView) {
+    const id = sg.listing.id;
+    const index = suggestions.findIndex((x) => x.listing.id === id);
+    setToastError(null);
+    setSuggestions((all) => all.filter((x) => x.listing.id !== id));
+    try {
+      await call(`/api/lists/${list.id}/dismissals`, { method: 'POST', body: JSON.stringify({ listingId: id }) });
+      clearTimeout(undoTimer.current);
+      setUndo(null);
+      setUndoDismiss({ s: sg, index });
+      undoTimer.current = setTimeout(() => setUndoDismiss(null), 8000);
+    } catch (err: any) {
+      setSuggestions((all) => [...all.slice(0, index), sg, ...all.slice(index)]);
+      setToastError(err.message);
+    }
+  }
+
+  async function undoDismissal() {
+    if (!undoDismiss) return;
+    const { s: sg, index } = undoDismiss;
+    setUndoDismiss(null);
+    clearTimeout(undoTimer.current);
+    try {
+      await call(`/api/lists/${list.id}/dismissals?listing=${sg.listing.id}`, { method: 'DELETE' });
+      setSuggestions((all) => [...all.slice(0, index), sg, ...all.slice(index)]);
+    } catch (err: any) {
+      setToastError(err.message);
+    }
+  }
+
+  async function clearCriteria() {
+    setHeaderError(null);
+    try {
+      await call(`/api/lists/${list.id}`, { method: 'PATCH', body: JSON.stringify({ search: null }) });
+      router.refresh();
+    } catch (err: any) {
+      setHeaderError(err.message);
     }
   }
 
@@ -136,6 +220,48 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
         {headerError && <p role="alert" className="text-sm text-red-700 mt-2">{headerError}</p>}
       </div>
 
+      <section aria-labelledby="criteria-heading" className="bg-white border border-saddle-tan rounded-lg p-4 mb-6">
+        <h2 id="criteria-heading" className="font-semibold text-saddle-brown">What you&apos;re looking for</h2>
+        {criteria ? (
+          <>
+            <p className="text-sm text-gray-700 mt-1">{criteria.summary.join(' · ')}</p>
+            <div className="flex flex-wrap gap-4 mt-2 text-sm">
+              <Link href={criteria.editUrl} className="underline">Change filters</Link>
+              <Link href={criteria.browseUrl} className="underline">Browse all {totalMatches} for sale</Link>
+              <button type="button" onClick={clearCriteria} className="underline text-gray-600">Remove filters</button>
+            </div>
+            {criteria.justUpdated && (
+              <p role="status" className="text-sm bg-saddle-cream rounded p-2 mt-3">
+                Filters saved. {totalMatches === 0
+                  ? 'Nothing for sale matches yet. New matches will appear here.'
+                  : `${totalMatches} ${totalMatches === 1 ? 'saddle' : 'saddles'} for sale match. Review the suggestions below.`}
+                {' '}Saddles you saved yourself stay on the list.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-600 mt-1">
+            Add filters (seat size, tree, budget…) and we&apos;ll suggest saddles that match.{' '}
+            <Link href={`/saddles?list=${list.id}`} className="underline font-semibold">Choose filters</Link>
+          </p>
+        )}
+      </section>
+
+      {criteria && suggestions.length > 0 && (
+        <section aria-labelledby="suggestions-heading" className="mb-8">
+          <h2 id="suggestions-heading" className="font-semibold text-saddle-brown mb-3">
+            Suggested matches ({suggestions.length})
+          </h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {suggestions.map((sg) => (
+              <SuggestionCard key={sg.listing.id} sg={sg} busy={!!suggestionBusy[sg.listing.id]}
+                onAdd={() => addSuggestion(sg)} onDismiss={() => dismissSuggestion(sg)} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <h2 className="font-semibold text-saddle-brown mb-3">On this list ({items.length})</h2>
       {items.length === 0 ? (
         <p className="text-gray-500">
           Nothing here yet. <Link href="/saddles" className="underline">Browse saddles</Link> and tap the heart to save one to this list.
@@ -155,6 +281,12 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
             <button type="button" onClick={undoRemove} className="font-semibold underline ml-4">Undo</button>
           </div>
         )}
+        {undoDismiss && (
+          <div className="bg-saddle-ink text-white rounded-lg shadow-lg px-4 py-3 flex items-center justify-between text-sm">
+            <span>Dismissed from {list.name}&apos;s suggestions.</span>
+            <button type="button" onClick={undoDismissal} className="font-semibold underline ml-4">Undo</button>
+          </div>
+        )}
         {toastError && (
           <div role="alert" className="bg-red-700 text-white rounded-lg shadow-lg px-4 py-3 text-sm flex justify-between">
             <span>{toastError}</span>
@@ -163,6 +295,45 @@ export default function ListDetail({ list: initial, initialItems }: { list: List
         )}
       </div>
     </div>
+  );
+}
+
+function SuggestionCard({ sg, busy, onAdd, onDismiss }: { sg: SuggestionView; busy: boolean; onAdd: () => void; onDismiss: () => void }) {
+  const l = sg.listing;
+  return (
+    <li className="bg-white border border-dashed border-saddle-tan rounded-lg overflow-hidden flex flex-col">
+      <Link href={`/saddles/${l.slug}`} className="block">
+        <div className="aspect-[4/3] bg-saddle-cream relative">
+          {l.images?.[0] ? (
+            <Image src={l.images[0]} alt={`${l.seat_size}" ${l.brands?.name ?? ''} ${l.model}`} fill className="object-cover" />
+          ) : (
+            <div className="flex items-center justify-center h-full text-saddle-brown/40">No photo yet</div>
+          )}
+        </div>
+        <div className="p-3">
+          <p className="font-semibold text-saddle-brown">{l.seat_size}&quot; {l.brands?.name} {l.model}</p>
+          <p className="font-bold">${(l.price_cents / 100).toLocaleString('en-US')}</p>
+        </div>
+      </Link>
+      <div className="px-3 pb-3 text-sm">
+        <p className="font-semibold text-gray-700">Why it matches</p>
+        <ul className="list-disc pl-5 text-gray-600">
+          {sg.reasons.slice(0, 5).map((r) => <li key={r}>{r}</li>)}
+        </ul>
+        {sg.unknown.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1">Not stated by the seller: {sg.unknown.join(', ')}</p>
+        )}
+      </div>
+      <div className="mt-auto p-3 border-t border-saddle-line flex gap-2">
+        <button type="button" onClick={onAdd} disabled={busy}
+          className="flex-1 bg-saddle-green text-white rounded py-2 text-sm font-semibold disabled:opacity-50">
+          {busy ? 'Adding…' : 'Add to list'}
+        </button>
+        <button type="button" onClick={onDismiss} disabled={busy} className="flex-1 border border-saddle-tan rounded py-2 text-sm">
+          Dismiss
+        </button>
+      </div>
+    </li>
   );
 }
 

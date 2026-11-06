@@ -47,7 +47,6 @@ export default function AccountMenu({ isAdmin, pendingCount = 0 }: { isAdmin: bo
 
           <div className={heading}>Buying</div>
           <Link href="/lists" className={item}>My lists</Link>
-          <Link href="/watchlist" className={item}>Watchlist</Link>
           <Link href="/orders" className={item}>Orders</Link>
           <Link href="/messages" className={item}>Messages</Link>
 

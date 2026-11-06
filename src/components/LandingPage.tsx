@@ -87,8 +87,8 @@ export default function LandingPage({
           <p className="font-serif text-xl text-saddle-ink mb-1">Nothing here yet</p>
           <p className="text-sm text-saddle-muted">
             New saddles are added all the time.{' '}
-            <Link href="/watchlist" className="underline">Set up a watchlist</Link> and we&apos;ll email you when one that
-            fits is listed, or <Link href="/dashboard/listings/new" className="underline">sell yours here</Link>.
+            <Link href="/saddles" className="underline">Save a search as a list</Link> and new saddles that
+            fit will show up there, or <Link href="/dashboard/listings/new" className="underline">sell yours here</Link>.
           </p>
         </div>
       )}

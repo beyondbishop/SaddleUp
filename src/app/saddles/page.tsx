@@ -5,7 +5,10 @@ import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import type { Metadata } from 'next';
 import { brandPath, disciplinePath } from '@/lib/seo';
 import type { Discipline } from '@/lib/types';
-import { applyCriteria, describeCriteria, filtersOnOptionalDetails, parseCriteria, searchUrl } from '@/lib/search';
+import { applyCriteria, describeCriteria, filtersOnOptionalDetails, hasCriteria, parseCriteria, searchUrl } from '@/lib/search';
+import SaveSearchButton from '@/components/lists/SaveSearchButton';
+import ListCriteriaBanner from '@/components/lists/ListCriteriaBanner';
+import { isUuid } from '@/lib/lists-server';
 
 const PAGE_SIZE = 48;
 
@@ -62,18 +65,38 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   const total = count ?? listings?.length ?? 0;
   const summary = describeCriteria(criteria, brand?.name);
 
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  // /saddles?list=<id>: choosing filters for one of the buyer's lists.
+  const listParam = Array.isArray(searchParams.list) ? searchParams.list[0] : searchParams.list;
+  const editingList =
+    user && isUuid(listParam)
+      ? (await supabase.from('buyer_lists').select('id, name').eq('id', listParam).maybeSingle()).data
+      : null;
+  const keepList = (url: string) =>
+    editingList ? `${url}${url.includes('?') ? '&' : '?'}list=${editingList.id}` : url;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 py-8">
-      <FilterSidebar brands={brands ?? []} criteria={criteria} />
+      <FilterSidebar brands={brands ?? []} criteria={criteria} listId={editingList?.id} />
       <div>
+        {editingList && (
+          <ListCriteriaBanner listId={editingList.id} listName={editingList.name} hasFilters={hasCriteria(criteria)} />
+        )}
         <h1 className="text-2xl font-bold text-saddle-brown">
           {total} {total === 1 ? 'saddle' : 'saddles'} found
         </h1>
         {summary.length > 0 && (
           <p className="text-sm text-gray-600 mt-1">
             {summary.join(' · ')} ·{' '}
-            <a href="/saddles" className="underline">Clear filters</a>
+            <a href={keepList('/saddles')} className="underline">Clear filters</a>
           </p>
+        )}
+        {!editingList && hasCriteria(criteria) && (
+          <div className="mt-3">
+            <SaveSearchButton suggestedName={summary.slice(0, 3).join(', ')} signedIn={!!user} />
+          </div>
         )}
         {total > PAGE_SIZE && (
           <p className="text-sm text-gray-500 mt-1">Showing the newest {PAGE_SIZE}. Narrow your filters to see more.</p>
@@ -89,14 +112,16 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
             <p className="mb-2">No saddles match those filters yet.</p>
             {filtersOnOptionalDetails(criteria) && !criteria.include_unknown && (
               <p className="mb-4 text-sm">
-                <a href={searchUrl({ ...criteria, include_unknown: true })} className="text-saddle-green underline">
+                <a href={keepList(searchUrl({ ...criteria, include_unknown: true }))} className="text-saddle-green underline">
                   Include saddles where the seller didn&apos;t state those details
                 </a>
               </p>
             )}
-            <a href="/watchlist" className="text-saddle-green underline">
-              Save this search and we&apos;ll email you when one is listed
-            </a>
+            {!editingList && hasCriteria(criteria) && (
+              <p className="text-sm text-gray-600">
+                Save this search as a list above, and new matches will show up there as they&apos;re listed.
+              </p>
+            )}
           </div>
         )}
       </div>

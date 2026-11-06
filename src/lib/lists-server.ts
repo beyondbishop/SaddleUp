@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { criteriaToParams, hasCriteria, parseCriteria, type SearchCriteria } from '@/lib/search';
 
 // Server helpers for named buyer lists. All reads and writes use the signed-in buyer's own
 // session, so the database's row-level security decides what they can touch.
@@ -53,3 +54,18 @@ export const isUuid = (v: unknown): v is string =>
   typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 export const DUPLICATE_NAME = 'You already have a list with that name.';
+
+
+/** A list's saved criteria, re-validated (stored JSON is never trusted as-is). */
+export function storedCriteria(json: unknown): SearchCriteria | null {
+  if (!json || typeof json !== 'object') return null;
+  const c = parseCriteria(criteriaToParams(json as SearchCriteria));
+  return hasCriteria(c) ? c : null;
+}
+
+/** Criteria from a browse-page query string; null when it has no filters. */
+export function criteriaFromSearch(search: unknown): SearchCriteria | null {
+  if (typeof search !== 'string') return null;
+  const c = parseCriteria(new URLSearchParams(search.replace(/^\?/, '')));
+  return hasCriteria(c) ? c : null;
+}

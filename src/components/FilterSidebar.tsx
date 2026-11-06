@@ -6,13 +6,17 @@ const groupLabel = 'block font-semibold mb-1 text-sm';
 
 export default function FilterSidebar({
   brands,
-  criteria
+  criteria,
+  listId
 }: {
   brands: { name: string; slug: string }[];
   criteria: SearchCriteria;
+  /** Keep "choosing filters for this list" mode across filter changes. */
+  listId?: string;
 }) {
   return (
     <form method="get" action="/saddles" className="bg-white border border-saddle-tan rounded-lg p-4 space-y-5 h-fit">
+      {listId && <input type="hidden" name="list" value={listId} />}
       <div>
         <label htmlFor="f-discipline" className={groupLabel}>Discipline</label>
         <select id="f-discipline" name="discipline" defaultValue={criteria.discipline ?? ''} className={field}>
@@ -118,7 +122,7 @@ export default function FilterSidebar({
       <button type="submit" className="w-full bg-saddle-green text-white rounded-md py-2 font-semibold">
         Apply Filters
       </button>
-      <a href="/saddles" className="block text-center text-sm underline text-gray-600">Clear all</a>
+      <a href={listId ? `/saddles?list=${listId}` : '/saddles'} className="block text-center text-sm underline text-gray-600">Clear all</a>
     </form>
   );
 }

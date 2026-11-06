@@ -1,8 +1,9 @@
 // GET  /api/lists?listing=<id>   the buyer's active lists, with counts and whether <id> is on each
-// POST /api/lists { name, description?, listingId? }   create a list (and optionally save a saddle to it)
+// POST /api/lists { name, description?, listingId?, search? }   create a list (optionally saving a saddle,
+//   or with criteria from a browse-page query string, e.g. "discipline=dressage&seat_min=17")
 import { NextResponse } from 'next/server';
 import {
-  requireUser, unauthorized, bad, ensureDefaultList, cleanName, cleanText, isUuid, DUPLICATE_NAME
+  requireUser, unauthorized, bad, ensureDefaultList, cleanName, cleanText, isUuid, DUPLICATE_NAME, criteriaFromSearch
 } from '@/lib/lists-server';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,12 @@ export async function POST(req: Request) {
 
   const { data: list, error } = await supabase
     .from('buyer_lists')
-    .insert({ user_id: user.id, name, description: cleanText(body.description, 500) ?? null })
+    .insert({
+      user_id: user.id,
+      name,
+      description: cleanText(body.description, 500) ?? null,
+      ...(criteriaFromSearch(body.search) ? { criteria: criteriaFromSearch(body.search), criteria_updated_at: new Date().toISOString() } : {})
+    })
     .select('id, name, description, is_default')
     .single();
   if (error) return error.code === '23505' ? bad(DUPLICATE_NAME, 409) : bad('Could not create the list.', 500);

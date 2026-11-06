@@ -1,4 +1,5 @@
-// PUT    /api/lists/<id>/items { listingId, note? }   save a saddle to the list (repeat-safe)
+// PUT    /api/lists/<id>/items { listingId, note?, via? }   save a saddle to the list (repeat-safe);
+//        via: 'suggestion' when added from the list's suggested matches
 // PATCH  /api/lists/<id>/items { listingId, note }    change the private note
 // DELETE /api/lists/<id>/items?listing=<listingId>   remove; returns the note so it can be undone
 import { NextResponse } from 'next/server';
@@ -18,7 +19,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { error } = await supabase
     .from('buyer_list_items')
     .upsert(
-      { list_id: params.id, listing_id: body.listingId, user_id: user.id, ...(note ? { note } : {}) },
+      {
+        list_id: params.id,
+        listing_id: body.listingId,
+        user_id: user.id,
+        added_via: body.via === 'suggestion' ? 'suggestion' : 'manual',
+        ...(note ? { note } : {})
+      },
       { ignoreDuplicates: true }
     );
   if (error) return error.code === '42501' ? bad('List not found.', 404) : bad('Could not save.', 500);
