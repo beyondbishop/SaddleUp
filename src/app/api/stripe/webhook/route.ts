@@ -58,9 +58,16 @@ export async function POST(req: Request) {
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (session.payment_status !== 'paid') return;
   const admin = createAdminClient();
-  const { listing_id, buyer_id } = session.metadata ?? {};
+  const meta = session.metadata ?? {};
+  const { listing_id, buyer_id } = meta;
   const paymentIntentId = session.payment_intent as string;
-  const salePriceCents = session.amount_total ?? 0;
+  // Saddle and shipping are recorded separately: SaddleUp's fee is on the saddle only, and
+  // shipping pays for the label. (Checkouts started before shipping existed have no split.)
+  const shippingCents = Number(meta.shipping_cents ?? 0) || 0;
+  const salePriceCents = meta.saddle_cents ? Number(meta.saddle_cents) : (session.amount_total ?? 0) - shippingCents;
+  if (meta.saddle_cents && session.amount_total !== null && session.amount_total < salePriceCents + shippingCents) {
+    console.error(`Checkout ${session.id} total ${session.amount_total} is less than saddle + shipping`);
+  }
 
   const { data: outcome, error } = await admin.rpc('fulfill_checkout', {
     p_session_id: session.id,
@@ -68,11 +75,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     p_listing_id: listing_id,
     p_buyer_id: buyer_id,
     p_sale_price_cents: salePriceCents,
-    p_commission_cents: calcCommissionCents(salePriceCents)
+    p_commission_cents: calcCommissionCents(salePriceCents),
+    p_shipping_cents: shippingCents,
+    p_quote_id: meta.quote_id || null
   });
   if (error) throw error;
 
-  if (outcome === 'created') await recordPurchaseDetails(session.id, listing_id!);
+  if (outcome === 'created') await recordPurchaseDetails(session, listing_id!);
 
   if (outcome === 'conflict') {
     // Paid for a saddle this session no longer held (reservation expired and someone else
@@ -101,28 +110,52 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
  * saw), set the seller's dispatch deadline, and start the order's history. Never throws: the
  * order already exists, and these details must not make Stripe retry the payment event.
  */
-async function recordPurchaseDetails(sessionId: string, listingId: string) {
+async function recordPurchaseDetails(session: Stripe.Checkout.Session, listingId: string) {
+  const sessionId = session.id;
   try {
     const admin = createAdminClient();
     const [{ data: order }, { data: listing }] = await Promise.all([
       admin.from('orders').select('id, created_at').eq('stripe_checkout_session_id', sessionId).single(),
       admin
         .from('listings')
-        .select('id, slug, model, discipline, seat_size, tree_width, panel_type, panel_flocking, year_manufactured, condition, color, price_cents, description, images, location_city, location_state, location_zip, trial_policy, brands(name)')
+        .select('id, slug, model, discipline, seat_size, tree_width, panel_type, panel_flocking, year_manufactured, condition, color, price_cents, description, images, location_city, location_state, location_zip, trial_policy, pkg_length_in, pkg_width_in, pkg_height_in, pkg_weight_lb, brands(name)')
         .eq('id', listingId)
         .single()
     ]);
     if (!order) return;
     const dispatchDue = addBusinessDays(new Date(order.created_at), DISPATCH_BUSINESS_DAYS);
+
+    // Where it's going (needed for the label). Stripe API 2024-06-20 puts it in shipping_details.
+    const ship = (session as any).shipping_details;
+    const shipTo = ship?.address
+      ? {
+          name: ship.name ?? session.customer_details?.name ?? '',
+          street1: ship.address.line1 ?? '',
+          street2: ship.address.line2 ?? null,
+          city: ship.address.city ?? '',
+          state: ship.address.state ?? '',
+          zip: (ship.address.postal_code ?? '').slice(0, 10),
+          phone: session.customer_details?.phone ?? null,
+          email: session.customer_details?.email ?? null
+        }
+      : null;
+    const quotedZip = session.metadata?.quote_zip;
+    const zipMismatch = !!(quotedZip && shipTo?.zip && shipTo.zip.slice(0, 5) !== quotedZip);
+
     await admin
       .from('orders')
       .update({
         listing_snapshot: listing ?? null,
         terms_version: BUYER_TERMS_VERSION,
         fee_percent: COMMISSION_PERCENT,
-        dispatch_due_at: dispatchDue.toISOString()
+        dispatch_due_at: dispatchDue.toISOString(),
+        ship_to: shipTo,
+        ship_to_zip_mismatch: zipMismatch
       })
       .eq('id', order.id);
+    if (zipMismatch) {
+      await logOrderEvent(order.id, 'shipping_zip_changed', 'system', null, { quoted_zip: quotedZip, ship_to_zip: shipTo?.zip });
+    }
     await logOrderEvent(order.id, 'paid', 'system', null, { dispatch_due_at: dispatchDue.toISOString() });
   } catch (e) {
     console.error(`Could not record purchase details for checkout ${sessionId}`, e);

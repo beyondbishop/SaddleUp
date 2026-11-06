@@ -9,7 +9,7 @@ const SESSION_MINUTES = 30;
 const RESERVATION_GRACE_MINUTES = 5;
 
 export async function POST(req: Request) {
-  const { listingId } = await req.json().catch(() => ({}));
+  const { listingId, quoteId } = await req.json().catch(() => ({}));
   const supabase = createClient();
   const admin = createAdminClient();
 
@@ -41,6 +41,25 @@ export async function POST(req: Request) {
       { error: 'This seller has not finished payout setup yet. Check back soon.' },
       { status: 400 }
     );
+  }
+
+  // The shipping price the buyer saw for their ZIP. Checkout charges exactly that.
+  if (typeof quoteId !== 'string') {
+    return NextResponse.json({ error: 'Enter your ZIP code to get the shipping price first.' }, { status: 400 });
+  }
+  const { data: quote } = await admin
+    .from('shipping_quotes')
+    .select('id, listing_id, buyer_id, to_zip, amount_cents, service_name, insured_cents, expires_at')
+    .eq('id', quoteId)
+    .maybeSingle();
+  if (
+    !quote ||
+    quote.listing_id !== listing.id ||
+    (quote.buyer_id && quote.buyer_id !== user.id) ||
+    new Date(quote.expires_at).getTime() < Date.now() ||
+    quote.insured_cents !== listing.price_cents
+  ) {
+    return NextResponse.json({ error: 'Your shipping price has expired. Please check it again.', requote: true }, { status: 409 });
   }
 
   // Hold the saddle for this buyer so nobody else can pay for it at the same time.
@@ -105,15 +124,40 @@ export async function POST(req: Request) {
             unit_amount: listing.price_cents
           },
           quantity: 1
+        },
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Shipping to ${quote.to_zip}`,
+              description: `${quote.service_name ?? 'Ground'} · signature on delivery · insured for the full price`
+            },
+            unit_amount: quote.amount_cents
+          },
+          quantity: 1
         }
       ],
+      // Ship to the buyer's address (US only); the phone number goes on the label for the carrier.
+      shipping_address_collection: { allowed_countries: ['US'] },
+      phone_number_collection: { enabled: true },
+      // Sales tax: off until SaddleUp is registered where it's owed. STRIPE_AUTOMATIC_TAX=on enables it.
+      ...(process.env.STRIPE_AUTOMATIC_TAX === 'on' ? { automatic_tax: { enabled: true } } : {}),
       // NOTE: no transfer_data/application_fee_amount here on purpose. Funds are
       // charged to the platform's own Stripe balance and held. The seller is
       // paid out via a separate Transfer (see src/lib/payouts.ts) once the buyer
       // confirms receipt or the inspection window after delivery elapses.
       customer_email: user.email,
       expires_at: sessionExpiresAt,
-      metadata: { listing_id: listing.id, buyer_id: user.id, seller_id: listing.seller_id },
+      // Set by the server, so the webhook can trust these amounts.
+      metadata: {
+        listing_id: listing.id,
+        buyer_id: user.id,
+        seller_id: listing.seller_id,
+        saddle_cents: String(listing.price_cents),
+        shipping_cents: String(quote.amount_cents),
+        quote_id: quote.id,
+        quote_zip: quote.to_zip
+      },
       payment_intent_data: { metadata: { listing_id: listing.id, buyer_id: user.id } },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/orders?purchased=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/saddles/${listing.slug}?canceled=1`

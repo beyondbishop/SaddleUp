@@ -164,6 +164,10 @@ export default function ListingForm({
       location_city: form.get('location_city') || null,
       location_state: form.get('location_state') ? String(form.get('location_state')).trim().toUpperCase().slice(0, 2) : null,
       location_zip: form.get('location_zip') || null,
+      pkg_length_in: form.get('pkg_length_in') ? Number(form.get('pkg_length_in')) : null,
+      pkg_width_in: form.get('pkg_width_in') ? Number(form.get('pkg_width_in')) : null,
+      pkg_height_in: form.get('pkg_height_in') ? Number(form.get('pkg_height_in')) : null,
+      pkg_weight_lb: form.get('pkg_weight_lb') ? Number(form.get('pkg_weight_lb')) : null,
       ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
       slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`,
@@ -394,14 +398,36 @@ export default function ListingForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1">Tree Width — exact (cm, optional)</label>
-          <input name="tree_width_cm" type="number" step="0.1" className="w-full border rounded p-2" />
+          <input name="tree_width_cm" type="number" step="0.1" defaultValue={(existing as any)?.tree_width_cm ?? ''} className="w-full border rounded p-2" />
           <p className="text-xs text-gray-500 mt-1">Fill this in if you know it — it powers the horse-fit matcher.</p>
         </div>
         <div>
           <label className="block text-sm font-semibold mb-1">Panel Length (cm, optional)</label>
-          <input name="panel_length_cm" type="number" step="0.1" className="w-full border rounded p-2" />
+          <input name="panel_length_cm" type="number" step="0.1" defaultValue={(existing as any)?.panel_length_cm ?? ''} className="w-full border rounded p-2" />
         </div>
       </div>
+
+      <fieldset>
+        <legend className="block text-sm font-semibold mb-1">Packed box size (optional)</legend>
+        <p className="text-xs text-gray-500 mb-2">
+          Used to quote buyers shipping. Leave blank for a standard saddle box (28 × 20 × 14 in, 25 lb). If your box is
+          bigger or heavier than you enter, the difference in shipping comes out of your payout.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {([
+            ['pkg_length_in', 'Length (in)', 6, 80],
+            ['pkg_width_in', 'Width (in)', 6, 80],
+            ['pkg_height_in', 'Height (in)', 3, 80],
+            ['pkg_weight_lb', 'Weight (lb)', 1, 150]
+          ] as const).map(([name, label, min, max]) => (
+            <label key={name} className="text-xs">
+              <span className="block mb-1">{label}</span>
+              <input name={name} type="number" step="0.5" min={min} max={max}
+                defaultValue={(existing as any)?.[name] ?? ''} className="w-full border rounded p-2 text-sm" />
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <ZipField
         initialZip={existing?.location_zip ?? prefill?.location_zip}

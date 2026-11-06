@@ -100,6 +100,10 @@ export const EVENT_LABELS: Record<string, string> = {
   review_resolved: 'SaddleUp resolved the review',
   payout_sent: 'Seller payout sent',
   payout_failed: 'Seller payout failed (will retry)',
+  label_created: 'Shipping label created',
+  delivery_problem: 'Carrier reported a delivery problem',
+  shipping_zip_changed: 'Delivery ZIP differs from the shipping quote',
+  review_note: 'SaddleUp added a review note',
   refunded: 'Refunded',
   disputed: 'Card dispute opened'
 };

@@ -11,7 +11,9 @@ export default function OrderView({ order, events, role }: { order: any; events:
   const stage = orderStage(order);
   const currentIndex = TIMELINE.findIndex((t) => t.stage === stage);
   const issueLabel = order.issue_type
-    ? (ISSUE_REASONS as any)[order.issue_type]?.[order.issue_reason] ?? order.issue_reason
+    ? order.issue_reason === 'delivery_exception'
+      ? 'The carrier reported a delivery problem'
+      : (ISSUE_REASONS as any)[order.issue_type]?.[order.issue_reason] ?? order.issue_reason
     : null;
 
   return (

@@ -85,7 +85,8 @@ const ALLOWED = [
   'brand_id', 'model', 'discipline', 'seat_size', 'tree_width', 'panel_type', 'flap_length',
   'year_manufactured', 'condition', 'color', 'price_cents', 'description', 'tree_width_cm',
   'panel_length_cm', 'location_city', 'location_state', 'location_zip', 'trial_policy', 'panel_flocking', 'images',
-  'slug', 'source', 'ebay_item_id', 'ebay_item_url', 'ebay_seller_username', 'ebay_imported_at'
+  'slug', 'source', 'ebay_item_id', 'ebay_item_url', 'ebay_seller_username', 'ebay_imported_at',
+  'pkg_length_in', 'pkg_width_in', 'pkg_height_in', 'pkg_weight_lb'
 ] as const;
 
 export async function POST(req: Request) {
