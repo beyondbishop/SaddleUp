@@ -79,7 +79,7 @@ export default async function HomePage() {
       .limit(6)
   ]);
   // Brands that make close contact jumping saddles (no western-only makers, no "Other").
-  const brands = brandsForDiscipline(allBrands ?? [], FOCUS).filter((b) => b.name !== 'Other').slice(0, 16);
+  const brands = brandsForDiscipline(allBrands ?? [], FOCUS).filter((b) => b.name !== 'Other');
 
   return (
     <div className="full-bleed">
