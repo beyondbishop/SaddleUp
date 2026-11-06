@@ -6,6 +6,9 @@ import { isUuid } from '@/lib/lists-server';
 import { claimMessage, claimUrlFor } from '@/lib/claim-message';
 import CopyButton from '@/components/imports/CopyButton';
 import MarkMessagedButton from '@/components/imports/MarkMessagedButton';
+import { REWARD_PERCENT } from '@/lib/rewards';
+
+const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'My imports', robots: { index: false } };
@@ -41,15 +44,19 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   // Admins can look at anyone's imports (linked from the Users page).
   const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
   const admin = createAdminClient();
-  const [{ data: rows }, { data: who }] = await Promise.all([
+  const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
     admin
       .from('listing_imports')
       .select('listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, status, claimed_at, claim_token, brands(name))')
       .eq('importer_id', importerId)
       .order('created_at', { ascending: false })
       .limit(500),
-    importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null })
+    importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from('importer_rewards').select('listing_id, amount_cents, status, void_reason, paid_at').eq('importer_id', importerId)
   ]);
+  const rewardByListing = new Map((rewards ?? []).map((r) => [r.listing_id, r]));
+  const owedCents = (rewards ?? []).filter((r) => r.status === 'earned').reduce((s, r) => s + r.amount_cents, 0);
+  const paidCents = (rewards ?? []).filter((r) => r.status === 'paid').reduce((s, r) => s + r.amount_cents, 0);
 
   const items = (rows ?? []).map((r: any) => {
     const l = r.listings;
@@ -69,6 +76,21 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
         {!who && <Link href="/imports/new" className="bg-saddle-green text-white rounded px-4 py-2 font-semibold text-sm">+ Add a saddle</Link>}
       </div>
       <p className="text-saddle-muted mb-4">{items.length} saddles added</p>
+
+      <section className="bg-saddle-cream border border-saddle-tan rounded p-4 mb-6 flex flex-wrap gap-6 items-center">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-600">Earned, not yet paid</p>
+          <p className="text-2xl font-bold text-saddle-green">{usd(owedCents)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-600">Paid so far</p>
+          <p className="text-2xl font-bold">{usd(paidCents)}</p>
+        </div>
+        <p className="text-sm text-gray-700 flex-1 min-w-[16rem]">
+          You earn {REWARD_PERCENT}% of what SaddleUp keeps (our fee after card processing) on each saddle you added
+          that sells, once the buyer has kept it. Not when you&apos;re the buyer or seller, and not if the sale is refunded.
+        </p>
+      </section>
 
       <ul className="flex flex-wrap gap-2 mb-6 text-sm">
         {counts.filter(([, n]) => n > 0).map(([s, n]) => (
@@ -108,7 +130,22 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
             {i.stage === 'follow_up' && (
               <p className="text-xs text-gray-600 mt-2">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>
             )}
-            {(i.stage === 'live' || i.stage === 'sold') && i.l?.slug && (
+            {i.stage === 'sold' && (() => {
+              const r = rewardByListing.get(i.listing_id);
+              return (
+                <p className="text-sm mt-2">
+                  {!r
+                    ? 'Your reward is added once the buyer has kept the saddle.'
+                    : r.status === 'earned'
+                      ? <>You earned <strong>{usd(r.amount_cents)}</strong> (not yet paid)</>
+                      : r.status === 'paid'
+                        ? <>Paid <strong>{usd(r.amount_cents)}</strong> on {new Date(r.paid_at!).toLocaleDateString('en-US')}</>
+                        : <>No reward: {r.void_reason}</>}
+                </p>
+              );
+            })()}
+            {/* Sold listings aren't public any more, so only live ones get a link. */}
+            {i.stage === 'live' && i.l?.slug && (
               <Link href={`/saddles/${i.l.slug}`} className="text-sm underline mt-2 inline-block">View listing</Link>
             )}
           </li>

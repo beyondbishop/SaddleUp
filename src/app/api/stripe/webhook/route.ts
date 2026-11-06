@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { stripe, calcCommissionCents } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
+import { voidRewardForRefund } from '@/lib/rewards';
 
 // Stripe requires the raw body to verify the webhook signature, so this
 // route must NOT run through Next's default JSON body parsing.
@@ -102,6 +103,7 @@ async function handleRefund(charge: Stripe.Charge) {
   const admin = createAdminClient();
   const pi = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent.id;
   await admin.from('orders').update({ status: 'refunded' }).eq('stripe_payment_intent_id', pi);
+  await voidRewardForRefund(pi);
   // Stop any payout that hasn't gone out. (A refund after payout needs a manual transfer reversal.)
   await admin
     .from('orders')

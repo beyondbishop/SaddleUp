@@ -66,6 +66,7 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
                 {pendingCount > 0 && <span className="text-saddle-green font-semibold">{pendingCount}</span>}
               </Link>
               <Link href="/admin/users" className={item}>Users</Link>
+              <Link href="/admin/rewards" className={item}>Importer rewards</Link>
             </>
           )}
 

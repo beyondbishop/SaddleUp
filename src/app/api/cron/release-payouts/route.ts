@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { releasePayout } from '@/lib/payouts';
+import { recordMissingRewards } from '@/lib/rewards';
 
 // Daily: pay sellers whose buyer confirmed receipt or whose inspection window (which starts at
 // confirmed delivery) has ended, and free saddles left reserved by abandoned checkouts.
@@ -31,7 +32,13 @@ export async function GET(req: Request) {
     else if (result.reason !== 'not_eligible') failed.push(order.id);
   }
 
+  const rewardsRecorded = await recordMissingRewards().catch((e) => {
+    console.error('Importer reward catch-up failed', e);
+    return 0;
+  });
+
   return NextResponse.json({
+    rewardsRecorded,
     checked: dueOrders?.length ?? 0,
     released,
     failed,

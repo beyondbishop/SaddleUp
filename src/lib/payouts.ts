@@ -1,6 +1,7 @@
 import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
+import { recordImporterReward } from '@/lib/rewards';
 
 export type PayoutResult =
   | { ok: true; transferId: string }
@@ -70,6 +71,9 @@ export async function releasePayout(orderId: string, opts: { byBuyer: boolean })
       .from('orders')
       .update({ payout_status: 'transferred', stripe_transfer_id: transfer.id, payout_error: null })
       .eq('id', orderId);
+    // The sale is final: credit whoever imported the saddle. Never let this block a payout;
+    // the daily job records anything missed here.
+    await recordImporterReward(orderId).catch((e) => console.error(`Importer reward not recorded for ${orderId}`, e));
     return { ok: true, transferId: transfer.id };
   } catch (e: any) {
     console.error(`Payout failed for order ${orderId}`, e);
