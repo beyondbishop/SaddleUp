@@ -73,7 +73,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
             ? 'https://schema.org/SoldOut'
             : 'https://schema.org/LimitedAvailability',
       url: `${SITE_URL}/saddles/${listing.slug}`,
-      itemCondition: 'https://schema.org/UsedCondition'
+      // "New / never used" saddles are new; everything else on SaddleUp is used.
+      itemCondition: listing.condition === 'new' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'
     },
     additionalProperty: [
       { '@type': 'PropertyValue', name: 'Seat Size', value: `${listing.seat_size} in` },
