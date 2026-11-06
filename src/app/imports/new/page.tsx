@@ -6,7 +6,7 @@ import { getViewer } from '@/lib/roles';
 export const metadata = { title: 'Add a saddle you found', robots: { index: false } };
 
 export default async function NewImportPage() {
-  const { supabase, user, isImporter } = await getViewer();
+  const { supabase, user, isImporter, isAdmin } = await getViewer();
   if (!user) redirect('/auth/login?next=/imports/new');
   if (!isImporter) redirect('/');
 
@@ -23,7 +23,7 @@ export default async function NewImportPage() {
         fill in the details, you check them, and you get a hidden listing plus a claim link and message to send the seller.
         Nothing is public until they claim it. Saddle photos go on the hidden listing so the seller starts with them. Please keep messages personal.
       </p>
-      <AdminQuickAdd brands={brands ?? []} siteUrl={process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost') ? 'https://saddleup.me' : process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me'} />
+      <AdminQuickAdd brands={brands ?? []} fromFounder={isAdmin} siteUrl={process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost') ? 'https://saddleup.me' : process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me'} />
     </div>
   );
 }

@@ -11,7 +11,7 @@ const PERKS = [
   ['Found by the right riders', 'Buyers search by seat size and tree width, so the people who see your saddle are the ones it fits.'],
   [
     `Just ${SELLER_FEE_PERCENT}% when it sells`,
-    `We're in beta, so it's free to list and ${SELLER_FEE_PERCENT}% only if it sells (never more than $${SELLER_FEE_CAP_DOLLARS}). No sale, no fee.`
+    `We're in beta, so it's free to list and ${SELLER_FEE_PERCENT}% only if it sells (never more than $${SELLER_FEE_CAP_DOLLARS}). That includes the ~3% card processing fee, so nothing else comes out. No sale, no fee.`
   ],
   ['Payment and shipping handled', 'Buyers pay through SaddleUp and we give you the shipping label. No meetups with strangers or chasing payments.'],
   ['Buyers buy with confidence', 'Every buyer gets a 5-day inspection window, which makes them more willing to buy a saddle they haven’t sat in.']

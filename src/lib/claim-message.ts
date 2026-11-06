@@ -12,6 +12,8 @@ export interface ClaimTips {
   hasPhotos?: boolean;
   /** The saddle's discipline, to show what buyers would search for. */
   discipline?: string | null;
+  /** Sent by SaddleUp's founder (an admin), so the "why I built it" line is in the first person. */
+  fromFounder?: boolean;
 }
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -66,10 +68,13 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
     tipLines.length
       ? `${tipLines.length === 1 ? 'A quick tip' : 'Two quick tips'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
       : null,
+    tips.fromFounder
+      ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy.`
+      : `SaddleUp was started by a rider who's been through the pain of trying to sell a saddle, to make it easy.`,
     `Facebook posts only show up on Facebook. I made you a free SaddleUp listing${fix ? ' (spelling fixed)' : ''}${
       tips.hasPhotos ? ' with your photos' : ''
-    }. Once you claim it, riders can find it on Google and AI search when they look for "${searchFor}":\n${claimUrl}`,
-    `We're in beta: free to list, just ${SELLER_FEE_PERCENT}% if it sells. If you ever want to ship it, we handle the payment and shipping label.`,
+    }. We're new, so there aren't many listings yet, but once you claim it, yours can show up on Google and AI search when riders look for "${searchFor}":\n${claimUrl}`,
+    `We're in beta: free to list, and just ${SELLER_FEE_PERCENT}% if it sells. That includes the ~3% card processing fee, so there's nothing else to pay. If you ever want to ship it, we handle the payment and shipping label.`,
     `No pressure. If you don't claim it, it never goes public.`
   ]
     .filter(Boolean)

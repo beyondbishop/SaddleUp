@@ -67,7 +67,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at, r.link_first_opened_at ?? null);
     const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
     // The importer's saved message (with any tips from import time), else a fresh one.
-    const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0, discipline: l?.discipline }) : null;
+    const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0, discipline: l?.discipline, fromFounder: isAdmin && importerId === user.id }) : null;
     return { ...r, l, saddle, stage, claimUrl, message };
   });
   const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);

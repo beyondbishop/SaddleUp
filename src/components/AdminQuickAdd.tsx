@@ -56,7 +56,16 @@ interface Created {
   tips: ClaimTips;
 }
 
-export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: number; name: string }[]; siteUrl: string }) {
+export default function AdminQuickAdd({
+  brands,
+  siteUrl,
+  fromFounder = false
+}: {
+  brands: { id: number; name: string }[];
+  siteUrl: string;
+  /** Admins write the seller message in the founder's voice. */
+  fromFounder?: boolean;
+}) {
   const [text, setText] = useState('');
   const [sellerName, setSellerName] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
@@ -349,7 +358,7 @@ export default function AdminQuickAdd({ brands, siteUrl }: { brands: { id: numbe
             importMeta={{ sourceUrl, sellerName }}
             onSeeded={({ id, claim_token, saddle, price, hasPhotos }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;
-              const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline };
+              const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline, fromFounder };
               setCreated((prev) => [{ id, key: parsed.key, saddle, sellerName, sourceUrl, claimUrl, tips }, ...prev]);
               reset();
             }}
