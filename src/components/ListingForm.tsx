@@ -465,7 +465,12 @@ export default function ListingForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="seat_size" className="block text-sm font-semibold mb-1">Seat Size</label>
+          <label htmlFor="seat_size" className="flex items-baseline justify-between text-sm font-semibold mb-1">
+            Seat Size
+            <a href="/guides/how-to-measure-a-saddle#seat" target="_blank" rel="noopener noreferrer" className="font-normal text-xs underline text-saddle-brown">
+              How to measure ↗
+            </a>
+          </label>
           <select
             id="seat_size"
             name="seat_size"
@@ -483,7 +488,12 @@ export default function ListingForm({
           </select>
         </div>
         <div>
-          <label htmlFor="tree_width" className="block text-sm font-semibold mb-1">{treeLabelFor(discipline)}</label>
+          <label htmlFor="tree_width" className="flex items-baseline justify-between text-sm font-semibold mb-1">
+            {treeLabelFor(discipline)}
+            <a href="/guides/how-to-measure-a-saddle#tree" target="_blank" rel="noopener noreferrer" className="font-normal text-xs underline text-saddle-brown">
+              How to measure ↗
+            </a>
+          </label>
           <select
             id="tree_width"
             name="tree_width"

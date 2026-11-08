@@ -19,6 +19,8 @@ export interface ClaimTips {
    * "We marked your saddle Medium-narrow because you listed it as 27 cm and Stubben's standard (Medium) is 28 cm."
    */
   listingNotes?: string[];
+  /** Seat size or tree width was missing or uncertain, so point them to the measuring guide. */
+  measureGuide?: boolean;
 }
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -61,7 +63,10 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
   const notes = [
     price,
     fix ? `Spelling: "${fix.wrong}" is spelled "${fix.right}". Buyers search by brand, so fixing it on Facebook helps them find you.` : null,
-    ...choices
+    ...choices,
+    tips.measureGuide
+      ? `Measurements: Buyers look for seat size and tree width first. If you're not sure of yours, this quick guide shows exactly where to measure: ${siteUrl()}/guides/how-to-measure-a-saddle`
+      : null
   ].filter((n): n is string => !!n);
 
   return [
@@ -78,7 +83,7 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
     `We're currently in beta, so listing is completely free, and the total fee is only ${SELLER_FEE_PERCENT}% if your saddle sells, including credit card processing.`,
     `I hope this helps connect your saddle with its next rider!${tips.fromFounder ? '\nDanielle Bishop\nFounder, SaddleUp' : ''}`,
     notes.length
-      ? `${notes.length === 1 ? 'One observation' : 'A couple of observations'} that may help your saddle sell:\n${notes.map((n) => `• ${n}`).join('\n')}`
+      ? `${notes.length === 1 ? 'One observation' : notes.length === 2 ? 'A couple of observations' : 'A few observations'} that may help your saddle sell:\n${notes.map((n) => `• ${n}`).join('\n')}`
       : null
   ]
     .filter(Boolean)
