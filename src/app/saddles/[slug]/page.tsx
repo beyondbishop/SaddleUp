@@ -111,9 +111,23 @@ export default async function ListingPage({ params }: { params: { slug: string }
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {listing.status === 'active' && <ViewTracker listingId={listing.id} />}
 
+      <div className="space-y-4 min-w-0">
       <PhotoGallery images={listing.images ?? []} alt={`${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`}>
         <FavoriteButton listingId={listing.id} className="absolute top-3 right-3" />
       </PhotoGallery>
+
+      {listing.video_url && (
+        <video
+          src={listing.video_url}
+          controls
+          playsInline
+          preload="metadata"
+          poster={listing.images?.[0]}
+          aria-label={`Video of the ${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`}
+          className="w-full max-h-[28rem] rounded bg-black"
+        />
+      )}
+      </div>
 
       <div>
         <h1 className="text-2xl font-bold text-saddle-brown">

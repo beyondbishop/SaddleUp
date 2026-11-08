@@ -1,4 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { listingAccess } from '@/lib/listing-access';
+import { brandsForPicker } from '@/lib/brands-server';
+import { isUuid } from '@/lib/lists-server';
 import { redirect, notFound } from 'next/navigation';
 import ListingForm from '@/components/ListingForm';
 
@@ -13,17 +16,15 @@ export default async function EditListingPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  const { data: brands } = await supabase.from('brands').select('id, name').order('name');
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
-  const isAdmin = !!profile?.is_admin;
+  if (!isUuid(params.id)) return notFound();
 
-  // Sellers edit their own listings; admins can edit any (row-level security enforces the same).
-  let query = supabase.from('listings').select('*').eq('id', params.id);
-  if (!isAdmin) query = query.eq('seller_id', user.id);
-  const { data: listing } = await query.single();
-
+  // Sellers edit their own listings, admins any, importers the unclaimed ones they added.
+  const { access, isAdmin } = await listingAccess(params.id);
+  if (!access) return notFound();
+  const { data: listing } = await createAdminClient().from('listings').select('*').eq('id', params.id).single();
   if (!listing) return notFound();
-  const editingForSeller = isAdmin && listing.seller_id !== user.id;
+  const brands = await brandsForPicker(supabase, { userId: user.id, isAdmin, includeId: listing.brand_id });
+  const editingForSeller = access === 'admin';
 
   return (
     <div className="py-8">
@@ -44,7 +45,12 @@ export default async function EditListingPage({
         </div>
       )}
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Edit Listing</h1>
-      <ListingForm brands={brands ?? []} existing={listing as any} afterSave={editingForSeller ? '/admin/listings' : '/dashboard'} />
+      {access === 'importer' && (
+        <div className="max-w-2xl bg-saddle-sand border border-saddle-line rounded p-3 mb-4 text-sm text-saddle-brown">
+          You added this saddle and the seller hasn&apos;t claimed it yet, so you can still fix its details and photos.
+        </div>
+      )}
+      <ListingForm brands={brands} existing={listing as any} afterSave={access === 'importer' ? `/imports?open=${listing.id}#import-${listing.id}` : editingForSeller ? '/admin/listings' : '/dashboard'} />
     </div>
   );
 }

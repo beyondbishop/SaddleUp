@@ -7,8 +7,12 @@ import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
 import { claimMessage, type ClaimTips } from '@/lib/claim-message';
 import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import Link from 'next/link';
+import { withBestCover } from '@/lib/listing-photos';
 
+// The reader looks at the first 6 photos (a request has to stay under Vercel's ~4.5 MB limit);
+// up to 20 can be added, and the rest go straight on the listing.
 const MAX_READ_PHOTOS = 6;
+const MAX_IMPORT_PHOTOS = 20;
 const READ_SIDE = 1568; // Claude reads images at up to about this size, enough for a stamp close-up
 
 /** Shrinks a photo in the browser to a JPEG for the reader. It is never uploaded to storage. */
@@ -96,9 +100,9 @@ export default function AdminQuickAdd({
 
   async function addPhotos(list: FileList | File[]) {
     const files = Array.from(list).filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
-    const room = MAX_READ_PHOTOS - photos.length;
+    const room = MAX_IMPORT_PHOTOS - photos.length;
     const problems: string[] = [];
-    if (files.length > room) problems.push(`Up to ${MAX_READ_PHOTOS} photos - the extras were skipped.`);
+    if (files.length > room) problems.push(`Up to ${MAX_IMPORT_PHOTOS} photos - the extras were skipped.`);
     const added: (ReadPhoto & { preview: string })[] = [];
     for (const f of files.slice(0, Math.max(0, room))) {
       try {
@@ -107,7 +111,7 @@ export default function AdminQuickAdd({
         problems.push(`Couldn't open ${f.name}. Try a JPEG or PNG.`);
       }
     }
-    setPhotos((prev) => [...prev, ...added].slice(0, MAX_READ_PHOTOS));
+    setPhotos((prev) => [...prev, ...added].slice(0, MAX_IMPORT_PHOTOS));
     setPhotoError(problems.join(' ') || null);
   }
   const [created, setCreated] = useState<Created[]>([]);
@@ -157,7 +161,8 @@ export default function AdminQuickAdd({
     }
     setReading(true);
     setStep(photos.length ? 'Reading the post and photos…' : 'Reading…');
-    const sent = photos.map(({ media_type, data }) => ({ media_type, data }));
+    const all = photos.map(({ media_type, data }) => ({ media_type, data }));
+    const sent = all.slice(0, MAX_READ_PHOTOS);
     const result = await readListingText(text, brands, sent);
     if ('error' in result) {
       setReading(false);
@@ -170,13 +175,24 @@ export default function AdminQuickAdd({
       return;
     }
     // Saddle and stamp photos go on the listing so the seller starts with them; screenshots don't.
-    const keep = sent.filter((_, i) => (result.photoKinds?.[i] ?? 'saddle') === 'saddle' || result.photoKinds?.[i] === 'stamp');
+    // Photos past the first 6 weren't read, so they're kept as saddle photos.
+    const keep = all.filter((_, i) => i >= sent.length || (result.photoKinds?.[i] ?? 'saddle') === 'saddle' || result.photoKinds?.[i] === 'stamp');
     let images: string[] = [];
     if (keep.length) {
       setStep(`Saving ${keep.length} photo${keep.length === 1 ? '' : 's'} to the listing…`);
-      images = (await Promise.all(keep.map(uploadReadPhoto))).filter((u): u is string => !!u);
+      const urls: (string | null)[] = new Array(keep.length).fill(null);
+      // A few at a time, so 20 photos don't all compete for a phone's upload.
+      for (let i = 0; i < keep.length; i += 4) {
+        const chunk = await Promise.all(keep.slice(i, i + 4).map((p, j) => uploadReadPhoto(p, i + j)));
+        chunk.forEach((u, j) => (urls[i + j] = u));
+      }
+      images = urls.filter((u): u is string => !!u);
+      if (images.length > 1) {
+        setStep('Choosing the cover photo…');
+        images = (await withBestCover(images)).images;
+      }
     }
-    const skipped = sent.length - keep.length;
+    const skipped = all.length - keep.length;
     const failed = keep.length - images.length;
     const photoNote =
       [
@@ -332,10 +348,11 @@ export default function AdminQuickAdd({
               dragging ? 'border-saddle-green bg-saddle-green/10' : 'border-saddle-line bg-saddle-paper hover:border-saddle-brown'
             }`}
           >
-            <span className="font-semibold text-saddle-ink">📷 Add photos to read (optional)</span>
+            <span className="font-semibold text-saddle-ink">📷 Add photos (optional, up to {MAX_IMPORT_PHOTOS})</span>
             <span className="block text-saddle-muted">
-              Saddle photos, the stamp under the flap, or screenshots of the post. We read them to fill in blanks, and the saddle
-              photos go on the listing so the seller starts with them.
+              Saddle photos, the stamp under the flap, or screenshots of the post. Put the stamp and screenshots first: we read
+              the first {MAX_READ_PHOTOS} to fill in blanks. Every saddle photo goes on the listing so the seller starts with them,
+              and we pick a side view facing right as the cover.
             </span>
             <input
               ref={photoInput}
@@ -349,6 +366,9 @@ export default function AdminQuickAdd({
               }}
             />
           </div>
+          {photos.length > 0 && (
+            <p className="text-xs text-saddle-muted -mb-1">{photos.length} of {MAX_IMPORT_PHOTOS} photos{photos.length > MAX_READ_PHOTOS ? ` · the first ${MAX_READ_PHOTOS} are read for details` : ''}</p>
+          )}
           {photos.length > 0 && (
             <ul className="flex flex-wrap gap-2">
               {photos.map((p, i) => (

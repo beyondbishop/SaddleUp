@@ -8,12 +8,13 @@ const TABS = [
   { href: '/admin/listings', label: 'Listings' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/users', label: 'Users' },
+  { href: '/admin/brands', label: 'Brands' },
   { href: '/admin/rewards', label: 'Rewards' },
   { href: '/admin/emails', label: 'Emails' },
   { href: '/admin/quick-add', label: 'Quick add' }
 ];
 
-export default function AdminNav({ pendingCount }: { pendingCount: number }) {
+export default function AdminNav({ pendingCount, brandsPending = 0 }: { pendingCount: number; brandsPending?: number }) {
   const path = usePathname();
   return (
     <nav aria-label="Admin" className="flex gap-1 overflow-x-auto border-b border-saddle-line -mx-1 px-1">
@@ -29,10 +30,12 @@ export default function AdminNav({ pendingCount }: { pendingCount: number }) {
             }`}
           >
             {t.label}
-            {t.href === '/admin/listings' && pendingCount > 0 && (
-              <span className="ml-1.5 inline-block min-w-5 px-1 rounded-full bg-saddle-green text-saddle-cream text-[11px] leading-5 text-center">
-                {pendingCount}
-              </span>
+            {[['/admin/listings', pendingCount], ['/admin/brands', brandsPending]].map(([href, n]) =>
+              t.href === href && Number(n) > 0 ? (
+                <span key={href} className="ml-1.5 inline-block min-w-5 px-1 rounded-full bg-saddle-green text-saddle-cream text-[11px] leading-5 text-center">
+                  {n}
+                </span>
+              ) : null
             )}
           </Link>
         );

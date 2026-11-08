@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS } from '@/lib/types';
 import { VIEW_SOURCE_LABELS, type ViewSource } from '@/lib/view-source';
+import { listingAccess } from '@/lib/listing-access';
+import { isUuid } from '@/lib/lists-server';
 
 export const metadata = { title: 'Listing stats' };
 export const dynamic = 'force-dynamic';
@@ -86,32 +88,33 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
   } = await supabase.auth.getUser();
   if (!user) redirect(`/auth/login?next=/dashboard/listings/${params.id}/stats`);
 
-  // Owner or admin only (row-level security returns the listing only to them).
-  const { data: listing } = await supabase
+  // Its seller, an admin, or the importer who added it (while unclaimed).
+  if (!isUuid(params.id)) return notFound();
+  const { access } = await listingAccess(params.id);
+  if (!access) return notFound();
+  const admin = createAdminClient();
+  const { data: listing } = await admin
     .from('listings')
     .select('id, seller_id, slug, model, seat_size, status, created_at, brands(name)')
     .eq('id', params.id)
     .maybeSingle();
   if (!listing) return notFound();
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
-  if (listing.seller_id !== user.id && !profile?.is_admin) return notFound();
 
   const since = new Date(Date.now() - DAYS * 86_400_000);
   const [{ data: viewData }, { count: allTimeViews }] = await Promise.all([
-    supabase
+    admin
       .from('listing_views')
       .select('viewed_at, visitor_hash, source, region, country, search_filters')
       .eq('listing_id', listing.id)
       .gte('viewed_at', since.toISOString())
       .order('viewed_at', { ascending: true })
       .limit(50_000),
-    supabase.from('listing_views').select('id', { count: 'exact', head: true }).eq('listing_id', listing.id)
+    admin.from('listing_views').select('id', { count: 'exact', head: true }).eq('listing_id', listing.id)
   ]);
   const views = (viewData ?? []) as ViewRow[];
 
   // Saves and message threads belong to buyers, so count them with the service key
   // (only the totals are shown — never who). A buyer who saved it to several lists counts once.
-  const admin = createAdminClient();
   const [{ data: saves }, { count: conversations }] = await Promise.all([
     admin.from('buyer_list_items').select('user_id').eq('listing_id', listing.id).limit(10_000),
     admin.from('conversations').select('id', { count: 'exact', head: true }).eq('listing_id', listing.id)
@@ -155,8 +158,8 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
   return (
     <div className="py-8 space-y-6">
       <div>
-        <Link href="/dashboard" className="text-sm underline text-saddle-brown">
-          ← My listings
+        <Link href={access === 'importer' ? `/imports?open=${listing.id}#import-${listing.id}` : access === 'admin' ? '/admin/listings' : '/dashboard'} className="text-sm underline text-saddle-brown">
+          ← {access === 'importer' ? 'My imports' : access === 'admin' ? 'All listings' : 'My listings'}
         </Link>
         <h1 className="font-serif text-3xl text-saddle-ink mt-2">{title}</h1>
         <p className="text-sm text-saddle-muted">

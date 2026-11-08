@@ -91,7 +91,7 @@ export default async function DashboardPage() {
               <Link href={`/saddles/${l.slug}`} className="underline">View</Link>
               <Link href={`/dashboard/listings/${l.id}/stats`} className="underline">Stats</Link>
               <Link href={`/dashboard/listings/${l.id}/edit`} className="underline">Edit</Link>
-              <DeleteListingButton listingId={l.id} />
+              {l.status !== 'removed' && l.status !== 'pending_sale' && <DeleteListingButton listingId={l.id} />}
             </div>
           </div>
         ))}

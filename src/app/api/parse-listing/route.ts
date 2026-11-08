@@ -6,6 +6,7 @@
 // each AI read costs money.
 
 import { NextResponse } from 'next/server';
+import { approvedBrands } from '@/lib/brands-server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getViewer } from '@/lib/roles';
 import { createClient } from '@/lib/supabase/server';
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: ANON_LIMIT_MESSAGE }, { status: 429 });
   }
 
-  const { data: brands } = await supabase.from('brands').select('id, name');
+  const brands = await approvedBrands(supabase, 'id, name');
 
   let aiError: string | null = null;
   if (aiReaderConfigured() && brands?.length) {

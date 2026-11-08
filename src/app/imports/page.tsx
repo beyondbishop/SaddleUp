@@ -6,6 +6,7 @@ import { isUuid } from '@/lib/lists-server';
 import { claimMessage, claimUrlFor } from '@/lib/claim-message';
 import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import { REWARD_PERCENT } from '@/lib/rewards';
+import DeleteListingButton from '@/components/DeleteListingButton';
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -37,7 +38,7 @@ function stageOf(status: string | undefined, claimedAt: string | null, messagedA
   return Date.now() - new Date(messagedAt).getTime() > FOLLOW_UP_DAYS * 86_400_000 ? 'follow_up' : 'waiting';
 }
 
-export default async function ImportsPage({ searchParams }: { searchParams: { importer?: string } }) {
+export default async function ImportsPage({ searchParams }: { searchParams: { importer?: string; stage?: string; open?: string } }) {
   const { user, isAdmin, isImporter } = await getViewer();
   if (!user) redirect('/auth/login?next=/imports');
   if (!isImporter) redirect('/');
@@ -72,6 +73,42 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     return { ...r, l, saddle, stage, claimUrl, message };
   });
   const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);
+  const stageFilter = (STAGE_ORDER as string[]).includes(searchParams.stage ?? '') ? (searchParams.stage as Stage) : null;
+  const shown = stageFilter ? items.filter((i) => i.stage === stageFilter) : items;
+
+  // Views in the last 30 days for each saddle (read with the service key; only totals are shown).
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const ids = items.map((i) => i.listing_id);
+  const { data: viewRows } = ids.length
+    ? await admin.from('listing_views').select('listing_id, visitor_hash').in('listing_id', ids).gte('viewed_at', since).limit(50_000)
+    : { data: [] as { listing_id: string; visitor_hash: string }[] };
+  const viewsBy = new Map<string, { views: number; visitors: Set<string> }>();
+  for (const v of viewRows ?? []) {
+    const e = viewsBy.get(v.listing_id) ?? { views: 0, visitors: new Set<string>() };
+    e.views += 1;
+    e.visitors.add(v.visitor_hash);
+    viewsBy.set(v.listing_id, e);
+  }
+  const totalViews = (viewRows ?? []).length;
+  const messagedCount = items.filter((i) => i.messaged_at).length;
+  const openedCount = items.filter((i) => (i.link_open_count ?? 0) > 0).length;
+  const claimedCount = items.filter((i) => ['claimed', 'live', 'sold'].includes(i.stage)).length;
+  const soldCount = items.filter((i) => i.stage === 'sold').length;
+  const pct = (n: number) => (items.length ? `${Math.round((n / items.length) * 100)}%` : '–');
+  const tiles: { label: string; value: string | number; note?: string }[] = [
+    { label: 'Saddles added', value: items.length },
+    { label: 'Sellers messaged', value: messagedCount, note: pct(messagedCount) },
+    { label: 'Opened the link', value: openedCount, note: pct(openedCount) },
+    { label: 'Claimed', value: claimedCount, note: pct(claimedCount) },
+    { label: 'Sold', value: soldCount },
+    { label: 'Views, last 30 days', value: totalViews.toLocaleString('en-US') }
+  ];
+  const stageHref = (s: Stage | null) => {
+    const q = new URLSearchParams();
+    if (who && searchParams.importer) q.set('importer', searchParams.importer);
+    if (s) q.set('stage', s);
+    return `/imports${q.toString() ? `?${q}` : ''}`;
+  };
 
   return (
     <div className="py-8">
@@ -81,7 +118,19 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
         </h1>
         {!who && <Link href="/imports/new" className="bg-saddle-green text-white rounded px-4 py-2 font-semibold text-sm">+ Add a saddle</Link>}
       </div>
-      <p className="text-saddle-muted mb-4">{items.length} saddles added</p>
+      <p className="text-saddle-muted mb-4">Tap a saddle to see your message to the seller, its stats, and to edit or delete it.</p>
+
+      <section aria-label="Summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+        {tiles.map((t) => (
+          <div key={t.label} className="bg-white border border-saddle-line rounded p-3">
+            <p className="text-xs uppercase tracking-wide text-saddle-muted">{t.label}</p>
+            <p className="text-2xl font-bold text-saddle-ink tabular-nums">
+              {t.value}
+              {t.note && <span className="text-sm font-normal text-saddle-muted ml-1.5">{t.note}</span>}
+            </p>
+          </div>
+        ))}
+      </section>
 
       <section className="bg-saddle-cream border border-saddle-tan rounded p-4 mb-6 flex flex-wrap gap-6 items-center">
         <div>
@@ -98,75 +147,124 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
         </p>
       </section>
 
-      <ul className="flex flex-wrap gap-2 mb-6 text-sm">
-        {counts.filter(([, n]) => n > 0).map(([s, n]) => (
-          <li key={s} className="bg-white border border-saddle-line rounded px-3 py-1">{STAGE_LABEL[s]}: <strong>{n}</strong></li>
-        ))}
-      </ul>
+      {items.length > 0 && (
+        <nav aria-label="Filter by stage" className="flex gap-2 overflow-x-auto pb-2 mb-4 text-sm">
+          {([[null, 'All', items.length], ...counts.filter(([, n]) => n > 0).map(([st, n]) => [st, STAGE_LABEL[st], n])] as [Stage | null, string, number][]).map(([st, label, n]) => {
+            const active = st === stageFilter;
+            return (
+              <Link
+                key={label}
+                href={stageHref(st)}
+                aria-current={active ? 'page' : undefined}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full border ${active ? 'bg-saddle-brown text-saddle-cream border-saddle-brown' : 'bg-white border-saddle-line hover:border-saddle-brown'}`}
+              >
+                {label} <span className="tabular-nums opacity-75">{n}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       {items.length === 0 && (
         <p className="text-gray-600">Nothing yet. <Link href="/imports/new" className="underline">Add the first saddle you&apos;ve found.</Link></p>
       )}
 
-      <ul className="space-y-3">
-        {items.map((i) => (
-          <li key={i.listing_id} id={`import-${i.listing_id}`} className="bg-white border border-saddle-line rounded p-4 scroll-mt-24">
-            <div className="flex flex-wrap justify-between gap-2">
-              <div>
-                <p className="font-semibold text-saddle-brown">{i.saddle}</p>
-                <p className="text-sm text-gray-600">
-                  {i.seller_name ? `${i.seller_name} · ` : ''}added {new Date(i.created_at).toLocaleDateString('en-US')}
-                </p>
-              </div>
-              <span className={`text-sm font-semibold ${i.stage === 'follow_up' || i.stage === 'to_message' ? 'text-saddle-brown' : i.stage === 'sold' || i.stage === 'live' ? 'text-saddle-green' : 'text-gray-600'}`}>
-                {STAGE_LABEL[i.stage as Stage]}
-              </span>
-            </div>
+      <ul className="space-y-2">
+        {shown.map((i) => {
+          const v = viewsBy.get(i.listing_id);
+          // Importers manage a saddle until its seller claims it; admins always can.
+          const canManage = isAdmin || !i.l?.claimed_at && !['live', 'sold'].includes(i.stage);
+          const needsAction = i.stage === 'follow_up' || i.stage === 'to_message';
+          return (
+            <li key={i.listing_id} id={`import-${i.listing_id}`} className="scroll-mt-24">
+              <details open={searchParams.open === i.listing_id} className="group bg-white border border-saddle-line rounded open:border-saddle-brown">
+                <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {i.l?.images?.[0] ? <img src={i.l.images[0]} alt="" className="w-14 h-14 object-cover rounded shrink-0" /> : <div className="w-14 h-14 rounded bg-saddle-sand shrink-0" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-saddle-brown truncate">{i.saddle}</p>
+                    <p className="text-sm text-gray-600 truncate">
+                      {i.seller_name ? `${i.seller_name} · ` : ''}added {new Date(i.created_at).toLocaleDateString('en-US')}
+                      {i.l?.price_cents ? ` · ${usd(i.l.price_cents)}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-semibold ${needsAction ? 'text-saddle-brown' : i.stage === 'sold' || i.stage === 'live' ? 'text-saddle-green' : 'text-gray-600'}`}>
+                      {STAGE_LABEL[i.stage as Stage]}
+                    </p>
+                    <p className="text-xs text-saddle-muted tabular-nums">
+                      {v?.views ?? 0} view{v?.views === 1 ? '' : 's'}
+                      {i.link_open_count > 0 ? ` · link opened ${i.link_open_count}×` : ''}
+                    </p>
+                  </div>
+                  <svg aria-hidden viewBox="0 0 20 20" className="w-4 h-4 shrink-0 text-saddle-muted transition-transform group-open:rotate-90"><path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </summary>
 
-            {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting' || i.stage === 'opened') && i.message && (
-              <div className="mt-3 border-t border-saddle-line pt-3">
-                <SellerMessageCard
-                  listingId={i.listing_id}
-                  sellerName={i.seller_name}
-                  suggested={i.message}
-                  saved={i.message}
-                  sourceUrl={i.source_url}
-                  claimUrl={i.claimUrl!}
-                  messagedAt={i.messaged_at}
-                  showMarkMessaged={!who}
-                />
-              </div>
-            )}
-            {i.link_open_count > 0 && !['live', 'sold', 'removed'].includes(i.stage) && (
-              <p className="text-sm text-saddle-green mt-2">
-                👀 Seller opened the link {i.link_open_count === 1 ? 'once' : `${i.link_open_count} times`}
-                {' '}· last {new Date(i.link_last_opened_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                {i.stage === 'opened' ? '. They looked but haven’t claimed it yet, so a quick follow-up could help.' : ''}
-              </p>
-            )}
-            {i.stage === 'follow_up' && (
-              <p className="text-xs text-gray-600 mt-2">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>
-            )}
-            {i.stage === 'sold' && (() => {
-              const r = rewardByListing.get(i.listing_id);
-              return (
-                <p className="text-sm mt-2">
-                  {!r
-                    ? 'Your reward is added once the buyer has kept the saddle.'
-                    : r.status === 'earned'
-                      ? <>You earned <strong>{usd(r.amount_cents)}</strong> (not yet paid)</>
-                      : r.status === 'paid'
-                        ? <>Paid <strong>{usd(r.amount_cents)}</strong> on {new Date(r.paid_at!).toLocaleDateString('en-US')}</>
-                        : <>No reward: {r.void_reason}</>}
-                </p>
-              );
-            })()}
-            {/* Sold listings aren't public any more, so only live ones get a link. */}
-            {i.stage === 'live' && i.l?.slug && (
-              <Link href={`/saddles/${i.l.slug}`} className="text-sm underline mt-2 inline-block">View listing</Link>
-            )}
-          </li>
-        ))}
+                <div className="border-t border-saddle-line p-4 space-y-3">
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                    {i.l?.slug && i.stage !== 'sold' && i.stage !== 'removed' && (
+                      <Link href={`/saddles/${i.l.slug}`} className="underline">View listing</Link>
+                    )}
+                    {canManage && i.stage !== 'removed' && (
+                      <Link href={`/dashboard/listings/${i.listing_id}/edit`} className="underline">Edit</Link>
+                    )}
+                    {canManage && (
+                      <Link href={`/dashboard/listings/${i.listing_id}/stats`} className="underline">Stats</Link>
+                    )}
+                    {canManage && i.stage !== 'removed' && <DeleteListingButton listingId={i.listing_id} />}
+                    <span className="text-saddle-muted">
+                      {v?.views ?? 0} views from {v?.visitors.size ?? 0} {v?.visitors.size === 1 ? 'person' : 'people'} in the last 30 days
+                    </span>
+                  </div>
+
+                  {(i.stage === 'to_message' || i.stage === 'follow_up' || i.stage === 'waiting' || i.stage === 'opened') && i.message && (
+                    <SellerMessageCard
+                      listingId={i.listing_id}
+                      sellerName={i.seller_name}
+                      suggested={i.message}
+                      saved={i.message}
+                      sourceUrl={i.source_url}
+                      claimUrl={i.claimUrl!}
+                      messagedAt={i.messaged_at}
+                      showMarkMessaged={!who}
+                    />
+                  )}
+                  {['claimed', 'live', 'sold', 'removed'].includes(i.stage) && i.message && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-saddle-muted mb-1">Your message to the seller</p>
+                      <p className="text-sm whitespace-pre-wrap bg-saddle-paper border border-saddle-line rounded p-3">{i.message}</p>
+                    </div>
+                  )}
+                  {i.link_open_count > 0 && !['live', 'sold', 'removed'].includes(i.stage) && (
+                    <p className="text-sm text-saddle-green">
+                      👀 Seller opened the link {i.link_open_count === 1 ? 'once' : `${i.link_open_count} times`}
+                      {' '}· last {new Date(i.link_last_opened_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      {i.stage === 'opened' ? '. They looked but haven’t claimed it yet, so a quick follow-up could help.' : ''}
+                    </p>
+                  )}
+                  {i.stage === 'follow_up' && (
+                    <p className="text-xs text-gray-600">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>
+                  )}
+                  {i.stage === 'sold' && (() => {
+                    const r = rewardByListing.get(i.listing_id);
+                    return (
+                      <p className="text-sm">
+                        {!r
+                          ? 'Your reward is added once the buyer has kept the saddle.'
+                          : r.status === 'earned'
+                            ? <>You earned <strong>{usd(r.amount_cents)}</strong> (not yet paid)</>
+                            : r.status === 'paid'
+                              ? <>Paid <strong>{usd(r.amount_cents)}</strong> on {new Date(r.paid_at!).toLocaleDateString('en-US')}</>
+                              : <>No reward: {r.void_reason}</>}
+                      </p>
+                    );
+                  })()}
+                </div>
+              </details>
+            </li>
+          );
+        })}
+        {items.length > 0 && shown.length === 0 && <li className="text-saddle-muted">None at this stage.</li>}
       </ul>
     </div>
   );

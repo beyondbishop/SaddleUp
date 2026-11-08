@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { approvedBrands } from '@/lib/brands-server';
 import FilterSidebar from '@/components/FilterSidebar';
 import SaddleCard from '@/components/SaddleCard';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
@@ -54,7 +55,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
 
 export default async function SaddlesPage({ searchParams }: { searchParams: SP }) {
   const supabase = createClient();
-  const { data: brands } = await supabase.from('brands').select('id, name, slug').order('name');
+  const brands = (await approvedBrands(supabase)) as { id: number; name: string; slug: string }[];
   const criteria = parseCriteria(searchParams);
   const brand = criteria.brand ? brands?.find((b) => b.slug === criteria.brand) : undefined;
 

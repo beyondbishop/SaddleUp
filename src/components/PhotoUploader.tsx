@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { withBestCover } from '@/lib/listing-photos';
 
 const MAX_SIDE = 2000; // px — plenty for a listing photo, and keeps uploads small
 const MAX_BYTES = 4 * 1024 * 1024; // the upload route's limit
@@ -57,6 +58,9 @@ export default function PhotoUploader({
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [coverNote, setCoverNote] = useState<'picking' | 'picked' | null>(null);
+  // Once the seller picks a cover themselves, we never move it.
+  const coverChosen = useRef(false);
 
   async function addFiles(list: FileList | File[]) {
     const files = Array.from(list).filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
@@ -70,9 +74,12 @@ export default function PhotoUploader({
 
     setErrors([]);
     setProgress({ done: 0, total: batch.length });
+    const firstBatch = images.length === 0;
+    const uploaded: string[] = [];
     for (const [i, file] of batch.entries()) {
       try {
         const url = await upload(await shrink(file));
+        uploaded.push(url);
         setImages((prev) => [...prev, url]);
       } catch (e) {
         problems.push(e instanceof Error && e.name !== 'TimeoutError' ? e.message : `${file.name} took too long to upload.`);
@@ -81,6 +88,17 @@ export default function PhotoUploader({
     }
     setProgress(null);
     setErrors(problems);
+
+    // First photos on a listing: put a side view facing right (cantle on the left) first.
+    if (firstBatch && uploaded.length > 1 && !coverChosen.current) {
+      setCoverNote('picking');
+      const { images: ordered, changed } = await withBestCover(uploaded);
+      const cover = ordered[0];
+      if (changed && !coverChosen.current) {
+        setImages((prev) => (prev.includes(cover) ? [cover, ...prev.filter((x) => x !== cover)] : prev));
+      }
+      setCoverNote(changed ? 'picked' : null);
+    }
   }
 
   const move = (from: number, to: number) =>
@@ -145,7 +163,11 @@ export default function PhotoUploader({
 
       {images.length > 0 && (
         <>
-          <p className="text-xs text-saddle-muted mt-3 mb-1">The first photo is the cover buyers see in search.</p>
+          <p className="text-xs text-saddle-muted mt-3 mb-1">
+            The first photo is the cover buyers see in search. The best cover shows the whole saddle from the side, facing right (cantle on the left).
+            {coverNote === 'picking' && ' Choosing the cover…'}
+            {coverNote === 'picked' && ' We picked the side view facing right as your cover; use “Make cover” to change it.'}
+          </p>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {images.map((img, i) => (
               <div key={img} className="relative group">
@@ -160,7 +182,11 @@ export default function PhotoUploader({
                   {i > 0 && (
                     <button
                       type="button"
-                      onClick={() => move(i, 0)}
+                      onClick={() => {
+                        coverChosen.current = true;
+                        setCoverNote(null);
+                        move(i, 0);
+                      }}
                       title="Make this the cover photo"
                       className="bg-saddle-paper/90 text-saddle-brown text-[10px] font-semibold px-1.5 py-0.5 rounded-sm border border-saddle-line"
                     >

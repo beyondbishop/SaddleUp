@@ -60,6 +60,8 @@ export interface Listing {
   price_cents: number;
   description: string | null;
   images: string[];
+  /** One short video, if the seller added one (20261117_listing_video.sql). */
+  video_url?: string | null;
   slug: string;
   status: 'draft' | 'unclaimed' | 'active' | 'pending_sale' | 'sold' | 'removed';
   location_city: string | null;

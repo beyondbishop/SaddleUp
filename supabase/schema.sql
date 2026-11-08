@@ -651,3 +651,14 @@ create trigger trg_conversations_set_seller
 
 -- 6. Drop the old public column ------------------------------------------------------------------
 alter table public.listings drop column if exists claim_token;
+
+-- ---------- BRANDS PEOPLE ADD (also in migrations/20261116_brand_suggestions.sql) ----------
+alter table brands
+  add column if not exists approved boolean not null default true,
+  add column if not exists suggested_by uuid references profiles(id) on delete set null,
+  add column if not exists created_at timestamptz not null default now();
+create index if not exists idx_brands_pending on brands(approved) where not approved;
+insert into brands (name, slug) values ('Henri de Rivel', 'henri-de-rivel') on conflict do nothing;
+
+-- ---------- LISTING VIDEO (also in migrations/20261117_listing_video.sql) ----------
+alter table listings add column if not exists video_url text;

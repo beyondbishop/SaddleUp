@@ -131,6 +131,7 @@ const CATALOG: Record<string, BrandInfo> = {
       { name: 'Corlandus', for: DRESSAGE }
     ]
   },
+  'Henri de Rivel': { type: 'english', models: [] },
   'Kent & Masters': { type: 'english', models: [] },
   Kieffer: { type: 'english', models: [] },
   Passier: { type: 'english', models: ['Grand Gilbert', 'Optimum'] },

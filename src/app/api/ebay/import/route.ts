@@ -4,6 +4,7 @@
 // pre-filled form, confirms the listing is theirs, and saves it as a normal draft.
 
 import { NextResponse } from 'next/server';
+import { approvedBrands } from '@/lib/brands-server';
 import { createClient } from '@/lib/supabase/server';
 import { EbayError, ebayConfigured, fetchEbayItem, resolveItemId } from '@/lib/ebay/client';
 import { itemImageUrls, mapEbayItem, type EbaySource } from '@/lib/ebay/map';
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     }
 
     const item = await fetchEbayItem(itemId);
-    const { data: brands } = await supabase.from('brands').select('id, name');
+    const brands = await approvedBrands(supabase, 'id, name');
     const prefill = mapEbayItem(item, brands ?? []);
 
     const images = await copyImages(supabase, user.id, itemId, itemImageUrls(item));

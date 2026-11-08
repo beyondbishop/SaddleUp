@@ -3,6 +3,7 @@ import { getViewer } from '@/lib/roles';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/server';
 import ModerationCard from '@/components/ModerationCard';
+import DeleteListingButton from '@/components/DeleteListingButton';
 import { LISTING_STATUSES, STATUS_LABELS, STATUS_STYLES, saddleTitle, usd, type ListingStatus } from '@/lib/admin-listings';
 
 export const dynamic = 'force-dynamic';
@@ -190,6 +191,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                     <td className="p-2 whitespace-nowrap text-right">
                       <Link href={`/dashboard/listings/${l.id}/edit`} className="underline mr-3">Edit</Link>
                       <Link href={`/dashboard/listings/${l.id}/stats`} className="underline">Stats</Link>
+                      {l.status !== 'pending_sale' && <span className="ml-3"><DeleteListingButton listingId={l.id} /></span>}
                     </td>
                   </tr>
                 );

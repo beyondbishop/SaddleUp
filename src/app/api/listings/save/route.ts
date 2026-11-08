@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import { sourceKey } from '@/lib/import-source';
 import { sendListingEmail } from '@/lib/listing-emails';
+import { listingAccess } from '@/lib/listing-access';
 
 // Importers (not admins) may add this many hidden listings per day. Keeps outreach personal
 // and protects importers' Facebook accounts from looking like spam.
@@ -85,7 +86,7 @@ export const dynamic = 'force-dynamic';
 const ALLOWED = [
   'brand_id', 'model', 'discipline', 'seat_size', 'tree_width', 'panel_type', 'flap_length',
   'year_manufactured', 'condition', 'color', 'price_cents', 'description', 'tree_width_cm',
-  'panel_length_cm', 'location_city', 'location_state', 'location_zip', 'trial_policy', 'panel_flocking', 'images',
+  'panel_length_cm', 'location_city', 'location_state', 'location_zip', 'trial_policy', 'panel_flocking', 'images', 'video_url',
   'slug', 'source', 'ebay_item_id', 'ebay_item_url', 'ebay_seller_username', 'ebay_imported_at',
   'pkg_length_in', 'pkg_width_in', 'pkg_height_in', 'pkg_weight_lb'
 ] as const;
@@ -112,7 +113,10 @@ export async function POST(req: Request) {
     if (body!.mode === 'update') {
       if (!body!.id) return { data: null, error: { message: 'Missing listing id.', code: '' } };
       const { slug: _keepSlug, source: _keepSource, ...changes } = values;
-      return supabase.from('listings').update(changes).eq('id', body!.id).select('id, slug, status, discipline, brands(slug)').single();
+      // Importers fix unclaimed listings they added (no seller yet, so row-level security can't let them).
+      const { access } = await listingAccess(body!.id);
+      const db = access === 'importer' ? createAdminClient() : supabase;
+      return db.from('listings').update(changes).eq('id', body!.id).select('id, slug, status, discipline, brands(slug)').single();
     }
     if (body!.mode === 'seed') return seedImport(values, user!.id, body!.import);
     return supabase
@@ -122,11 +126,17 @@ export async function POST(req: Request) {
       .single();
   }
 
+  // Only our own storage can hold a listing's video.
+  if (typeof row.video_url === 'string' && !row.video_url.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/saddle-images/`)) {
+    delete row.video_url;
+  }
+
   let result = await write(row);
   // If a newer column hasn't been added in the database yet, save without it rather than fail.
-  if (result.error?.code === 'PGRST204' && 'location_zip' in row) {
-    const { location_zip: _skip, ...rest } = row;
-    result = await write(rest);
+  for (const col of ['video_url', 'location_zip']) {
+    if (result.error?.code !== 'PGRST204' || !(col in row) || !String(result.error.message ?? '').includes(col)) continue;
+    delete row[col];
+    result = await write(row);
   }
 
   if (result.error || !result.data) {

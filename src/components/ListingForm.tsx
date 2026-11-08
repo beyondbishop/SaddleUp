@@ -6,6 +6,7 @@ import { PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS, TRIAL_POLICY_LABELS, Listing,
 import slugify from 'slugify';
 import ZipField from './ZipField';
 import PhotoUploader from './PhotoUploader';
+import VideoUploader from './VideoUploader';
 import PriceSuggest from './PriceSuggest';
 import ListingHelper, { type HelperChange } from './ListingHelper';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
@@ -51,9 +52,84 @@ async function postWithTimeout(url: string, body: BodyInit, ms = 30_000, json = 
 }
 
 const field = 'w-full border border-saddle-line rounded p-2 bg-saddle-paper disabled:opacity-50';
+const NEW_BRAND = '__new';
+
+/**
+ * Add a brand that isn't in the list. Checks the spelling first (against our brands and with
+ * Claude), offers corrections, then adds it. New brands get a quick spelling check by SaddleUp.
+ */
+function AddBrand({ onAdded, onCancel }: { onAdded: (b: { id: number; name: string }) => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<{ id: number | null; name: string }[] | null>(null);
+  const [checked, setChecked] = useState('');
+
+  async function send(value: string, confirm: boolean) {
+    setBusy(true);
+    setError(null);
+    const { ok, data } = await postWithTimeout('/api/brands', JSON.stringify({ name: value, confirm }), 25_000);
+    setBusy(false);
+    if (!ok) return setError(data.error ?? 'Something went wrong.');
+    if (data.brand) return onAdded(data.brand);
+    if (data.suggestions?.length) {
+      setSuggestions(data.suggestions);
+      setChecked(value);
+      return;
+    }
+    // Nothing to correct: add it (with tidied capitalisation).
+    return send(data.spelling || value, true);
+  }
+
+  function pick(s: { id: number | null; name: string }) {
+    if (s.id) onAdded({ id: s.id, name: s.name });
+    else send(s.name, true);
+  }
+
+  return (
+    <div className="mt-2 border border-saddle-line rounded p-3 bg-saddle-cream space-y-2">
+      <label htmlFor="new-brand" className="block text-sm font-semibold">Brand name</label>
+      <div className="flex gap-2">
+        <input
+          id="new-brand"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setSuggestions(null); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (name.trim()) send(name, false); } }}
+          maxLength={60}
+          placeholder="e.g. Henri de Rivel"
+          className={field}
+          autoFocus
+        />
+        <button type="button" disabled={busy || name.trim().length < 2} onClick={() => send(name, false)} className="shrink-0 bg-saddle-green text-white rounded px-3 text-sm font-semibold disabled:opacity-50">
+          {busy ? 'Checking…' : 'Add'}
+        </button>
+      </div>
+      {suggestions && (
+        <div className="text-sm space-y-2">
+          <p>Did you mean:</p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((s) => (
+              <button key={`${s.id}-${s.name}`} type="button" disabled={busy} onClick={() => pick(s)} className="border border-saddle-brown text-saddle-brown rounded-full px-3 py-1 font-semibold">
+                {s.name}
+              </button>
+            ))}
+          </div>
+          <button type="button" disabled={busy} onClick={() => send(checked, true)} className="underline text-saddle-muted">
+            No, add “{checked}” as I typed it
+          </button>
+        </div>
+      )}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+      <p className="text-xs text-saddle-muted">
+        We&apos;ll double-check the spelling before it shows in search.{' '}
+        <button type="button" onClick={onCancel} className="underline">Cancel</button>
+      </p>
+    </div>
+  );
+}
 
 export default function ListingForm({
-  brands,
+  brands: initialBrands,
   existing,
   prefill,
   prefillImages,
@@ -81,6 +157,8 @@ export default function ListingForm({
   readerNotes?: { findings?: string[]; warnings?: string[]; missing?: string[] };
 }) {
   const router = useRouter();
+  // Brands can grow while the form is open (someone adds one that isn't listed).
+  const [brands, setBrands] = useState(initialBrands);
   const [saving, setSaving] = useState(false);
   const [error, setErrorText] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
@@ -90,6 +168,19 @@ export default function ListingForm({
     if (message) setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
   };
   const [images, setImages] = useState<string[]>(existing?.images ?? prefillImages ?? []);
+  const [video, setVideo] = useState<string | null>(existing?.video_url ?? null);
+  // Like photos, a video change on an existing listing saves right away.
+  const savedVideo = useRef(existing?.video_url ?? null);
+  const [videoSave, setVideoSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  useEffect(() => {
+    if (!existing || video === savedVideo.current) return;
+    (async () => {
+      setVideoSave('saving');
+      const { ok } = await postWithTimeout('/api/listings/save', JSON.stringify({ mode: 'update', id: existing.id, listing: { video_url: video } }));
+      if (ok) savedVideo.current = video;
+      setVideoSave(ok ? 'saved' : 'error');
+    })();
+  }, [video, existing]);
 
   // When editing a listing that already exists, save photo changes right away (add, remove,
   // reorder) so they're never lost if the person forgets — or their phone misses — "Save Changes".
@@ -117,6 +208,7 @@ export default function ListingForm({
   const [brandId, setBrandId] = useState(String(existing?.brand_id ?? prefill?.brand_id ?? ''));
   const [seat, setSeat] = useState(String(existing?.seat_size ?? prefill?.seat_size ?? ''));
   const [tree, setTree] = useState<string>(existing?.tree_width ?? prefill?.tree_width ?? '');
+  const [addingBrand, setAddingBrand] = useState(false);
 
   const brandOptions = brandsForDiscipline(brands, discipline);
   const seatOptions = seatSizesFor(discipline);
@@ -316,6 +408,7 @@ export default function ListingForm({
       pkg_weight_lb: form.get('pkg_weight_lb') ? Number(form.get('pkg_weight_lb')) : null,
       ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
+      video_url: video,
       slug: existing?.slug ?? `${slugBase}-${Math.random().toString(36).slice(2, 7)}`,
       ...(ebaySource && !existing
         ? {
@@ -424,14 +517,28 @@ export default function ListingForm({
             required
             disabled={!discipline}
             value={brandId}
-            onChange={(e) => setBrandId(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === NEW_BRAND) setAddingBrand(true);
+              else setBrandId(e.target.value);
+            }}
             className={field}
           >
             <option value="" disabled>Select brand…</option>
             {brandOptions.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
+            <option value={NEW_BRAND}>+ Add a brand that isn’t listed…</option>
           </select>
+          {addingBrand && (
+            <AddBrand
+              onCancel={() => setAddingBrand(false)}
+              onAdded={(b) => {
+                setBrands((list) => (list.some((x) => x.id === b.id) ? list : [...list, b]));
+                setBrandId(String(b.id));
+                setAddingBrand(false);
+              }}
+            />
+          )}
           {discipline && brandOptions.length <= 1 && (
             <p className="text-xs text-red-700 mt-1">Brand list didn&apos;t load — please refresh the page.</p>
           )}
@@ -670,6 +777,17 @@ export default function ListingForm({
             {photoSave === 'saving' && 'Saving photos…'}
             {photoSave === 'saved' && 'Photos saved ✓'}
             {photoSave === 'error' && "Couldn't save photo changes — click Save Changes below to try again."}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <VideoUploader video={video} setVideo={setVideo} />
+        {existing && videoSave !== 'idle' && (
+          <p className={`text-sm mt-1 ${videoSave === 'error' ? 'text-red-700' : 'text-saddle-green'}`}>
+            {videoSave === 'saving' && 'Saving video…'}
+            {videoSave === 'saved' && 'Video saved ✓'}
+            {videoSave === 'error' && "Couldn't save the video — click Save Changes below to try again."}
           </p>
         )}
       </div>

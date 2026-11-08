@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { approvedBrands } from '@/lib/brands-server';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
@@ -70,7 +71,7 @@ function ListingCard({ listing }: { listing: Listing }) {
 export default async function HomePage() {
   const supabase = createClient();
   const [{ data: allBrands }, { data: listings }] = await Promise.all([
-    supabase.from('brands').select('id, name, slug').order('name'),
+    approvedBrands(supabase).then((data) => ({ data: data as { id: number; name: string; slug: string }[] })),
     supabase
       .from('listings')
       .select('*, brands(name, slug)')

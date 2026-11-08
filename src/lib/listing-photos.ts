@@ -114,3 +114,24 @@ export async function takePendingCheck(): Promise<PendingCheck | null> {
     return null;
   }
 }
+
+/**
+ * Puts the best cover photo first (the saddle side-on, facing right, cantle on the left), using
+ * Claude. Returns the photos unchanged if the check can't run.
+ */
+export async function withBestCover(images: string[]): Promise<{ images: string[]; changed: boolean }> {
+  if (images.length < 2) return { images, changed: false };
+  try {
+    const res = await fetch('/api/listings/pick-cover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images: images.slice(0, 20) }),
+      signal: AbortSignal.timeout(35_000)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(data.images)) return { images, changed: false };
+    return { images: [...data.images, ...images.slice(20)], changed: !!data.changed };
+  } catch {
+    return { images, changed: false };
+  }
+}
