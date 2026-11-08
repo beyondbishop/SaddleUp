@@ -46,7 +46,7 @@ function priceTip(t: ClaimTips): string | null {
  * The message an importer pastes into Messenger. The claim-or-remove link comes right after the
  * greeting, so the seller can act (or take it down themselves) without reading on. Then who we
  * are, why SaddleUp helps, what we've done for them and what claiming gets them, the fee, and
- * last, a few observations to help it sell (price, spelling, any choices we made on their
+ * the sign-off, and last a few observations to help it sell (price, spelling, any choices we made on their
  * listing). Honest throughout: buyer messages are passed on, the fee is the real one, and the
  * price note doesn't claim SaddleUp sales data.
  *
@@ -76,10 +76,10 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
     }. It's already on SaddleUp, and if someone inquires, I'll pass their message along to you.`,
     `Once you claim your listing, you can edit it, communicate directly with buyers, and receive secure payments.`,
     `We're currently in beta, so listing is completely free, and the total fee is only ${SELLER_FEE_PERCENT}% if your saddle sells, including credit card processing.`,
+    `I hope this helps connect your saddle with its next rider!${tips.fromFounder ? '\nDanielle Bishop\nFounder, SaddleUp' : ''}`,
     notes.length
       ? `${notes.length === 1 ? 'One observation' : 'A couple of observations'} that may help your saddle sell:\n${notes.map((n) => `• ${n}`).join('\n')}`
-      : null,
-    `I hope this helps connect your saddle with its next rider!${tips.fromFounder ? '\nDanielle Bishop\nFounder, SaddleUp' : ''}`
+      : null
   ]
     .filter(Boolean)
     .join('\n\n');
