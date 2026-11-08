@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-next';
+import { welcomeUrl } from '@/lib/onboarding';
 import GoogleButton from '@/components/GoogleButton';
 
 // One page for both: "Create an account" on the left, "Sign in" on the right, Google above both.
@@ -44,7 +45,7 @@ function SignupForm({ next }: { next: string }) {
     if (data.session) {
       // Signed straight in (email confirmation off): welcome email now, then on to where they were going.
       await fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
-      router.push(next);
+      router.push(welcomeUrl(next));
       router.refresh();
       return;
     }
@@ -108,7 +109,7 @@ function LoginForm({ next }: { next: string }) {
     }
     // Catch-all for anyone who never got their welcome email; does nothing once it's been sent.
     fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
-    router.push(next);
+    router.push(welcomeUrl(next)); // new members get the welcome steps; everyone else passes straight through
     router.refresh();
   }
 

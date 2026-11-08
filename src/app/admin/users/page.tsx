@@ -4,6 +4,11 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import UserRoleControls from '@/components/admin/UserRoleControls';
 import UserAccountActions from '@/components/admin/UserAccountActions';
+import { DISCIPLINE_LABELS, type Discipline } from '@/lib/types';
+import type { Intent } from '@/lib/onboarding';
+
+const INTENT_SHORT: Record<Intent, string> = { buying: 'Looking', selling: 'Selling', both: 'Looking + selling' };
+
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Users', robots: { index: false } };
@@ -26,12 +31,13 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
 
   let query = admin
     .from('profiles')
-    .select('id, full_name, email, phone, is_admin, is_importer, stripe_connect_onboarded, created_at', { count: 'exact' })
+    .select('id, full_name, email, phone, is_admin, is_importer, stripe_connect_onboarded, created_at, member_intent, disciplines', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * PAGE, page * PAGE + PAGE - 1);
   if (q) query = query.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
   if (searchParams.role === 'admin') query = query.eq('is_admin', true);
   if (searchParams.role === 'importer') query = query.eq('is_importer', true);
+  if (searchParams.role === 'buying' || searchParams.role === 'selling') query = query.in('member_intent', [searchParams.role, 'both']);
   const { data: profiles, count } = await query;
 
   const ids = (profiles ?? []).map((p) => p.id);
@@ -82,6 +88,8 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
         <label htmlFor="user-role" className="sr-only">Role</label>
         <select id="user-role" name="role" defaultValue={searchParams.role ?? ''} className="border rounded p-2 text-sm">
           <option value="">Everyone</option>
+          <option value="buying">Looking</option>
+          <option value="selling">Selling</option>
           <option value="importer">Importers</option>
           <option value="admin">Admins</option>
         </select>
@@ -110,6 +118,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
                   </p>
                   <p className="text-gray-600 break-all">{p.email}</p>
                   {p.phone && <p className="text-gray-500">{p.phone}</p>}
+                  <p className="text-xs mt-1">
+                    {(p as any).member_intent
+                      ? <span className="font-semibold text-saddle-green">{INTENT_SHORT[(p as any).member_intent as Intent]}</span>
+                      : <span className="text-gray-400">Didn’t say why they joined</span>}
+                    {((p as any).disciplines ?? []).length > 0 && (
+                      <span className="text-gray-500"> · {((p as any).disciplines as Discipline[]).map((d) => DISCIPLINE_LABELS[d]).join(', ')}</span>
+                    )}
+                  </p>
                 </td>
                 <td className="p-2 whitespace-nowrap">{new Date(p.created_at).toLocaleDateString('en-US')}</td>
                 <td className="p-2 whitespace-nowrap">

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/safe-next';
 import { sendWelcomeOnce } from '@/lib/welcome';
+import { welcomeUrl } from '@/lib/onboarding';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -16,7 +17,8 @@ export async function GET(req: Request) {
     const { data, error } = await createClient().auth.exchangeCodeForSession(code);
     if (!error) {
       if (data.user) await sendWelcomeOnce(data.user.id); // once per person; no-op after the first
-      return NextResponse.redirect(new URL(next, url.origin));
+      // Through /welcome: new members get the onboarding steps, everyone else passes straight on.
+      return NextResponse.redirect(new URL(welcomeUrl(next), url.origin));
     }
     console.error('Google sign-in could not finish', error);
   }

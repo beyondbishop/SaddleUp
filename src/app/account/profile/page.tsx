@@ -7,6 +7,9 @@ import NameField from '@/components/account/NameField';
 import PhoneField from '@/components/account/PhoneField';
 import NotificationPrefs from '@/components/account/NotificationPrefs';
 import TextSettings from '@/components/account/TextSettings';
+import InterestsField from '@/components/account/InterestsField';
+import type { Intent } from '@/lib/onboarding';
+import type { Discipline } from '@/lib/types';
 import { memberZip, placeForZip } from '@/lib/distance';
 import { readPrefs } from '@/lib/notification-prefs';
 import { MESSAGE_SMS_CONSENT_FROM, SMS_CONSENT_TEXT, emailConfigured, verifyConfigured } from '@/lib/messaging';
@@ -21,7 +24,7 @@ export default async function ProfilePage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?next=/account/profile');
-  const [{ data: p }, prefs, zip] = await Promise.all([
+  const [{ data: p }, prefs, zip, { data: interests }] = await Promise.all([
     supabase
       .from('profiles')
       .select('full_name, email, phone, phone_verified_at, sms_opt_in_at, sms_opt_out_at, sms_consent_version')
@@ -29,7 +32,9 @@ export default async function ProfilePage() {
       .maybeSingle(),
     readPrefs(supabase, [user.id]).then((m) => m.get(user.id)!),
     // Show the ZIP distances currently use (theirs, or one taken from their address or listings).
-    memberZip(supabase, user).then((z) => z ?? '')
+    memberZip(supabase, user).then((z) => z ?? ''),
+    // Separate read so the page still works if the onboarding columns aren't there yet.
+    supabase.from('profiles').select('member_intent, disciplines').eq('id', user.id).maybeSingle()
   ]);
 
   const textsOn = !!p?.phone_verified_at && !!p?.sms_opt_in_at && !p?.sms_opt_out_at;
@@ -55,6 +60,10 @@ export default async function ProfilePage() {
       <section className={card}>
         <h2 className={h2}>Your details</h2>
         <NameField userId={user.id} initialName={p?.full_name ?? ''} />
+        <InterestsField
+          initialIntent={(interests?.member_intent as Intent | null) ?? null}
+          initialDisciplines={(interests?.disciplines as Discipline[] | null) ?? []}
+        />
         <div>
           <p className="font-semibold">Email</p>
           <p className="text-sm">{p?.email ?? user.email}</p>
