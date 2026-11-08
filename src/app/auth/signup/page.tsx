@@ -1,95 +1,13 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { safeNext } from '@/lib/safe-next';
-import { createClient } from '@/lib/supabase/client';
-import Link from 'next/link';
-import GoogleButton from '@/components/GoogleButton';
+import { Suspense } from 'react';
+import AuthPanels from '@/components/AuthPanels';
 
-function SignupForm() {
-  const supabase = createClient();
-  const next = safeNext(useSearchParams().get('next'));
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        // After confirming their email, bring them back to where they started.
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-      }
-    });
-    if (!error && data.session) {
-      // Signed straight in (email confirmation off): send the welcome email now. Otherwise it
-      // goes out when they click the confirmation link (/auth/callback).
-      await fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
-    }
-    setLoading(false);
-    if (error) return setError(error.message);
-    setDone(true);
-  }
-
-  if (done) {
-    return (
-      <div className="py-16 max-w-sm mx-auto text-center">
-        <h1 className="text-2xl font-bold text-saddle-brown mb-2">Check your email</h1>
-        <p>We sent you a confirmation link to finish creating your account.</p>
-        {next.includes('from=home') && (
-          <p className="text-sm text-saddle-muted mt-3">
-            Open the link on this device and your saddle&apos;s photos and details will be waiting for you.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="py-16 max-w-sm mx-auto">
-      <h1 className="text-2xl font-bold text-saddle-brown mb-6">Create Account</h1>
-      <GoogleButton next={next} label="Sign up with Google" />
-      <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
-        <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <input
-          placeholder="Full name" required value={fullName}
-          onChange={(e) => setFullName(e.target.value)} className="w-full border rounded p-2"
-        />
-        <input
-          type="email" required placeholder="Email" value={email}
-          onChange={(e) => setEmail(e.target.value)} className="w-full border rounded p-2"
-        />
-        <input
-          type="password" required minLength={6} placeholder="Password" value={password}
-          onChange={(e) => setPassword(e.target.value)} className="w-full border rounded p-2"
-        />
-        <button type="submit" disabled={loading} className="w-full bg-saddle-green text-white rounded-md py-2 font-semibold">
-          {loading ? 'Creating account…' : 'Create Account'}
-        </button>
-      </form>
-      <p className="text-sm mt-4">
-        Already have an account? <Link href={`/auth/login?next=${encodeURIComponent(next)}`} className="underline">Sign in</Link>
-      </p>
-    </div>
-  );
-}
-
+// Create an account (left) and sign in (right) on one page; see AuthPanels.
 export default function SignupPage() {
   return (
     <Suspense fallback={<div className="py-16 text-center">Loading…</div>}>
-      <SignupForm />
+      <AuthPanels focus="signup" />
     </Suspense>
   );
 }
