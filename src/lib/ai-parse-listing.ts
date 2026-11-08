@@ -106,7 +106,8 @@ export interface AiParseResult {
   sellerName: string | null;
 }
 
-export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string };
+/** A photo sent inline (base64), or one already in our listing storage (public URL). */
+export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string } | { url: string };
 
 /** Throws on any failure (API error, refusal, unparseable output) — callers fall back to rules. */
 export async function aiParseListing(
@@ -117,7 +118,8 @@ export async function aiParseListing(
   const brandNames = brands.map((b) => b.name);
   if (!brandNames.length) throw new Error('No brands loaded');
 
-  const client = new Anthropic({ timeout: photos.length ? 55_000 : 45_000, maxRetries: photos.length ? 0 : 1 });
+  // Many photos (an import can send 20) take longer to read.
+  const client = new Anthropic({ timeout: photos.length > 6 ? 110_000 : photos.length ? 55_000 : 45_000, maxRetries: photos.length ? 0 : 1 });
   const brandList = brands
     .map((b) => {
       const info = brandInfo(b.name);
@@ -139,7 +141,14 @@ export async function aiParseListing(
       {
         role: 'user',
         content: [
-          ...photos.map((p) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: p.media_type, data: p.data } })),
+          // Numbered, so photo_kinds lines up with the photos even when there are many.
+          ...photos.flatMap((p, i) => [
+            { type: 'text' as const, text: `Photo ${i + 1}:` },
+            {
+              type: 'image' as const,
+              source: 'url' in p ? { type: 'url' as const, url: p.url } : { type: 'base64' as const, media_type: p.media_type, data: p.data }
+            }
+          ]),
           {
             type: 'text' as const,
             text: `Allowed brands:\n${brandList}\n\n${photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'} attached above.\n\n` : ''}<listing>\n${text.trim() || '(no text pasted - use the photos)'}\n</listing>`
@@ -183,7 +192,7 @@ export async function aiParseListing(
       panel_length_cm: out.panel_length_cm >= 30 && out.panel_length_cm <= 80 ? Math.round(out.panel_length_cm * 10) / 10 : null
     },
     warnings: out.warnings.filter((w) => w.trim()).slice(0, 5),
-    photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 10),
+    photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 20),
     photoKinds: photos.map((_, i) => out.photo_kinds[i] ?? 'saddle'),
     spellingFixes: out.post_spelling_fixes.map((f) => f.trim().slice(0, 80)).filter(Boolean).slice(0, 3),
     modelCandidates: [...new Set(out.model_candidates.map((m) => m.trim().slice(0, 80)).filter(Boolean))].slice(0, 3),

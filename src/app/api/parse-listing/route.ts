@@ -17,18 +17,18 @@ import { allowAnonymousAiCall, ANON_LIMIT_MESSAGE } from '@/lib/ai-quota';
 import type { ListingPrefill } from '@/lib/ebay/map';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120; // reading up to 20 import photos can take a while
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
-  const body = (await req.json().catch(() => ({}))) as { text?: unknown; photos?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { text?: unknown; photos?: unknown; photoUrls?: unknown };
   const text = typeof body.text === 'string' ? body.text : '';
-  const photos = readPhotos(body.photos);
+  const photos = readPhotos(body.photos, body.photoUrls);
   if (photos === 'invalid') {
-    return NextResponse.json({ error: `Up to ${MAX_PHOTOS} photos (JPEG, PNG, WebP or GIF), please.` }, { status: 400 });
+    return NextResponse.json({ error: `Up to ${body.photoUrls != null ? MAX_URL_PHOTOS : MAX_PHOTOS} photos (JPEG, PNG, WebP or GIF), please.` }, { status: 400 });
   }
   if (!text.trim() && !photos.length) {
     return NextResponse.json({ error: 'Paste some text or add a photo first.' }, { status: 400 });
@@ -79,11 +79,21 @@ async function addZip(prefill: ListingPrefill) {
   if (zip) prefill.location_zip = zip;
 }
 
+// Inline photos are capped by Vercel's ~4.5 MB request limit. Imports upload photos to listing
+// storage first and send their URLs instead, so all of them (up to 20) can be read.
 const MAX_PHOTOS = 6;
+const MAX_URL_PHOTOS = 20;
 const MAX_PHOTO_CHARS = 1_000_000; // base64 of a ~750 KB image; the browser shrinks photos well below this
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-function readPhotos(raw: unknown): ListingPhoto[] | 'invalid' {
+function readPhotos(raw: unknown, rawUrls: unknown): ListingPhoto[] | 'invalid' {
+  if (rawUrls != null) {
+    // Only photos in our own listing storage.
+    const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/saddle-images/`;
+    if (!Array.isArray(rawUrls) || rawUrls.length > MAX_URL_PHOTOS) return 'invalid';
+    if (!rawUrls.every((u) => typeof u === 'string' && u.startsWith(prefix) && u.length < 1000 && !u.includes('..'))) return 'invalid';
+    return rawUrls.map((url: string) => ({ url }));
+  }
   if (raw == null) return [];
   if (!Array.isArray(raw) || raw.length > MAX_PHOTOS) return 'invalid';
   const out: ListingPhoto[] = [];
@@ -91,7 +101,7 @@ function readPhotos(raw: unknown): ListingPhoto[] | 'invalid' {
     const { media_type, data } = (p ?? {}) as { media_type?: unknown; data?: unknown };
     if (typeof media_type !== 'string' || !PHOTO_TYPES.has(media_type)) return 'invalid';
     if (typeof data !== 'string' || !data || data.length > MAX_PHOTO_CHARS || !/^[A-Za-z0-9+/=]+$/.test(data)) return 'invalid';
-    out.push({ media_type: media_type as ListingPhoto['media_type'], data });
+    out.push({ media_type: media_type as 'image/jpeg', data });
   }
   return out;
 }

@@ -9,20 +9,23 @@ export type ReadResult = ParsedListing & { reader: 'ai' | 'rules'; photoFindings
 export async function readListingText(
   text: string,
   brands: { id: number; name: string }[],
-  photos: ReadPhoto[] = []
+  photos: ReadPhoto[] = [],
+  /** Photos already uploaded to listing storage; sent instead of `photos` so there's no size cap. */
+  photoUrls: string[] = []
 ): Promise<ReadResult | { error: string }> {
+  const hasPhotos = photos.length > 0 || photoUrls.length > 0;
   try {
     const res = await fetch('/api/parse-listing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(photos.length ? { text, photos } : { text })
+      body: JSON.stringify(photoUrls.length ? { text, photoUrls } : photos.length ? { text, photos } : { text })
     });
     if (res.ok) return await res.json();
     const data = await res.json().catch(() => ({}));
-    if (!text.trim() || (photos.length && res.status === 400)) return { error: data.error ?? "Couldn't read that." };
+    if (!text.trim() || (hasPhotos && res.status === 400)) return { error: data.error ?? "Couldn't read that." };
   } catch {
     if (!text.trim()) return { error: "Couldn't reach the photo reader. Check your connection and try again." };
   }
   const parsed = parseListingText(text, brands);
-  return { ...parsed, warnings: photos.length ? [...parsed.warnings, "The photos couldn't be read this time."] : parsed.warnings, reader: 'rules' };
+  return { ...parsed, warnings: hasPhotos ? [...parsed.warnings, "The photos couldn't be read this time."] : parsed.warnings, reader: 'rules' };
 }
