@@ -41,7 +41,7 @@ function LoginForm() {
       )}
       {searchParams.get('error') === 'link' && (
         <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 mb-4">
-          That sign-in link has expired or was already used. Sign in below, or ask us for a new link.
+          That sign-in link has expired or was already used. Sign in below, or use “Forgot password?” to get a new one.
         </p>
       )}
       <GoogleButton next={next} />
@@ -62,6 +62,9 @@ function LoginForm() {
           {loading ? 'Signing in…' : 'Sign In'}
         </button>
       </form>
+      <p className="text-sm mt-3">
+        <Link href="/auth/forgot" className="underline">Forgot password?</Link>
+      </p>
       <p className="text-sm mt-4">
         No account? <Link href={`/auth/signup?next=${encodeURIComponent(next)}`} className="underline">Create one</Link>
       </p>

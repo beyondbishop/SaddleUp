@@ -60,7 +60,7 @@ export default async function AdminEmailsPage() {
   const welcome = welcomeEmail('Jane Rider');
   const onboarding: Preview[] = [
     { id: 'welcome', when: 'Once, when they create an account', to: 'New member', from: WELCOME_FROM, ...welcome },
-    { id: 'login-link', when: 'You tap “Email sign-in link” on Users', to: 'Member', ...loginLinkEmail('Jane Rider', 'jane@example.com', 'https://saddleup.me/auth/confirm?token_hash=…') }
+    { id: 'login-link', when: '“Forgot password?”, or you tap “Email sign-in link” on Users', to: 'Member', ...loginLinkEmail('Jane Rider', 'jane@example.com', 'https://saddleup.me/auth/confirm?token_hash=…') }
   ];
 
   const orders: Preview[] = previewOrderEmails()

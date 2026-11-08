@@ -1,4 +1,5 @@
-// "Here's a link to sign in": sent when an admin taps "Email sign-in link" on the Users page.
+// "Here's a link to sign in": sent when an admin taps "Email sign-in link" on the Users page,
+// or when someone uses "Forgot password?" on the sign-in page.
 // The link signs the person straight in and takes them to /account/password, where they can set
 // a new password (or skip it if they use Google). It works once, and expires after the Supabase
 // "Email OTP expiration" setting (1 hour by default).
@@ -14,7 +15,7 @@ export function loginLinkEmail(fullName: string | null, email: string, link: str
   const subject = 'Your SaddleUp sign-in link';
   const paras = [
     `Here’s a link to sign in to SaddleUp as ${email}. Tap the button and you’re in. You can then set a new password if you’d like one.`,
-    'The link works once and expires in 1 hour. If it has expired, just reply and we’ll send another.'
+    'The link works once and expires in 1 hour. If it has expired, use “Forgot password?” on the sign-in page to get a new one.'
   ];
   const after = 'If you didn’t ask for this, you can ignore this email. Your account is unchanged.';
 

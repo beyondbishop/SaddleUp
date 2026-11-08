@@ -42,8 +42,9 @@ export default function SetPasswordPage() {
     return (
       <div className="py-16 max-w-sm mx-auto">
         <h1 className="text-2xl font-bold text-saddle-brown mb-4">Set a password</h1>
-        <p className="text-sm mb-4">Your sign-in link has expired or was already used. Sign in again, or ask us for a new link.</p>
-        <Link href="/auth/login?next=/account/password" className="underline">Go to sign in</Link>
+        <p className="text-sm mb-4">Your sign-in link has expired or was already used. Request a new one below, or sign in as usual.</p>
+        <Link href="/auth/forgot" className="underline mr-4">Get a new link</Link>
+        <Link href="/auth/login" className="underline">Go to sign in</Link>
       </div>
     );
   }
