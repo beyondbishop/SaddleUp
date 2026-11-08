@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ListingForm from './ListingForm';
 import type { ParsedListing } from '@/lib/parse-listing-text';
 import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
@@ -114,8 +114,37 @@ export default function AdminQuickAdd({
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
 
+  // Check the post's link as soon as it's pasted, so nobody re-adds a saddle that's already on
+  // SaddleUp (added by anyone, including ones the seller asked us to remove).
+  type LinkCheck =
+    | { state: 'idle' | 'checking' | 'invalid' | 'new' | 'error' }
+    | { state: 'exists'; importedBy: string; importedAt: string; label: string; slug: string | null };
+  const [linkCheck, setLinkCheck] = useState<LinkCheck>({ state: 'idle' });
+  useEffect(() => {
+    const url = sourceUrl.trim();
+    if (!url) return setLinkCheck({ state: 'idle' });
+    setLinkCheck({ state: 'checking' });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/imports/check?url=${encodeURIComponent(url)}`);
+        const json = await res.json();
+        if (!res.ok) return setLinkCheck({ state: 'error' });
+        if (!json.valid) return setLinkCheck({ state: 'invalid' });
+        setLinkCheck(json.existing ? { state: 'exists', ...json.existing } : { state: 'new' });
+      } catch {
+        setLinkCheck({ state: 'error' });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [sourceUrl]);
+  const alreadyAdded = linkCheck.state === 'exists';
+
   async function fill(e: React.FormEvent) {
     e.preventDefault();
+    if (alreadyAdded) {
+      setError('This post is already on SaddleUp, so it can’t be added again.');
+      return;
+    }
     if (!text.trim() && !photos.length) {
       setError('Paste the post or add a photo first.');
       return;
@@ -220,6 +249,37 @@ export default function AdminQuickAdd({
       {!parsed ? (
         <form onSubmit={fill} className="max-w-2xl bg-saddle-sand border border-saddle-line rounded p-5 space-y-3">
           <h2 className="font-serif text-xl text-saddle-ink">{created.length ? 'Add another' : 'Paste the post'}</h2>
+          <div>
+            <label htmlFor="source-url" className="block text-sm font-semibold mb-1">1. Link to their post</label>
+            <input
+              id="source-url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="Paste the Facebook link first, so we can check it isn't already on SaddleUp"
+              className="w-full border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
+              autoFocus
+            />
+            {linkCheck.state === 'checking' && <p className="text-xs text-saddle-muted mt-1">Checking SaddleUp…</p>}
+            {linkCheck.state === 'new' && <p className="text-sm text-saddle-green mt-1">✓ Not on SaddleUp yet. Go ahead.</p>}
+            {linkCheck.state === 'invalid' && <p className="text-sm text-saddle-brown mt-1">That doesn&apos;t look like a link. Copy it from the post&apos;s Share menu or address bar.</p>}
+            {linkCheck.state === 'error' && <p className="text-sm text-saddle-brown mt-1">Couldn&apos;t check the link just now. Saving will still refuse a duplicate.</p>}
+            {linkCheck.state === 'idle' && <p className="text-xs text-saddle-muted mt-1">No link (e.g. a text ad)? You can still add it below.</p>}
+            {linkCheck.state === 'exists' && (
+              <div className="mt-2 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                <p className="font-semibold">Already on SaddleUp. Please don&apos;t add it again.</p>
+                <p>
+                  Added by {linkCheck.importedBy} on{' '}
+                  {new Date(linkCheck.importedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. {linkCheck.label}.
+                </p>
+                {linkCheck.slug && (
+                  <Link href={`/saddles/${linkCheck.slug}`} className="underline" target="_blank">
+                    See the listing →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="block text-sm font-semibold -mb-1">2. Paste the post and add photos</p>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -281,22 +341,14 @@ export default function AdminQuickAdd({
             </ul>
           )}
           {photoError && <p className="text-saddle-brown text-sm">{photoError}</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              value={sellerName}
-              onChange={(e) => setSellerName(e.target.value)}
-              placeholder="Seller's name (for the message)"
-              className="border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
-            />
-            <input
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="Link to their post (optional)"
-              className="border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
-            />
-          </div>
+          <input
+            value={sellerName}
+            onChange={(e) => setSellerName(e.target.value)}
+            placeholder="Seller's name (for the message)"
+            className="w-full border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
+          />
           {error && <p className="text-red-700 text-sm">{error}</p>}
-          <button type="submit" disabled={reading} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
+          <button type="submit" disabled={reading || alreadyAdded} className="bg-saddle-green text-saddle-cream px-5 py-2 rounded-sm font-semibold disabled:opacity-60">
             {reading ? step ?? 'Reading…' : 'Fill in details'}
           </button>
         </form>

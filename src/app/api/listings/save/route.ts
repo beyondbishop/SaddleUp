@@ -9,24 +9,11 @@ import { createClient } from '@/lib/supabase/server';
 import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
+import { sourceKey } from '@/lib/import-source';
 
 // Importers (not admins) may add this many hidden listings per day. Keeps outreach personal
 // and protects importers' Facebook accounts from looking like spam.
 const IMPORTER_DAILY_LIMIT = 40;
-
-/** Same Facebook post -> same key, so a saddle can only be imported once. */
-function sourceKey(url: unknown): string | null {
-  if (typeof url !== 'string' || !url.trim()) return null;
-  try {
-    const u = new URL(url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`);
-    const host = u.hostname.replace(/^(www\.|m\.|web\.)/, '');
-    const fbItem = u.pathname.match(/\/marketplace\/item\/(\d+)/);
-    if (host.endsWith('facebook.com') && fbItem) return `facebook.com/marketplace/item/${fbItem[1]}`;
-    return `${host}${u.pathname.replace(/\/+$/, '')}`.toLowerCase().slice(0, 300);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Quick add: create a claimable listing (public, messages go to SaddleUp) and record who imported it. Runs with the
