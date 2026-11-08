@@ -109,7 +109,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
         </div>
       )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      {listing.status === 'active' && <ViewTracker listingId={listing.id} />}
+      {isForSale(listing) && <ViewTracker listingId={listing.id} />}
 
       <div className="space-y-4 min-w-0">
       <PhotoGallery images={listing.images ?? []} alt={`${listing.seat_size}" ${listing.brands?.name ?? ''} ${listing.model}`}>

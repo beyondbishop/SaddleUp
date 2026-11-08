@@ -1,12 +1,15 @@
 // POST /api/listings/view  { listingId: string, referrer?: string }
-// Records one view of a live listing for the seller's stats. Never fails loudly: whatever goes
+// Records one view of a public listing (live, or unclaimed but shown to shoppers) for the seller's
+// stats and the importer's "My imports" page. Never fails loudly: whatever goes
 // wrong (bot, the seller themself, duplicate, table not created yet) it just returns 204.
 //
 // Privacy: no IP address or identity is stored. visitor_hash = sha256(ip + browser + date +
 // secret) counts unique visitors per day without being able to identify anyone; it changes daily.
 
 import { createHash } from 'crypto';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { getViewer } from '@/lib/roles';
+import { isForSale } from '@/lib/search';
 import { classifyReferrer } from '@/lib/view-source';
 
 export const dynamic = 'force-dynamic';
@@ -26,14 +29,13 @@ export async function POST(req: Request) {
     if (!listingId || !UUID.test(listingId)) return done();
 
     const admin = createAdminClient();
-    const { data: listing } = await admin.from('listings').select('seller_id, status').eq('id', listingId).maybeSingle();
-    if (!listing || listing.status !== 'active') return done();
+    const { data: listing } = await admin.from('listings').select('seller_id, status, show_before_claim').eq('id', listingId).maybeSingle();
+    if (!listing || !isForSale(listing)) return done();
 
-    // Don't count sellers looking at their own listing.
-    const {
-      data: { user }
-    } = await createClient().auth.getUser();
+    // Don't count sellers looking at their own listing, or importers/admins checking an unclaimed one.
+    const { user, isImporter } = await getViewer();
     if (user && user.id === listing.seller_id) return done();
+    if (listing.status === 'unclaimed' && user && isImporter) return done();
 
     const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
     const day = new Date().toISOString().slice(0, 10);
