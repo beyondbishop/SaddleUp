@@ -88,10 +88,26 @@ const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif
 
 function readPhotos(raw: unknown, rawUrls: unknown): ListingPhoto[] | 'invalid' {
   if (rawUrls != null) {
-    // Only photos in our own listing storage.
-    const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/saddle-images/`;
+    // Only photos in our own listing storage. Compared by host and path, so a trailing slash or
+    // stray whitespace in the env var doesn't reject good links.
     if (!Array.isArray(rawUrls) || rawUrls.length > MAX_URL_PHOTOS) return 'invalid';
-    if (!rawUrls.every((u) => typeof u === 'string' && u.startsWith(prefix) && u.length < 1000 && !u.includes('..'))) return 'invalid';
+    let storageHost = '';
+    try {
+      storageHost = new URL((process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim()).host;
+    } catch {}
+    const ours = (u: unknown) => {
+      if (typeof u !== 'string' || u.length > 1000) return false;
+      try {
+        const url = new URL(u);
+        return url.protocol === 'https:' && url.host === storageHost && url.pathname.startsWith('/storage/v1/object/public/saddle-images/') && !url.pathname.includes('..');
+      } catch {
+        return false;
+      }
+    };
+    if (!storageHost || !rawUrls.every(ours)) {
+      console.error('parse-listing: rejected photo URLs', { storageHost, sample: rawUrls[0] });
+      return 'invalid';
+    }
     return rawUrls.map((url: string) => ({ url }));
   }
   if (raw == null) return [];
