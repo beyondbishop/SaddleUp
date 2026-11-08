@@ -106,7 +106,7 @@ export default function FilterSidebar({
         <input id="f-near" name="near" inputMode="numeric" pattern="\d{5}" maxLength={5} placeholder="Your ZIP code"
           defaultValue={near ?? ''} className={`${field} mt-2`} />
         <p className="text-xs text-gray-500 mt-1">
-          {locationLabel && !near ? `Using your approximate location (${locationLabel}). Add a ZIP to be exact.` : 'Distances are measured from this ZIP.'}
+          {locationLabel && !near ? `Guessing ${locationLabel} from your internet connection. Add your ZIP to be exact.` : 'Distances are measured from this ZIP.'}
         </p>
       </fieldset>
 

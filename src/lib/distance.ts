@@ -2,7 +2,8 @@
 // (zipcodes package: ZIP -> latitude/longitude), so there are no outside calls.
 //
 // Where the shopper is, in order: a ZIP they typed in the filters (?near=), the ZIP they typed
-// last time (su_zip cookie), then roughly where Vercel says their connection is.
+// last time (su_zip cookie), their own ZIP if signed in (profile, ship-from address, or their
+// newest listing), then roughly where Vercel says their connection is (often 50-150 miles off).
 import 'server-only';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const zipcodes: {
@@ -11,7 +12,7 @@ const zipcodes: {
 } = require('zipcodes');
 
 export type Point = { lat: number; lng: number };
-export type ViewerLocation = Point & { zip: string | null; label: string; source: 'typed' | 'saved' | 'ip' };
+export type ViewerLocation = Point & { zip: string | null; label: string; source: 'typed' | 'saved' | 'member' | 'ip' };
 
 export const DISTANCE_OPTIONS = [25, 50, 100, 250, 500] as const;
 export const ZIP_COOKIE = 'su_zip';
@@ -51,8 +52,8 @@ export function milesBetween(a: Point, b: Point): number {
   return 3958.8 * 2 * Math.asin(Math.sqrt(h));
 }
 
-export function viewerLocation(opts: { typed?: string | null; saved?: string | null; headers: Headers }): ViewerLocation | null {
-  for (const [zip, source] of [[opts.typed, 'typed'], [opts.saved, 'saved']] as const) {
+export function viewerLocation(opts: { typed?: string | null; saved?: string | null; member?: string | null; headers: Headers }): ViewerLocation | null {
+  for (const [zip, source] of [[opts.typed, 'typed'], [opts.saved, 'saved'], [opts.member, 'member']] as const) {
     const p = pointForZip(zip);
     if (p && zip) return { ...p, zip, label: placeForZip(zip) ?? zip, source };
   }
@@ -73,4 +74,19 @@ export function viewerLocation(opts: { typed?: string | null; saved?: string | n
 
 export function formatMiles(mi: number): string {
   return mi < 10 ? 'Under 10 mi away' : `${Math.round(mi / 5) * 5} mi away`;
+}
+
+/** A signed-in member's own ZIP: the one on their profile, else their ship-from address, else their newest listing's. */
+export async function memberZip(supabase: any, user: { id: string; user_metadata?: Record<string, any> } | null): Promise<string | null> {
+  if (!user) return null;
+  const own = user.user_metadata?.home_zip;
+  if (typeof own === 'string' && zipRe.test(own)) return own;
+  const [{ data: profile }, { data: listing }] = await Promise.all([
+    supabase.from('profiles').select('ship_from').eq('id', user.id).maybeSingle(),
+    supabase.from('listings').select('location_zip').eq('seller_id', user.id).not('location_zip', 'is', null)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  ]);
+  const shipZip = String(profile?.ship_from?.zip ?? '').slice(0, 5);
+  if (zipRe.test(shipZip)) return shipZip;
+  return listing?.location_zip && zipRe.test(listing.location_zip) ? listing.location_zip : null;
 }

@@ -10,7 +10,7 @@ import SaveSearchButton from '@/components/lists/SaveSearchButton';
 import ListCriteriaBanner from '@/components/lists/ListCriteriaBanner';
 import { isUuid } from '@/lib/lists-server';
 import { cookies, headers } from 'next/headers';
-import { DISTANCE_OPTIONS, ZIP_COOKIE, formatMiles, milesBetween, pointForListing, viewerLocation } from '@/lib/distance';
+import { DISTANCE_OPTIONS, ZIP_COOKIE, formatMiles, memberZip, milesBetween, pointForListing, viewerLocation } from '@/lib/distance';
 import { getSellerChips } from '@/lib/avatar';
 import RememberZip from '@/components/search/RememberZip';
 
@@ -62,7 +62,15 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   const near = /^\d{5}$/.test(first(searchParams.near) ?? '') ? first(searchParams.near)! : null;
   const withinRaw = Number(first(searchParams.within));
   const within = (DISTANCE_OPTIONS as readonly number[]).includes(withinRaw) ? withinRaw : null;
-  const viewer = viewerLocation({ typed: near, saved: cookies().get(ZIP_COOKIE)?.value, headers: headers() });
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const viewer = viewerLocation({
+    typed: near,
+    saved: cookies().get(ZIP_COOKIE)?.value,
+    member: await memberZip(supabase, user),
+    headers: headers()
+  });
 
   const query = applyCriteria(
     supabase
@@ -99,9 +107,6 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   const summary = describeCriteria(criteria, brand?.name);
   if (filterByDistance) summary.push(`Within ${within} miles of ${viewer!.label}`);
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
   // /saddles?list=<id>: choosing filters for one of the buyer's lists.
   const listParam = Array.isArray(searchParams.list) ? searchParams.list[0] : searchParams.list;
   const editingList =
@@ -114,7 +119,7 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 py-8">
       <FilterSidebar brands={brands ?? []} criteria={criteria} listId={editingList?.id}
-        near={near ?? (viewer?.source === 'saved' ? viewer.zip : null)} within={within}
+        near={near ?? (viewer?.source === 'saved' || viewer?.source === 'member' ? viewer.zip : null)} within={within}
         locationLabel={viewer?.source === 'ip' ? viewer.label : null} />
       {near && <RememberZip zip={near} />}
       <div>
@@ -142,7 +147,7 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {listings?.map((listing) => (
             <SaddleCard key={listing.id} listing={listing} seller={listing.seller_id ? sellers[listing.seller_id] : null}
-              distance={miles.has(listing.id) ? formatMiles(miles.get(listing.id)!) : null} />
+              distance={user && listing.seller_id === user.id ? 'Your saddle' : miles.has(listing.id) ? formatMiles(miles.get(listing.id)!) : null} />
           ))}
         </div>
         {!error && total === 0 && (

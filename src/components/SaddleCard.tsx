@@ -35,12 +35,6 @@ export default function SaddleCard({ listing, seller, distance }: {
               No photo yet
             </div>
           )}
-          {seller && (
-            <span className="absolute left-2 bottom-2 flex items-center gap-1.5 bg-white/95 rounded-full pl-0.5 pr-2.5 py-0.5 shadow-sm text-xs font-semibold text-saddle-ink">
-              <Avatar url={seller.avatarUrl} initials={seller.initials} size={28} />
-              {seller.firstName}
-            </span>
-          )}
         </div>
         <div className="p-3">
           <p className="font-semibold text-saddle-brown">
@@ -56,7 +50,15 @@ export default function SaddleCard({ listing, seller, distance }: {
               ? `${CONDITION_LABELS[listing.condition as Condition] ?? listing.condition} condition`
               : 'Condition not stated'}
           </p>
-          <p className="font-bold mt-1">{price}</p>
+          <div className="flex items-end justify-between gap-2 mt-1">
+            <p className="font-bold">{price}</p>
+            {seller && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-saddle-ink min-w-0">
+                <span className="truncate">{seller.firstName}</span>
+                <Avatar url={seller.avatarUrl} initials={seller.initials} size={32} />
+              </span>
+            )}
+          </div>
         </div>
       </Link>
     </div>
