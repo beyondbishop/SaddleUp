@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description:
     'SaddleUp is a marketplace for buying and selling used close contact jumping saddles, listed by seat size and tree width so you can match them to your horse and yourself.',
-  icons: { icon: '/favicon.png' },
+  icons: { icon: '/favicon.png', apple: '/apple-touch-icon.png' },
   openGraph: {
     type: 'website',
     url: 'https://saddleup.me',
