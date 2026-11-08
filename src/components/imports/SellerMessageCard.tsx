@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import MarkMessagedButton from './MarkMessagedButton';
-import OpenPostLink, { openPostWindow, postHref } from './OpenPostLink';
+import OpenPostLink from './OpenPostLink';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
- * Everything an importer needs to contact a seller, in one place: the message (shown, editable,
- * saved as they type), "Copy message & open their post", the post itself, a preview of what the
- * seller will see, and "I've messaged them".
+ * Everything an importer needs to contact a seller, in one place: "Copy message" at the top, the
+ * message (shown, editable, saved as they type), a link to their post, and a preview of what the
+ * seller will see. Copying marks the seller as messaged (for My imports' "Waiting" and "Follow up"),
+ * with an undo, so there's no separate step to remember.
  *
  * `suggested` is the message SaddleUp wrote. `saved` is the importer's saved version, if any.
  * While they haven't edited it, a newer suggestion (e.g. once the price check finishes) replaces
@@ -37,7 +37,8 @@ export default function SellerMessageCard({
   const [text, setText] = useState(saved ?? suggested);
   const [edited, setEdited] = useState(!!saved && saved !== suggested);
   const [save, setSave] = useState<SaveState>('idle');
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [messaged, setMessaged] = useState<string | null>(messagedAt);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const lastSaved = useRef(saved ?? null);
 
@@ -78,22 +79,46 @@ export default function SellerMessageCard({
     }
   }
 
-  async function copyAndOpen() {
-    // Open first: browsers only allow pop-ups straight from the click.
-    const opened = sourceUrl ? openPostWindow(postHref(sourceUrl)) : false;
+  async function markMessaged(value: boolean) {
+    const res = await fetch(`/api/imports/${listingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaged: value })
+    }).catch(() => null);
+    const data = await res?.json().catch(() => ({}));
+    if (res?.ok) setMessaged(data.messaged_at ?? null);
+  }
+
+  // Copying the message means it's about to be sent, so record that too (once).
+  async function copyMessage() {
     await copy();
-    setCopied(sourceUrl ? (opened ? 'open' : 'blocked') : 'copied');
-    setTimeout(() => setCopied(null), 8000);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 8000);
+    if (showMarkMessaged && !messaged) markMessaged(true);
   }
 
   const first = (sellerName ?? '').trim().split(/\s+/)[0];
 
   return (
     <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <label htmlFor={`msg-${listingId}`} className="text-xs font-mono uppercase tracking-[0.14em] text-saddle-gold">
           Message to {first || 'the seller'}
         </label>
+        <button
+          type="button"
+          onClick={copyMessage}
+          className="bg-saddle-green text-saddle-cream px-4 py-2 rounded-sm font-semibold text-sm shrink-0"
+        >
+          {copied ? '✓ Copied' : 'Copy message'}
+        </button>
+      </div>
+      {copied && (
+        <p className="text-sm text-saddle-green">
+          ✓ Copied{showMarkMessaged ? ' and marked as messaged' : ''}. Paste it into your Messenger chat with them.
+        </p>
+      )}
+      <div className="flex justify-end -mb-1">
         <span className="text-xs text-saddle-muted min-h-[1rem]">
           {save === 'saving' && 'Saving…'}
           {save === 'saved' && edited && 'Saved ✓'}
@@ -125,37 +150,20 @@ export default function SellerMessageCard({
         </button>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={copyAndOpen}
-          className="bg-saddle-green text-saddle-cream px-4 py-2 rounded-sm font-semibold text-sm"
-        >
-          {sourceUrl ? 'Copy message & open their post ↗' : 'Copy message'}
-        </button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm">
         {sourceUrl && <OpenPostLink url={sourceUrl} label="Open their post" />}
-        <a href={claimUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline text-saddle-brown">
+        <a href={claimUrl} target="_blank" rel="noopener noreferrer" className="underline text-saddle-brown">
           See what they&apos;ll see ↗
         </a>
-        {showMarkMessaged && <MarkMessagedButton listingId={listingId} messagedAt={messagedAt} />}
+        {showMarkMessaged && messaged && (
+          <span className="text-saddle-green">
+            Messaged {new Date(messaged).toLocaleDateString('en-US')}{' '}
+            <button type="button" onClick={() => markMessaged(false)} className="underline text-gray-500 text-xs">
+              undo
+            </button>
+          </span>
+        )}
       </div>
-      {copied === 'open' && (
-        <p className="text-sm text-saddle-green">
-          ✓ Copied. In the window that opened, click <strong>Message</strong> on their post, paste, and send. Then tick
-          &quot;I&apos;ve messaged them&quot;.
-        </p>
-      )}
-      {copied === 'blocked' && (
-        <p className="text-sm text-saddle-brown">
-          ✓ Copied, but your browser blocked the new window. Click &quot;Open their post&quot;, then Message, and paste.
-        </p>
-      )}
-      {copied === 'copied' && (
-        <p className="text-sm text-saddle-green">✓ Copied. Paste it into your Messenger chat with them.</p>
-      )}
-      {!sourceUrl && (
-        <p className="text-xs text-saddle-muted">No link to their post was saved, so find them on Facebook and paste the message there.</p>
-      )}
     </div>
   );
 }

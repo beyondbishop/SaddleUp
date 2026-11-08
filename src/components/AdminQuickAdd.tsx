@@ -5,7 +5,6 @@ import ListingForm from './ListingForm';
 import type { ParsedListing } from '@/lib/parse-listing-text';
 import { readListingText, type ReadPhoto } from '@/lib/read-listing-text';
 import { claimMessage, type ClaimTips } from '@/lib/claim-message';
-import CopyButton from '@/components/imports/CopyButton';
 import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import Link from 'next/link';
 
@@ -246,13 +245,6 @@ export default function AdminQuickAdd({
       {latest && !parsed && (
         <section className="max-w-2xl bg-saddle-paper border border-saddle-green rounded p-5 space-y-3">
           <p className="font-serif text-xl text-saddle-ink">✓ Listing created: {latest.saddle}</p>
-          <div>
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-saddle-gold mb-1">Claim link</div>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="text-sm break-all">{latest.claimUrl}</code>
-              <CopyButton text={latest.claimUrl} label="Copy link" />
-            </div>
-          </div>
           <div>
             <SellerMessageCard
               key={latest.id}
