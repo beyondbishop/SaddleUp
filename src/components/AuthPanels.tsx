@@ -34,7 +34,7 @@ function SignupForm({ next }: { next: string }) {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, first_name: fullName.trim().split(/\s+/)[0] || null },
         // After confirming their email, bring them back to where they started.
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
       }

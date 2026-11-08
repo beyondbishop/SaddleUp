@@ -88,7 +88,7 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
     const { data: signUp, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName }, emailRedirectTo: window.location.href }
+      options: { data: { full_name: fullName, first_name: fullName.trim().split(/\s+/)[0] || null }, emailRedirectTo: window.location.href }
     });
 
     if (signUpError && /already registered/i.test(signUpError.message)) {

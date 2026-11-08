@@ -3,6 +3,7 @@ import { getViewer } from '@/lib/roles';
 import { WELCOME_FROM, welcomeEmail } from '@/lib/welcome';
 import { previewOrderEmails } from '@/lib/notify';
 import { loginLinkEmail } from '@/lib/login-link';
+import { CONFIRM_SIGNUP, previewConfirmSignup } from '@/lib/auth-emails';
 import { previewListingEmails } from '@/lib/listing-emails';
 import { previewMessageAlerts } from '@/lib/message-alerts';
 
@@ -12,7 +13,7 @@ export const metadata = { title: 'Emails · Admin', robots: { index: false } };
 // Every email SaddleUp sends, in the order a member meets them, rendered from the real
 // templates with sample data. What you see here is exactly what goes out.
 
-type Preview = { id: string; when: string; to: string; from?: string; subject: string; html: string; text: string; sms?: string };
+type Preview = { id: string; when: string; to: string; from?: string; subject: string; html: string; text: string; sms?: string; source?: string };
 
 const ORDER_WHEN: Record<string, string> = {
   paid: 'Right after checkout',
@@ -50,6 +51,12 @@ function EmailCard({ p }: { p: Preview }) {
         <pre className="whitespace-pre-wrap text-xs mt-2 font-mono">{p.text}</pre>
         {p.sms && <p className="text-xs mt-2"><strong>Text:</strong> {p.sms} https://saddleup.me/…</p>}
       </details>
+      {p.source && (
+        <details className="px-4 py-2 border-t border-saddle-line text-sm">
+          <summary className="cursor-pointer text-saddle-muted">Supabase template source (paste into Supabase → Authentication → Emails)</summary>
+          <pre className="whitespace-pre-wrap text-xs mt-2 font-mono select-all">{p.source}</pre>
+        </details>
+      )}
     </article>
   );
 }
@@ -61,6 +68,14 @@ export default async function AdminEmailsPage() {
 
   const welcome = welcomeEmail('Jane Rider');
   const onboarding: Preview[] = [
+    {
+      id: 'confirm-signup',
+      when: 'Right after signing up with email (sent by Supabase)',
+      to: 'New member',
+      from: 'Danielle Bishop',
+      ...previewConfirmSignup(),
+      source: CONFIRM_SIGNUP.html
+    },
     { id: 'welcome', when: 'Once, when they create an account', to: 'New member', from: WELCOME_FROM, ...welcome },
     { id: 'login-link', when: '“Forgot password?”, or you tap “Email sign-in link” on Users', to: 'Member', ...loginLinkEmail('Jane Rider', 'jane@example.com', 'https://saddleup.me/auth/confirm?token_hash=…') }
   ];

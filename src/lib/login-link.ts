@@ -5,6 +5,7 @@
 // "Email OTP expiration" setting (1 hour by default).
 import { createAdminClient } from '@/lib/supabase/server';
 import { sendEmail, type SendResult } from '@/lib/messaging';
+import { emailLogo, emailSignature, TEXT_SIGNATURE } from '@/lib/welcome';
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me').replace(/\/$/, '');
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -19,15 +20,18 @@ export function loginLinkEmail(fullName: string | null, email: string, link: str
   ];
   const after = 'If you didn’t ask for this, you can ignore this email. Your account is unchanged.';
 
-  const p = (t: string) => `<p style="font-size:15px;line-height:1.5;margin:0 0 14px">${t}</p>`;
+  const p = (t: string, margin = '0 0 14px') => `<p style="font-size:15px;line-height:1.5;margin:${margin}">${t}</p>`;
   const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#2b2118">
+  ${emailLogo()}
   ${p(esc(hi))}
   ${paras.map((t) => p(esc(t))).join('\n  ')}
   <p style="margin:24px 0"><a href="${link}" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">Sign in to SaddleUp</a></p>
   <p style="font-size:12px;color:#7a6a5a;margin:0 0 14px">Or paste this into your browser:<br><span style="word-break:break-all">${esc(link)}</span></p>
   ${p(esc(after))}
+  ${p('Happy riding,', '0 0 16px')}
+  ${emailSignature()}
 </div>`;
-  const text = [hi, ...paras, `Sign in: ${link}`, after].join('\n\n');
+  const text = [hi, ...paras, `Sign in: ${link}`, after, `Happy riding,\n\n${TEXT_SIGNATURE}`].join('\n\n');
   return { subject, html, text };
 }
 
