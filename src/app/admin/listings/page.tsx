@@ -19,7 +19,11 @@ const SORTS = {
 } as const;
 type SortKey = keyof typeof SORTS;
 
-type Params = { status?: string; q?: string; seller?: string; sort?: string; page?: string };
+type Params = { status?: string; q?: string; seller?: string; by?: string; age?: string; sort?: string; page?: string };
+
+// "Older than" filter, for finding old inventory to clear out.
+const AGES = [30, 60, 90, 180, 365] as const;
+const daysAgo = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 
 // Admin-only (checked here, not just in the layout). Listings that aren't live are
 // hidden from everyone but their seller, so read with the service key.
@@ -31,6 +35,8 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
   const status = (LISTING_STATUSES as readonly string[]).includes(searchParams.status ?? '') ? (searchParams.status as ListingStatus) : null;
   const q = (searchParams.q ?? '').replace(/[%,()*\\]/g, ' ').trim().slice(0, 80);
   const seller = /^[0-9a-f-]{36}$/i.test(searchParams.seller ?? '') ? searchParams.seller! : null;
+  const by = /^[0-9a-f-]{36}$/i.test(searchParams.by ?? '') ? searchParams.by! : null;
+  const age = (AGES as readonly number[]).includes(Number(searchParams.age)) ? Number(searchParams.age) : null;
   const sortKey: SortKey = (searchParams.sort ?? '') in SORTS ? (searchParams.sort as SortKey) : status === 'draft' ? 'oldest' : 'newest';
   const sort = SORTS[sortKey];
   const page = Math.max(0, Number(searchParams.page ?? 0) || 0);
@@ -41,6 +47,8 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
     let out = query;
     if (q) out = out.or(`model.ilike.%${q}%,slug.ilike.%${q}%,location_city.ilike.%${q}%`);
     if (seller) out = out.eq('seller_id', seller);
+    if (by) out = out.eq('created_by', by);
+    if (age) out = out.lt('created_at', new Date(Date.now() - age * 86_400_000).toISOString());
     return out;
   };
   const countFor = (s: ListingStatus | null) => {
@@ -57,15 +65,16 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
   if (status) listQuery = listQuery.eq('status', status);
   listQuery = scoped(listQuery);
 
-  const [all, perStatus, { data: listings, count }, sellerProfile] = await Promise.all([
+  const [all, perStatus, { data: listings, count }, sellerProfile, byProfile] = await Promise.all([
     countFor(null),
     Promise.all(LISTING_STATUSES.map((s) => countFor(s))),
     listQuery,
-    seller ? admin.from('profiles').select('full_name, email').eq('id', seller).single() : Promise.resolve({ data: null })
+    seller ? admin.from('profiles').select('full_name, email').eq('id', seller).single() : Promise.resolve({ data: null }),
+    by ? admin.from('profiles').select('full_name, email').eq('id', by).single() : Promise.resolve({ data: null })
   ]);
   const tabCount = Object.fromEntries(LISTING_STATUSES.map((s, i) => [s, perStatus[i].count ?? 0])) as Record<ListingStatus, number>;
 
-  const sellerIds = [...new Set((listings ?? []).map((l: any) => l.seller_id).filter(Boolean))];
+  const sellerIds = [...new Set((listings ?? []).flatMap((l: any) => [l.seller_id, l.created_by]).filter(Boolean))];
   const { data: sellers } = sellerIds.length
     ? await admin.from('profiles').select('id, full_name, email').in('id', sellerIds)
     : { data: [] as { id: string; full_name: string | null; email: string }[] };
@@ -73,7 +82,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
 
   const total = count ?? 0;
   const link = (p: Partial<Record<keyof Params, string | number | null>>) => {
-    const merged: Record<string, string | number | null | undefined> = { status, q, seller, sort: searchParams.sort, page: 0, ...p };
+    const merged: Record<string, string | number | null | undefined> = { status, q, seller, by, age, sort: searchParams.sort, page: 0, ...p };
     const params = new URLSearchParams();
     Object.entries(merged).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && v !== 0 && params.set(k, String(v)));
     return `/admin/listings${params.toString() ? `?${params}` : ''}`;
@@ -84,6 +93,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
     ...LISTING_STATUSES.map((s) => ({ key: s, label: STATUS_LABELS[s], n: tabCount[s] }))
   ];
   const sp = sellerProfile.data as { full_name: string | null; email: string } | null;
+  const bp = byProfile.data as { full_name: string | null; email: string } | null;
 
   return (
     <div className="py-6">
@@ -94,6 +104,8 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
             {total.toLocaleString('en-US')} {total === 1 ? 'listing' : 'listings'}
             {q && <> matching “{q}”</>}
             {seller && <> from {sp?.full_name || sp?.email || 'this seller'} · <Link href={link({ seller: null })} className="underline">show everyone’s</Link></>}
+            {by && <> added by {bp?.full_name || bp?.email || 'this person'} · <Link href={link({ by: null })} className="underline">anyone</Link></>}
+            {age && <> added over {age} days ago</>}
           </p>
         </div>
         <Link href="/admin/quick-add" className="bg-saddle-green text-saddle-cream px-4 py-2 rounded-sm text-sm font-semibold">
@@ -119,9 +131,25 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
         })}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-sm">
+        <span className="text-saddle-muted">Added:</span>
+        {[null, ...AGES].map((a) => (
+          <Link
+            key={a ?? 'any'}
+            href={link({ age: a, sort: a ? 'oldest' : searchParams.sort })}
+            aria-current={a === age ? 'page' : undefined}
+            className={`px-2.5 py-1 rounded-full border ${a === age ? 'bg-saddle-brown text-saddle-cream border-saddle-brown' : 'border-saddle-line bg-saddle-paper hover:border-saddle-brown'}`}
+          >
+            {a ? `${a}+ days ago` : 'Any time'}
+          </Link>
+        ))}
+      </div>
+
       <form method="get" className="flex flex-wrap gap-2 mb-4">
         {status && <input type="hidden" name="status" value={status} />}
         {seller && <input type="hidden" name="seller" value={seller} />}
+        {by && <input type="hidden" name="by" value={by} />}
+        {age && <input type="hidden" name="age" value={age} />}
         <label htmlFor="listing-q" className="sr-only">Search listings</label>
         <input id="listing-q" name="q" defaultValue={q} placeholder="Search model, brand or town" className="border rounded p-2 text-sm flex-1 min-w-[12rem]" />
         <label htmlFor="listing-sort" className="sr-only">Sort</label>
@@ -148,7 +176,8 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                 <th className="p-2">Seller</th>
                 <th className="p-2">Status</th>
                 <th className="p-2 text-right">Price</th>
-                <th className="p-2">Listed</th>
+                <th className="p-2">Added by</th>
+                <th className="p-2">Added</th>
                 <th className="p-2"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -187,7 +216,25 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                       </span>
                     </td>
                     <td className="p-2 text-right tabular-nums whitespace-nowrap">{usd(l.price_cents)}</td>
-                    <td className="p-2 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString('en-US')}</td>
+                    <td className="p-2">
+                      {(() => {
+                        const c = l.created_by ? sellerOf.get(l.created_by) : null;
+                        if (!c) return <span className="text-saddle-faint">Unknown</span>;
+                        return (
+                          <Link href={link({ by: c.id })} className="hover:underline">
+                            {c.full_name || c.email}
+                            {l.created_by !== l.seller_id && <span className="block text-xs text-saddle-muted">for the seller</span>}
+                          </Link>
+                        );
+                      })()}
+                    </td>
+                    <td className="p-2 whitespace-nowrap">
+                      <span className="block">{new Date(l.created_at).toLocaleDateString('en-US')}</span>
+                      <span className={`block text-xs ${daysAgo(l.created_at) >= 90 ? 'text-amber-800 font-semibold' : 'text-saddle-muted'}`}>
+                        {daysAgo(l.created_at)} days ago
+                        {l.updated_at && daysAgo(l.updated_at) < daysAgo(l.created_at) ? ` · changed ${daysAgo(l.updated_at)}d ago` : ''}
+                      </span>
+                    </td>
                     <td className="p-2 whitespace-nowrap text-right">
                       <Link href={`/dashboard/listings/${l.id}/edit`} className="underline mr-3">Edit</Link>
                       <Link href={`/dashboard/listings/${l.id}/stats`} className="underline">Stats</Link>
@@ -197,7 +244,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                 );
               })}
               {!listings?.length && (
-                <tr><td colSpan={6} className="p-4 text-saddle-muted">No listings match.</td></tr>
+                <tr><td colSpan={7} className="p-4 text-saddle-muted">No listings match.</td></tr>
               )}
             </tbody>
           </table>

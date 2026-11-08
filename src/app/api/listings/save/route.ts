@@ -47,7 +47,7 @@ async function seedImport(values: Record<string, unknown>, userId: string, meta:
 
   const { data: listing, error } = await admin
     .from('listings')
-    .insert({ ...values, seller_id: null, status: 'unclaimed', source: 'seeded', show_before_claim: true })
+    .insert({ ...values, seller_id: null, created_by: userId, status: 'unclaimed', source: 'seeded', show_before_claim: true })
     .select('id')
     .single();
   if (error || !listing) return { data: null, error };
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     if (body!.mode === 'seed') return seedImport(values, user!.id, body!.import);
     return supabase
       .from('listings')
-      .insert({ ...values, seller_id: user!.id, status: 'draft' })
+      .insert({ ...values, seller_id: user!.id, created_by: user!.id, status: 'draft' })
       .select('id')
       .single();
   }

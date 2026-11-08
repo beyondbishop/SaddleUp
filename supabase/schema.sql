@@ -662,3 +662,17 @@ insert into brands (name, slug) values ('Henri de Rivel', 'henri-de-rivel') on c
 
 -- ---------- LISTING VIDEO (also in migrations/20261117_listing_video.sql) ----------
 alter table listings add column if not exists video_url text;
+
+-- ---------- WHO ADDED A LISTING + UPDATED_AT (also in migrations/20261118_listing_created_by.sql) ----------
+alter table listings add column if not exists created_by uuid references profiles(id) on delete set null default auth.uid();
+create index if not exists idx_listings_created_by on listings(created_by);
+create index if not exists idx_listings_created_at on listings(created_at);
+create or replace function listings_touch_updated_at() returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists trg_listings_touch_updated_at on listings;
+create trigger trg_listings_touch_updated_at before update on listings
+  for each row execute function listings_touch_updated_at();
