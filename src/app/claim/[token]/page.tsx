@@ -26,7 +26,7 @@ interface Claimable {
   price_cents: number;
 }
 
-type Status = 'loading' | 'found' | 'not_found' | 'check_email' | 'claiming';
+type Status = 'loading' | 'found' | 'not_found' | 'check_email' | 'claiming' | 'removed';
 
 export default function ClaimPage({ params }: { params: { token: string } }) {
   const supabase = createClient();
@@ -40,6 +40,8 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -102,6 +104,21 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
     return claim();
   }
 
+  // The seller can take the listing down themselves, no account needed (the link is the proof).
+  async function remove() {
+    setRemoving(true);
+    setError(null);
+    const res = await fetch(`/api/claim/${params.token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove' })
+    }).catch(() => null);
+    const json = res ? await res.json().catch(() => ({})) : {};
+    setRemoving(false);
+    if (!res?.ok) return setError(json.error ?? 'Couldn’t remove it just now. Please try again.');
+    setStatus('removed');
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setSignedInEmail(null);
@@ -118,6 +135,18 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
       <div className="py-16 text-center max-w-md mx-auto">
         <h1 className="font-serif text-2xl mb-2">This claim link isn&apos;t valid</h1>
         <p className="text-saddle-muted">It may have already been claimed, or the link is incorrect.</p>
+      </div>
+    );
+  }
+
+  if (status === 'removed') {
+    return (
+      <div className="py-16 text-center max-w-md mx-auto">
+        <h1 className="font-serif text-2xl mb-2">Your listing has been removed</h1>
+        <p className="text-saddle-muted">
+          Your {saddleName} is no longer on SaddleUp. Thanks for letting us know, and good luck with the sale! If you change your
+          mind, you can list it any time at saddleup.me.
+        </p>
       </div>
     );
   }
@@ -158,6 +187,33 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           {TREE_WIDTH_LABELS[listing!.tree_width]} Tree · $
           {(listing!.price_cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </div>
+      </div>
+      <div className="mb-5 text-sm">
+        {!confirmRemove ? (
+          <p className="text-saddle-muted">
+            Don&apos;t want it on SaddleUp?{' '}
+            <button type="button" onClick={() => setConfirmRemove(true)} className="underline text-saddle-brown">
+              Remove my listing
+            </button>
+          </p>
+        ) : (
+          <div className="rounded border border-saddle-line bg-saddle-paper p-3">
+            <p className="text-saddle-ink mb-3">Remove your {saddleName} from SaddleUp? It comes off the site right away.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={remove}
+                disabled={removing}
+                className="rounded-sm bg-saddle-brown text-saddle-cream px-4 py-2 font-semibold disabled:opacity-60"
+              >
+                {removing ? 'Removing…' : 'Yes, remove it'}
+              </button>
+              <button type="button" onClick={() => setConfirmRemove(false)} className="rounded-sm border border-saddle-line px-4 py-2">
+                Keep it
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <p className="text-saddle-body mb-4">
         We set up a free listing for your saddle on SaddleUp, the saddle marketplace built around fit.{' '}

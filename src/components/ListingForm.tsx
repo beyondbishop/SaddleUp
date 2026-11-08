@@ -346,9 +346,9 @@ export default function ListingForm({
       const fallbackNotes =
         treeCm > 0 && treeLabel
           ? [
-              `We marked your saddle ${treeLabel} because you listed it as ${treeCm} cm${
-                brandName === 'Stubben' ? " and Stubben's standard (Medium) is 28 cm" : ''
-              }.`
+              `Sizing: We marked your saddle as ${treeLabel} based on the ${treeCm} cm measurement you provided${
+                brandName === 'Stubben' ? ", since Stubben's standard Medium is generally 28 cm" : ''
+              }. Please verify this and edit your listing if needed.`
             ]
           : [];
       onSeeded!({

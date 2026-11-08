@@ -42,6 +42,37 @@ async function recordOpen(listingId: string, req: Request) {
   }
 }
 
+/**
+ * POST /api/claim/[token]  { action: 'remove' }
+ * The seller takes their unclaimed listing off SaddleUp themselves, straight from the link in
+ * our message. No account needed: the claim token is the proof it's theirs (same as claiming).
+ * Only works while the listing is still unclaimed; afterwards they manage it from their dashboard.
+ */
+export async function POST(req: Request, { params }: { params: { token: string } }) {
+  const body = (await req.json().catch(() => ({}))) as { action?: unknown };
+  if (body.action !== 'remove') return NextResponse.json({ error: 'Unknown action.' }, { status: 400 });
+  if (!/^[0-9a-f-]{36}$/i.test(params.token)) return NextResponse.json({ error: 'This link isn’t valid.' }, { status: 404 });
+
+  const admin = createAdminClient();
+  const { data: claim } = await admin.from('listing_claim_tokens').select('listing_id').eq('token', params.token).maybeSingle();
+  if (!claim) return NextResponse.json({ error: 'This link isn’t valid.' }, { status: 404 });
+
+  const { data: removed, error } = await admin
+    .from('listings')
+    .update({ status: 'removed' })
+    .eq('id', claim.listing_id)
+    .eq('status', 'unclaimed')
+    .is('seller_id', null)
+    .select('id')
+    .maybeSingle();
+  if (error) {
+    console.error('Seller removal failed', error);
+    return NextResponse.json({ error: 'Couldn’t remove it just now. Please try again.' }, { status: 500 });
+  }
+  if (!removed) return NextResponse.json({ error: 'This listing has already been claimed or removed.' }, { status: 409 });
+  return NextResponse.json({ ok: true });
+}
+
 export async function GET(req: Request, { params }: { params: { token: string } }) {
   if (!/^[0-9a-f-]{36}$/i.test(params.token)) return NextResponse.json({ images: [] });
   const admin = createAdminClient();
