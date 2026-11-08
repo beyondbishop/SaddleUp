@@ -90,7 +90,7 @@ export default function TextSettings({ phone, verified, textsOn, needsMessageCon
           {optedOutByReply && <p className="text-gray-600">You turned texts off by replying STOP. You can turn them back on here.</p>}
           <label className="flex items-start gap-2">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-            <span>{consentText}</span>
+            <span>{consentText} <a href="/terms#text-messages" className="underline">Terms</a> · <a href="/privacy#text-messages" className="underline">Privacy</a></span>
           </label>
           <button type="button" disabled={busy || !consent}
             onClick={async () => { if (await post('/api/account/sms', { optIn: true, consent: true })) router.refresh(); }}
@@ -108,7 +108,7 @@ export default function TextSettings({ phone, verified, textsOn, needsMessageCon
               <p>New: get a text the moment someone messages you about a saddle.</p>
               <label className="flex items-start gap-2">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
-                <span>{consentText}</span>
+                <span>{consentText} <a href="/terms#text-messages" className="underline">Terms</a> · <a href="/privacy#text-messages" className="underline">Privacy</a></span>
               </label>
               <button type="button" disabled={busy || !consent}
                 onClick={async () => { if (await post('/api/account/sms', { optIn: true, consent: true })) router.refresh(); }}

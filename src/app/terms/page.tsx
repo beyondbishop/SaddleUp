@@ -54,6 +54,25 @@ export default function TermsPage() {
         marketplace facilitator. Sellers remain responsible for any income tax obligations
         arising from sales made through the platform.
       </p>
+
+      <h2 id="text-messages" className="font-semibold mt-6 mb-2 scroll-mt-6">7. Text Message Alerts</h2>
+      <p>
+        SaddleUp Alerts is an optional text message program. If you add your cell phone, confirm it with a code, and
+        tick the box agreeing to texts on your profile page, we text you when a buyer or seller messages you about a
+        saddle, and with updates about your orders (payment, shipping, delivery, inspection deadlines, returns and
+        payouts). We don&apos;t send marketing texts.
+      </p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li>Message frequency varies with your activity on SaddleUp.</li>
+        <li>Message and data rates may apply.</li>
+        <li>Reply <strong>STOP</strong> to stop texts at any time, or turn them off on your profile page. Reply <strong>HELP</strong> for help.</li>
+        <li>Questions? Email <a href="mailto:hello@saddleup.me" className="underline">hello@saddleup.me</a>.</li>
+        <li>Carriers are not liable for delayed or undelivered messages.</li>
+        <li>Agreeing to texts is not a condition of buying or selling.</li>
+      </ul>
+      <p className="mt-2">
+        See our <a href="/privacy#text-messages" className="underline">Privacy Policy</a> for how we handle your phone number.
+      </p>
     </div>
   );
 }

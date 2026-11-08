@@ -30,6 +30,12 @@ export default function PrivacyPage() {
         (payments and payouts), Shippo (shipping labels), Anthropic (the AI tools), and our email and text message
         providers. They only use your information to provide these services to us.
       </p>
+      <p id="text-messages" className="mt-4 scroll-mt-6">
+        If you add your cell phone and agree to text alerts, we use your number only to send the SaddleUp texts you
+        signed up for (see <a href="/terms#text-messages" className="underline">Text Message Alerts</a>). We do not
+        sell, rent or share your phone number or your text consent with third parties or affiliates for their
+        marketing. Reply STOP to any text, or turn texts off on your profile page, to stop them.
+      </p>
       <p className="mt-4">
         To ask for a copy of your data or to have it deleted, email us at{' '}
         <a href="mailto:hello@saddleup.me" className="underline">
