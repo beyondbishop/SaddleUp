@@ -5,6 +5,7 @@
 // Never throws: a failed email must never block saving or approving a listing.
 import { createAdminClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/messaging';
+import { readPrefs } from '@/lib/notification-prefs';
 import { emailLogo, emailSignature, TEXT_SIGNATURE, WELCOME_FROM } from '@/lib/welcome';
 
 const RAW_SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://saddleup.me').replace(/\/$/, '');
@@ -102,6 +103,7 @@ export async function sendListingEmail(listingId: string, kind: ListingEmailKind
     if (!listing?.seller_id || !listing.slug) return; // unclaimed imports have no seller to tell
     const { data: profile } = await admin.from('profiles').select('email, full_name').eq('id', listing.seller_id).maybeSingle();
     if (!profile?.email) return;
+    if (!(await readPrefs(admin, [listing.seller_id])).get(listing.seller_id)?.listings_email) return;
 
     const brand = (listing.brands as { name?: string } | null)?.name;
     const saddle = `${listing.seat_size ? `${listing.seat_size}" ` : ''}${brand && brand !== 'Other' ? `${brand} ` : ''}${listing.model ?? 'saddle'}`.trim();

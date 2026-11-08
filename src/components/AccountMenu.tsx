@@ -87,7 +87,7 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
 
           <div className="border-t border-saddle-line my-1" />
           <Link href="/account/profile" className={item}>Your profile</Link>
-          <Link href="/account/notifications" className={item}>Notification settings</Link>
+          <Link href="/account/profile#notifications" className={item}>Notifications</Link>
           <form action="/auth/signout" method="post">
             <button type="submit" className={`${item} w-full text-left`}>Sign out</button>
           </form>

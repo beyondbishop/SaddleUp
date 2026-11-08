@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { alertRecipient } from '@/components/InquiryBox';
 
 interface Msg {
   id: string;
@@ -37,6 +38,7 @@ export default function MessageThread({
       .single();
     setSending(false);
     if (!error && data) {
+      alertRecipient(data.id);
       setMessages((prev) => [...prev, data]);
       setBody('');
       router.refresh();

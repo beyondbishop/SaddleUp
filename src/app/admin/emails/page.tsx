@@ -4,6 +4,7 @@ import { WELCOME_FROM, welcomeEmail } from '@/lib/welcome';
 import { previewOrderEmails } from '@/lib/notify';
 import { loginLinkEmail } from '@/lib/login-link';
 import { previewListingEmails } from '@/lib/listing-emails';
+import { previewMessageAlerts } from '@/lib/message-alerts';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Emails · Admin', robots: { index: false } };
@@ -70,6 +71,12 @@ export default async function AdminEmailsPage() {
     { id: 'listing-live', when: 'You approve it in the review queue', to: 'Seller', ...listingEmails.live }
   ];
 
+  const msgAlerts = previewMessageAlerts();
+  const messages: Preview[] = [
+    { id: 'message-to-seller', when: 'A buyer messages about a saddle (max one per conversation every 30 min)', to: 'Seller', ...msgAlerts.toSeller },
+    { id: 'message-to-buyer', when: 'The seller replies', to: 'Buyer', ...msgAlerts.toBuyer }
+  ];
+
   const orders: Preview[] = previewOrderEmails()
     .sort((a, b) => ORDER_SEQUENCE.indexOf(a.event) - ORDER_SEQUENCE.indexOf(b.event))
     .map((e) => ({
@@ -85,6 +92,7 @@ export default async function AdminEmailsPage() {
   const sections = [
     { title: 'Joining and signing in', blurb: 'What someone gets when they sign up, or when you send them a sign-in link.', items: onboarding },
     { title: 'Listing a saddle', blurb: 'Sent to the seller when they add a saddle, and again when it goes live.', items: listing },
+    { title: 'Messages', blurb: 'Sent when someone messages about a saddle. Also by text if they turned text alerts on.', items: messages },
     { title: 'Buying and selling', blurb: 'Sent as an order moves along. Happy path first, then the exceptions.', items: orders }
   ];
 

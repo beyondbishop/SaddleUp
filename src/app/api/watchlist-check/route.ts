@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { matchListing, type SearchCriteria, FOR_SALE } from '@/lib/search';
+import { readPrefs } from '@/lib/notification-prefs';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -31,6 +32,8 @@ export async function GET(req: Request) {
     .select('*, profiles(email), brands(slug)');
 
   let notified = 0;
+  // Members who turned saved search alerts off still get matches recorded, so turning it back on doesn't send a backlog.
+  const prefsById = await readPrefs(admin, [...new Set((savedSearches ?? []).map((s: any) => s.user_id).filter(Boolean))] as string[]);
 
   for (const search of savedSearches ?? []) {
     // Same matching rules as the browse page (src/lib/search.ts).
@@ -56,7 +59,8 @@ export async function GET(req: Request) {
     if (!unseenMatches.length) continue;
 
     const email = (search as any).profiles?.email;
-    if (email && resend) {
+    const wantsEmail = prefsById.get((search as any).user_id)?.matches_email !== false;
+    if (email && resend && wantsEmail) {
       await resend.emails.send({
         from: process.env.EMAIL_FROM!,
         to: email,

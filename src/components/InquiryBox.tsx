@@ -5,6 +5,16 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { goToSignIn } from '@/lib/return-to';
 
+/** Tell the other person (email, and text if they opted in). keepalive lets it finish as we navigate away. */
+export function alertRecipient(messageId: string) {
+  fetch('/api/messages/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messageId }),
+    keepalive: true
+  }).catch(() => {});
+}
+
 export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Question' }: {
   listingId: string;
   /** null for an unclaimed saddle: the database routes the conversation to SaddleUp. */
@@ -58,12 +68,15 @@ export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Q
       convo = newConvo;
     }
 
-    const { error: msgError } = await supabase
+    const { data: sent, error: msgError } = await supabase
       .from('messages')
-      .insert({ conversation_id: convo!.id, sender_id: user.id, body: message });
+      .insert({ conversation_id: convo!.id, sender_id: user.id, body: message })
+      .select('id')
+      .single();
 
     setSending(false);
     if (msgError) return setError(msgError.message);
+    alertRecipient(sent.id);
     router.push(`/messages/${convo!.id}`);
   }
 

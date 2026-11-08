@@ -79,7 +79,9 @@ export function normalizeUsPhone(input: string): string | null {
   return /^[2-9]\d{2}[2-9]\d{6}$/.test(ten) ? `+1${ten}` : null;
 }
 
-export const SMS_CONSENT_VERSION = '2026-11-08';
+export const SMS_CONSENT_VERSION = '2026-11-09';
+/** Consent from this version on covers message alerts; earlier opt-ins only cover order updates. */
+export const MESSAGE_SMS_CONSENT_FROM = '2026-11-09';
 export const SMS_CONSENT_TEXT =
-  'Text me updates about my SaddleUp orders (payment, shipping, delivery, inspection deadlines and payouts). ' +
+  'Text me when someone messages me on SaddleUp, and with updates about my orders (payment, shipping, delivery, inspection deadlines and payouts). ' +
   'Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.';

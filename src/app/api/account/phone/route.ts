@@ -1,5 +1,6 @@
 // POST /api/account/phone
-//   { action: 'send', phone }   save the number (un-verified) and text a code via Twilio Verify
+//   { action: 'save', phone }   save (or with phone: '' remove) the number, un-verified, without texting it
+//   { action: 'send', phone? }  save the number (un-verified) and text a code via Twilio Verify; no phone = the saved one
 //   { action: 'verify', code }  confirm the code -> phone verified
 import { NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
@@ -12,16 +13,32 @@ export async function POST(req: Request) {
     data: { user }
   } = await createClient().auth.getUser();
   if (!user) return err('Please sign in.', 401);
-  if (!verifyConfigured()) return err('Phone verification isn’t available yet.', 503);
-
   const body = await req.json().catch(() => ({}));
   const admin = createAdminClient();
 
+  if (body.action === 'save') {
+    const raw = typeof body.phone === 'string' ? body.phone.trim() : '';
+    const phone = raw ? normalizeUsPhone(raw) : null;
+    if (raw && !phone) return err('Enter a 10-digit US mobile number.');
+    // A different number clears any earlier verification and text consent (database trigger).
+    const { error } = await admin.from('profiles').update({ phone }).eq('id', user.id);
+    if (error) return err('Could not save. Please try again.', 500);
+    return NextResponse.json({ ok: true, phone });
+  }
+
+  if (!verifyConfigured()) return err('Phone verification isn’t available yet.', 503);
+
   if (body.action === 'send') {
-    const phone = typeof body.phone === 'string' ? normalizeUsPhone(body.phone) : null;
-    if (!phone) return err('Enter a 10-digit US mobile number.');
-    // Saving a different number clears any earlier verification and consent (database trigger).
-    await admin.from('profiles').update({ phone }).eq('id', user.id);
+    let phone: string | null;
+    if (typeof body.phone === 'string') {
+      phone = normalizeUsPhone(body.phone);
+      if (!phone) return err('Enter a 10-digit US mobile number.');
+      await admin.from('profiles').update({ phone }).eq('id', user.id);
+    } else {
+      const { data: p } = await admin.from('profiles').select('phone').eq('id', user.id).single();
+      phone = p?.phone ?? null;
+      if (!phone) return err('Add your mobile number first.');
+    }
     try {
       await startPhoneVerification(phone);
     } catch (e: any) {

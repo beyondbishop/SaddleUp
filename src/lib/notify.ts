@@ -5,6 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { formatDeadline } from '@/lib/order-rules';
 import { sendEmail, sendSms, type SendResult } from '@/lib/messaging';
+import { readPrefs } from '@/lib/notification-prefs';
 
 type Role = 'buyer' | 'seller' | 'admin';
 type Msg = { subject: string; lines: string[]; sms?: string };
@@ -203,7 +204,7 @@ export function previewOrderEmails() {
   return out;
 }
 
-async function deliver(key: string, base: { order_id: string; user_id: string | null; channel: 'email' | 'sms'; template: string }, send: () => Promise<SendResult>) {
+export async function deliver(key: string, base: { order_id: string | null; user_id: string | null; channel: 'email' | 'sms'; template: string }, send: () => Promise<SendResult>) {
   const admin = createAdminClient();
   // Claim this message first; a duplicate event finds the row already there and stops.
   const { data: claimed } = await admin
@@ -236,6 +237,7 @@ export async function notifyOrderEvent(orderId: string, type: string, data?: Rec
       ? await admin.from('profiles').select('id, email, phone, phone_verified_at, sms_opt_in_at, sms_opt_out_at').in('id', ids)
       : { data: [] as any[] };
     const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    const prefsById = await readPrefs(admin, ids);
     if (templates.admin) {
       const { data: admins } = await admin.from('profiles').select('id, email').eq('is_admin', true);
       for (const a of admins ?? []) {
@@ -259,7 +261,7 @@ export async function notifyOrderEvent(orderId: string, type: string, data?: Rec
           sendEmail({ to: p.email, subject: msg.subject, html, text, idempotencyKey: key })
         );
       }
-      const smsOk = role !== 'admin' && msg.sms && p.phone && p.phone_verified_at && p.sms_opt_in_at && !p.sms_opt_out_at;
+      const smsOk = role !== 'admin' && prefsById.get(p.id)?.orders_sms !== false && msg.sms && p.phone && p.phone_verified_at && p.sms_opt_in_at && !p.sms_opt_out_at;
       if (smsOk) {
         const key = `${order.id}:${type}:${role}:${p.id}:sms`;
         await deliver(key, { ...base, channel: 'sms' }, () => sendSms({ to: p.phone, body: `${msg.sms} ${url}`.slice(0, 320) }));
