@@ -1,5 +1,7 @@
-// GET /api/claim/[token]  ->  { images: string[] }
-// Photos for an unclaimed listing, so the claim page can show the seller their saddle.
+// GET /api/claim/[token]  ->  { images: string[], slug: string | null, isPublic: boolean, viewerIsImporter: boolean }
+// Photos for an unclaimed listing, so the claim page can show the seller their saddle, plus its
+// page address when shoppers can already see it (for the "See your listing" link). viewerIsImporter
+// lets the page show importers a preview instead of a claim button they'd claim into their own account.
 // The claim token is the secret; once claimed (or for any other listing) this returns nothing.
 //
 // Also records that the claim link was opened, for the importer's "My imports" page. Only real
@@ -14,12 +16,11 @@ export const dynamic = 'force-dynamic';
 
 const BOT = /bot|crawl|spider|slurp|facebookexternalhit|preview|fetch|curl|wget|python|headless|lighthouse/i;
 
-async function recordOpen(listingId: string, req: Request) {
+async function recordOpen(listingId: string, req: Request, viewerIsImporter: boolean) {
   try {
     const ua = req.headers.get('user-agent') ?? '';
     if (!ua || BOT.test(ua)) return;
-    const { user, isImporter } = await getViewer();
-    if (user && isImporter) return; // the importer (or an admin) checking the link
+    if (viewerIsImporter) return; // the importer (or an admin) checking the link
 
     const admin = createAdminClient();
     const { data: row, error } = await admin
@@ -74,18 +75,27 @@ export async function POST(req: Request, { params }: { params: { token: string }
 }
 
 export async function GET(req: Request, { params }: { params: { token: string } }) {
-  if (!/^[0-9a-f-]{36}$/i.test(params.token)) return NextResponse.json({ images: [] });
+  const empty = { images: [], slug: null, isPublic: false, viewerIsImporter: false };
+  if (!/^[0-9a-f-]{36}$/i.test(params.token)) return NextResponse.json(empty);
   const admin = createAdminClient();
   const { data: claim } = await admin.from('listing_claim_tokens').select('listing_id').eq('token', params.token).maybeSingle();
   const { data } = claim
     ? await admin
         .from('listings')
-        .select('id, images')
+        .select('id, images, slug, show_before_claim')
         .eq('id', claim.listing_id)
         .eq('status', 'unclaimed')
         .is('seller_id', null)
         .maybeSingle()
     : { data: null };
-  if (data) await recordOpen(data.id, req);
-  return NextResponse.json({ images: ((data?.images as string[] | null) ?? []).slice(0, 4) });
+  if (!data) return NextResponse.json(empty);
+  const { user, isImporter } = await getViewer();
+  const viewerIsImporter = !!user && isImporter;
+  await recordOpen(data.id, req, viewerIsImporter);
+  return NextResponse.json({
+    images: ((data.images as string[] | null) ?? []).slice(0, 4),
+    slug: data.slug ?? null,
+    isPublic: !!data.show_before_claim,
+    viewerIsImporter
+  });
 }

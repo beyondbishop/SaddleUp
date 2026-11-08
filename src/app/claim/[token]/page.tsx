@@ -40,6 +40,10 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  // The listing's page, when shoppers can already see it, so the seller can preview it.
+  const [listingUrl, setListingUrl] = useState<string | null>(null);
+  // An importer or admin opening the link: show them the seller's view, but no claim button.
+  const [viewerIsImporter, setViewerIsImporter] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -53,6 +57,8 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           .catch(() => ({ images: [] }))
       ]);
       setImages(Array.isArray(photos?.images) ? photos.images : []);
+      setListingUrl(photos?.isPublic && typeof photos.slug === 'string' ? `/saddles/${photos.slug}` : null);
+      setViewerIsImporter(!!photos?.viewerIsImporter);
       const row = (data as Claimable[] | null)?.[0];
       if (!row) return setStatus('not_found');
       setListing(row);
@@ -169,6 +175,12 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
         Free listing · Beta pricing: {SELLER_FEE_PERCENT}% fee
       </div>
       <h1 className="font-serif text-3xl text-saddle-ink mb-3">Your saddle is ready to sell</h1>
+      {viewerIsImporter && (
+        <p className="mb-4 rounded border border-saddle-line bg-saddle-sand p-3 text-sm text-saddle-ink">
+          <strong>Seller&apos;s view.</strong> You&apos;re signed in as {signedInEmail ?? 'an importer'}, so there&apos;s no claim
+          button here (it would claim the saddle into your account). The seller sees a sign-up form instead.
+        </p>
+      )}
       <div className="bg-saddle-paper border border-saddle-line rounded p-4 mb-5">
         {images.length > 0 && (
           <div className="flex gap-2 mb-3 overflow-x-auto">
@@ -187,6 +199,18 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
           {treeWidthText(listing!.tree_width)} · $
           {(listing!.price_cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </div>
+        {listingUrl ? (
+          <a
+            href={listingUrl}
+            target="_blank"
+            rel="noopener"
+            className="mt-3 inline-flex items-center gap-1 rounded-sm border border-saddle-brown px-3 py-2 text-sm font-semibold text-saddle-brown hover:bg-saddle-brown hover:text-saddle-cream"
+          >
+            See your listing as buyers do <span aria-hidden>↗</span>
+          </a>
+        ) : (
+          <p className="mt-3 text-xs text-saddle-muted">Buyers can&apos;t see it yet. It goes on the site once you claim it.</p>
+        )}
       </div>
       <div className="mb-5 text-sm">
         {!confirmRemove ? (
@@ -237,7 +261,7 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
 
       {error && <p className="text-red-700 text-sm mb-3">{error}</p>}
 
-      {signedInEmail ? (
+      {viewerIsImporter ? null : signedInEmail ? (
         <div className="space-y-3">
           <button
             onClick={() => {
