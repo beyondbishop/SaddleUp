@@ -138,6 +138,12 @@ export default function AdminQuickAdd({
     return () => clearTimeout(timer);
   }, [sourceUrl]);
   const alreadyAdded = linkCheck.state === 'exists';
+  // Facebook share links (facebook.com/share/...) are different for every person who shares.
+  const isShareLink = /facebook\.com\/share\//i.test(sourceUrl);
+
+  // After the post is read: recent imports that look like the same saddle (catches share links).
+  type Similar = { importedBy: string; importedAt: string; sellerName: string | null; model: string; price: number | null; label: string; slug: string | null };
+  const [similar, setSimilar] = useState<Similar[]>([]);
 
   async function fill(e: React.FormEvent) {
     e.preventDefault();
@@ -185,6 +191,23 @@ export default function AdminQuickAdd({
     setPickedModel(null);
     const key = String(Date.now());
     setParsed({ ...result, images, photoNote, key });
+    setSimilar([]);
+    if (result.prefill.brand_id && result.prefill.seat_size) {
+      fetch('/api/imports/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brand_id: result.prefill.brand_id,
+          seat_size: result.prefill.seat_size,
+          price: result.prefill.price,
+          model: result.prefill.model,
+          seller_name: sellerName
+        })
+      })
+        .then((r) => (r.ok ? r.json() : { matches: [] }))
+        .then((j) => setSimilar(Array.isArray(j.matches) ? j.matches : []))
+        .catch(() => {});
+    }
     // Check what similar saddles sell for, in the background, for the price tip in the seller message.
     const p = result.prefill;
     if (result.reader === 'ai' && (p.brand_id || p.model)) {
@@ -210,6 +233,7 @@ export default function AdminQuickAdd({
     setPhotos([]);
     setPhotoError(null);
     setParsed(null);
+    setSimilar([]);
   }
 
   const latest = created[0];
@@ -260,7 +284,14 @@ export default function AdminQuickAdd({
               autoFocus
             />
             {linkCheck.state === 'checking' && <p className="text-xs text-saddle-muted mt-1">Checking SaddleUp…</p>}
-            {linkCheck.state === 'new' && <p className="text-sm text-saddle-green mt-1">✓ Not on SaddleUp yet. Go ahead.</p>}
+            {linkCheck.state === 'new' && !isShareLink && <p className="text-sm text-saddle-green mt-1">✓ Not on SaddleUp yet. Go ahead.</p>}
+            {linkCheck.state === 'new' && isShareLink && (
+              <p className="text-sm text-saddle-brown mt-1">
+                This is a share link, which is different for everyone who shares the post, so another importer&apos;s copy won&apos;t match it.
+                Please open the link and paste the address from your browser bar instead (it looks like facebook.com/groups/…/posts/… or
+                facebook.com/marketplace/item/…).
+              </p>
+            )}
             {linkCheck.state === 'invalid' && <p className="text-sm text-saddle-brown mt-1">That doesn&apos;t look like a link. Copy it from the post&apos;s Share menu or address bar.</p>}
             {linkCheck.state === 'error' && <p className="text-sm text-saddle-brown mt-1">Couldn&apos;t check the link just now. Saving will still refuse a duplicate.</p>}
             {linkCheck.state === 'idle' && <p className="text-xs text-saddle-muted mt-1">No link (e.g. a text ad)? You can still add it below.</p>}
@@ -364,6 +395,29 @@ export default function AdminQuickAdd({
               ← Back to the pasted text
             </button>
           </div>
+          {similar.length > 0 && (
+            <div className="max-w-2xl rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-semibold">This may already be on SaddleUp. Check before saving:</p>
+              <ul className="mt-1 space-y-1">
+                {similar.map((m, i) => (
+                  <li key={i}>
+                    {m.model}
+                    {m.price ? ` · $${m.price.toLocaleString('en-US')}` : ''}
+                    {m.sellerName ? ` · seller ${m.sellerName}` : ''} · added by {m.importedBy} on{' '}
+                    {new Date(m.importedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {m.label}
+                    {m.slug && (
+                      <>
+                        {' · '}
+                        <Link href={`/saddles/${m.slug}`} target="_blank" className="underline">
+                          see it
+                        </Link>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {parsed.photoFindings && parsed.photoFindings.length > 0 && (
             <ul className="max-w-2xl text-sm text-saddle-ink bg-saddle-paper border border-saddle-green rounded p-2 space-y-1">
               <li className="font-semibold">Read from the photos:</li>
