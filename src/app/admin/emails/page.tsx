@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getViewer } from '@/lib/roles';
 import { WELCOME_FROM, welcomeEmail } from '@/lib/welcome';
 import { previewOrderEmails } from '@/lib/notify';
+import { loginLinkEmail } from '@/lib/login-link';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Emails · Admin', robots: { index: false } };
@@ -58,7 +59,8 @@ export default async function AdminEmailsPage() {
 
   const welcome = welcomeEmail('Jane Rider');
   const onboarding: Preview[] = [
-    { id: 'welcome', when: 'Once, when they create an account', to: 'New member', from: WELCOME_FROM, ...welcome }
+    { id: 'welcome', when: 'Once, when they create an account', to: 'New member', from: WELCOME_FROM, ...welcome },
+    { id: 'login-link', when: 'You tap “Email sign-in link” on Users', to: 'Member', ...loginLinkEmail('Jane Rider', 'jane@example.com', 'https://saddleup.me/auth/confirm?token_hash=…') }
   ];
 
   const orders: Preview[] = previewOrderEmails()
@@ -74,7 +76,7 @@ export default async function AdminEmailsPage() {
     }));
 
   const sections = [
-    { title: 'Joining', blurb: 'What someone gets when they sign up.', items: onboarding },
+    { title: 'Joining and signing in', blurb: 'What someone gets when they sign up, or when you send them a sign-in link.', items: onboarding },
     { title: 'Buying and selling', blurb: 'Sent as an order moves along. Happy path first, then the exceptions.', items: orders }
   ];
 

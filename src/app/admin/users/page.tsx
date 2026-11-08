@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import UserRoleControls from '@/components/admin/UserRoleControls';
+import UserAccountActions from '@/components/admin/UserAccountActions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Users', robots: { index: false } };
@@ -43,6 +44,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
         admin.from('listing_imports').select('importer_id, listings(status, claimed_at)').in('importer_id', ids)
       ])
     : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  // Frozen = banned from signing in (kept on the auth record, not the profile).
+  const now = Date.now();
+  const frozen = new Set<string>();
+  await Promise.all(ids.map(async (id) => {
+    const { data } = await admin.auth.admin.getUserById(id);
+    const until = data?.user?.banned_until;
+    if (until && new Date(until).getTime() > now) frozen.add(id);
+  }));
   const listingCount = tally(listings.data as any);
   const liveCount = tally(live.data as any);
   const boughtCount = tally(bought.data as any);
@@ -88,14 +97,17 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
               <th className="p-2">Selling</th>
               <th className="p-2">Bought</th>
               <th className="p-2">Imports</th>
-              <th className="p-2">Access</th>
+              <th className="p-2">Access & account</th>
             </tr>
           </thead>
           <tbody>
             {(profiles ?? []).map((p) => (
               <tr key={p.id} className="border-t border-saddle-line align-top">
                 <td className="p-2">
-                  <p className="font-semibold">{p.full_name || '—'}</p>
+                  <p className="font-semibold">
+                    {p.full_name || '—'}
+                    {frozen.has(p.id) && <span className="ml-2 align-middle text-[10px] font-mono uppercase tracking-wider bg-red-50 text-red-800 border border-red-200 rounded px-1.5 py-0.5">Frozen</span>}
+                  </p>
                   <p className="text-gray-600 break-all">{p.email}</p>
                   {p.phone && <p className="text-gray-500">{p.phone}</p>}
                 </td>
@@ -114,6 +126,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: {
                 </td>
                 <td className="p-2">
                   <UserRoleControls userId={p.id} isAdmin={p.is_admin} isImporter={p.is_importer} isSelf={p.id === user.id} />
+                  <UserAccountActions userId={p.id} email={p.email} frozen={frozen.has(p.id)} isSelf={p.id === user.id} />
                 </td>
               </tr>
             ))}

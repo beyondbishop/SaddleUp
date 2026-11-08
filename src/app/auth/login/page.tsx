@@ -39,6 +39,11 @@ function LoginForm() {
           Google sign-in didn&apos;t finish. Please try again, or use your email and password.
         </p>
       )}
+      {searchParams.get('error') === 'link' && (
+        <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded p-2 mb-4">
+          That sign-in link has expired or was already used. Sign in below, or ask us for a new link.
+        </p>
+      )}
       <GoogleButton next={next} />
       <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
         <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />
