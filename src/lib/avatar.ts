@@ -40,3 +40,26 @@ export async function getSellerFace(sellerId: string | null | undefined) {
     memberSince: profile.created_at as string
   };
 }
+
+export type SellerChip = { firstName: string; initials: string; avatarUrl: string | null };
+
+/** First name + headshot for many sellers at once (for saddle cards). */
+export async function getSellerChips(ids: (string | null | undefined)[]): Promise<Record<string, SellerChip>> {
+  const unique = Array.from(new Set(ids.filter((id): id is string => !!id)));
+  if (!unique.length) return {};
+  const admin = createAdminClient();
+  const [{ data: profiles }, users] = await Promise.all([
+    admin.from('profiles').select('id, full_name').in('id', unique),
+    Promise.all(unique.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data?.user ?? null).catch(() => null)))
+  ]);
+  const out: Record<string, SellerChip> = {};
+  for (const p of profiles ?? []) {
+    const name = p.full_name?.trim() || null;
+    out[p.id] = {
+      firstName: name?.split(/\s+/)[0] ?? 'Seller',
+      initials: initialsOf(name),
+      avatarUrl: avatarUrlFor(users.find((u) => u?.id === p.id))
+    };
+  }
+  return out;
+}

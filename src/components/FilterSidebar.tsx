@@ -7,8 +7,16 @@ const groupLabel = 'block font-semibold mb-1 text-sm';
 export default function FilterSidebar({
   brands,
   criteria,
-  listId
+  listId,
+  near,
+  within,
+  locationLabel
 }: {
+  /** Distance filter: shopper's ZIP (blank = use their approximate location), and max miles. */
+  near?: string | null;
+  within?: number | null;
+  /** Where we think they are, e.g. "Chapel Hill, NC", for the hint under the ZIP box. */
+  locationLabel?: string | null;
   brands: { name: string; slug: string }[];
   criteria: SearchCriteria;
   /** Keep "choosing filters for this list" mode across filter changes. */
@@ -85,8 +93,25 @@ export default function FilterSidebar({
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend className={groupLabel}>Distance</legend>
+        <label htmlFor="f-within" className="sr-only">Maximum distance</label>
+        <select id="f-within" name="within" defaultValue={within ? String(within) : ''} className={field}>
+          <option value="">Any distance</option>
+          {[25, 50, 100, 250, 500].map((m) => (
+            <option key={m} value={m}>Within {m} miles</option>
+          ))}
+        </select>
+        <label htmlFor="f-near" className="sr-only">Your ZIP code</label>
+        <input id="f-near" name="near" inputMode="numeric" pattern="\d{5}" maxLength={5} placeholder="Your ZIP code"
+          defaultValue={near ?? ''} className={`${field} mt-2`} />
+        <p className="text-xs text-gray-500 mt-1">
+          {locationLabel && !near ? `Using your approximate location (${locationLabel}). Add a ZIP to be exact.` : 'Distances are measured from this ZIP.'}
+        </p>
+      </fieldset>
+
       <div>
-        <label htmlFor="f-state" className={groupLabel}>Location</label>
+        <label htmlFor="f-state" className={groupLabel}>State</label>
         <select id="f-state" name="state" defaultValue={criteria.state ?? ''} className={field}>
           <option value="">Anywhere</option>
           {US_STATES.map((s) => (

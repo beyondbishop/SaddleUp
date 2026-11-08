@@ -2,9 +2,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Listing, TREE_WIDTH_LABELS } from '@/lib/types';
 import FavoriteButton from './FavoriteButton';
+import Avatar from './Avatar';
 import { CONDITION_LABELS, type Condition } from '@/lib/search';
 
-export default function SaddleCard({ listing }: { listing: Listing }) {
+export default function SaddleCard({ listing, seller, distance }: {
+  listing: Listing;
+  /** The seller's first name and headshot, shown on the photo. */
+  seller?: { firstName: string; initials: string; avatarUrl: string | null } | null;
+  /** e.g. "120 mi away", when we know roughly where the shopper is. */
+  distance?: string | null;
+}) {
   const price = (listing.price_cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -28,6 +35,12 @@ export default function SaddleCard({ listing }: { listing: Listing }) {
               No photo yet
             </div>
           )}
+          {seller && (
+            <span className="absolute left-2 bottom-2 flex items-center gap-1.5 bg-white/95 rounded-full pl-0.5 pr-2.5 py-0.5 shadow-sm text-xs font-semibold text-saddle-ink">
+              <Avatar url={seller.avatarUrl} initials={seller.initials} size={28} />
+              {seller.firstName}
+            </span>
+          )}
         </div>
         <div className="p-3">
           <p className="font-semibold text-saddle-brown">
@@ -37,6 +50,7 @@ export default function SaddleCard({ listing }: { listing: Listing }) {
             {TREE_WIDTH_LABELS[listing.tree_width]} Tree
             {listing.location_state ? ` · ${listing.location_state}` : ''}
           </p>
+          {distance && <p className="text-xs text-saddle-green font-semibold">{distance}</p>}
           <p className="text-xs text-gray-500">
             {listing.condition
               ? `${CONDITION_LABELS[listing.condition as Condition] ?? listing.condition} condition`

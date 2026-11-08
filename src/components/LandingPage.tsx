@@ -2,13 +2,14 @@ import Link from 'next/link';
 import SaddleCard from './SaddleCard';
 import type { Listing } from '@/lib/types';
 import { SITE_URL } from '@/lib/seo';
+import { getSellerChips } from '@/lib/avatar';
 
 /**
  * Shared layout for SEO landing pages (/disciplines/..., /brands/...): an answer-first heading and
  * intro, the matching live saddles, related links, and schema.org data (breadcrumbs + item list)
  * so search engines and AI tools understand the page.
  */
-export default function LandingPage({
+export default async function LandingPage({
   heading,
   intro,
   path,
@@ -27,6 +28,7 @@ export default function LandingPage({
   related?: { label: string; href: string; count?: number }[];
   relatedTitle?: string;
 }) {
+  const sellers = await getSellerChips(listings.map((l) => l.seller_id));
   const jsonLd = [
     {
       '@context': 'https://schema.org',
@@ -79,7 +81,7 @@ export default function LandingPage({
       {listings.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {listings.map((l) => (
-            <SaddleCard key={l.id} listing={l} />
+            <SaddleCard key={l.id} listing={l} seller={l.seller_id ? sellers[l.seller_id] : null} />
           ))}
         </div>
       ) : (

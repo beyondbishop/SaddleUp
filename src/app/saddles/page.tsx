@@ -9,8 +9,14 @@ import { applyCriteria, describeCriteria, filtersOnOptionalDetails, hasCriteria,
 import SaveSearchButton from '@/components/lists/SaveSearchButton';
 import ListCriteriaBanner from '@/components/lists/ListCriteriaBanner';
 import { isUuid } from '@/lib/lists-server';
+import { cookies, headers } from 'next/headers';
+import { DISTANCE_OPTIONS, ZIP_COOKIE, formatMiles, milesBetween, pointForListing, viewerLocation } from '@/lib/distance';
+import { getSellerChips } from '@/lib/avatar';
+import RememberZip from '@/components/search/RememberZip';
 
 const PAGE_SIZE = 48;
+/** With a distance filter we check every matching saddle's location, up to this many. */
+const DISTANCE_SCAN = 1000;
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -52,6 +58,12 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   const criteria = parseCriteria(searchParams);
   const brand = criteria.brand ? brands?.find((b) => b.slug === criteria.brand) : undefined;
 
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const near = /^\d{5}$/.test(first(searchParams.near) ?? '') ? first(searchParams.near)! : null;
+  const withinRaw = Number(first(searchParams.within));
+  const within = (DISTANCE_OPTIONS as readonly number[]).includes(withinRaw) ? withinRaw : null;
+  const viewer = viewerLocation({ typed: near, saved: cookies().get(ZIP_COOKIE)?.value, headers: headers() });
+
   const query = applyCriteria(
     supabase
       .from('listings')
@@ -61,9 +73,31 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
     criteria,
     brand?.id ?? null
   );
-  const { data: listings, count, error } = await query.limit(PAGE_SIZE);
-  const total = count ?? listings?.length ?? 0;
+  const filterByDistance = !!(within && viewer);
+  const res = await query.limit(filterByDistance ? DISTANCE_SCAN : PAGE_SIZE);
+  const error = res.error;
+
+  // Miles from the shopper to each saddle (when we know roughly where they are).
+  const miles = new Map<string, number>();
+  if (viewer) {
+    for (const l of (res.data ?? []) as any[]) {
+      const p = pointForListing(l);
+      if (p) miles.set(l.id, milesBetween(viewer, p));
+    }
+  }
+  let listings = res.data as unknown as Listing[] | null;
+  let total = res.count ?? listings?.length ?? 0;
+  if (filterByDistance && listings) {
+    // Within the distance, nearest first. Saddles with no location can't be placed, so they're left out.
+    listings = listings
+      .filter((l) => (miles.get(l.id) ?? Infinity) <= within!)
+      .sort((a, b) => miles.get(a.id)! - miles.get(b.id)!);
+    total = listings.length;
+    listings = listings.slice(0, PAGE_SIZE);
+  }
+  const sellers = await getSellerChips((listings ?? []).map((l) => l.seller_id));
   const summary = describeCriteria(criteria, brand?.name);
+  if (filterByDistance) summary.push(`Within ${within} miles of ${viewer!.label}`);
 
   const {
     data: { user }
@@ -79,7 +113,10 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 py-8">
-      <FilterSidebar brands={brands ?? []} criteria={criteria} listId={editingList?.id} />
+      <FilterSidebar brands={brands ?? []} criteria={criteria} listId={editingList?.id}
+        near={near ?? (viewer?.source === 'saved' ? viewer.zip : null)} within={within}
+        locationLabel={viewer?.source === 'ip' ? viewer.label : null} />
+      {near && <RememberZip zip={near} />}
       <div>
         {editingList && (
           <ListCriteriaBanner listId={editingList.id} listName={editingList.name} hasFilters={hasCriteria(criteria)} />
@@ -99,17 +136,24 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
           </div>
         )}
         {total > PAGE_SIZE && (
-          <p className="text-sm text-gray-500 mt-1">Showing the newest {PAGE_SIZE}. Narrow your filters to see more.</p>
+          <p className="text-sm text-gray-500 mt-1">Showing the {filterByDistance ? 'nearest' : 'newest'} {PAGE_SIZE}. Narrow your filters to see more.</p>
         )}
         {error && <p className="text-red-600 text-sm my-4">Something went wrong loading saddles. Please try again.</p>}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-          {(listings as unknown as Listing[] | null)?.map((listing) => (
-            <SaddleCard key={listing.id} listing={listing} />
+          {listings?.map((listing) => (
+            <SaddleCard key={listing.id} listing={listing} seller={listing.seller_id ? sellers[listing.seller_id] : null}
+              distance={miles.has(listing.id) ? formatMiles(miles.get(listing.id)!) : null} />
           ))}
         </div>
         {!error && total === 0 && (
           <div className="text-center py-16">
             <p className="mb-2">No saddles match those filters yet.</p>
+            {filterByDistance && within! < 500 && (
+              <p className="mb-4 text-sm">
+                <a href={keepList(`${searchUrl(criteria)}${searchUrl(criteria).includes('?') ? '&' : '?'}within=${DISTANCE_OPTIONS.find((m) => m > within!)}${near ? `&near=${near}` : ''}`)}
+                  className="text-saddle-green underline">Look a little further away</a>
+              </p>
+            )}
             {filtersOnOptionalDetails(criteria) && !criteria.include_unknown && (
               <p className="mb-4 text-sm">
                 <a href={keepList(searchUrl({ ...criteria, include_unknown: true }))} className="text-saddle-green underline">
