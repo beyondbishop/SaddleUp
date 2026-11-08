@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import AccountMenu from './AccountMenu';
 import SignInLink from './SignInLink';
+import { avatarUrlFor, initialsOf } from '@/lib/avatar';
 
 export default async function Navbar() {
   const supabase = createClient();
@@ -13,14 +14,33 @@ export default async function Navbar() {
   let isAdmin = false;
   let isImporter = false;
   let pendingCount = 0;
+  let initials = '?';
+  // Things waiting on this person: the number on their headshot.
+  const counts = { messages: 0, toShip: 0, toInspect: 0 };
   if (user) {
-    const { data: profile } = await supabase.from('profiles').select('is_admin, is_importer').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name, is_admin, is_importer').eq('id', user.id).single();
     isAdmin = !!profile?.is_admin;
     isImporter = isAdmin || !!profile?.is_importer;
-    if (isAdmin) {
-      const { count } = await supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'draft');
-      pendingCount = count ?? 0;
-    }
+    initials = initialsOf(profile?.full_name, user.email);
+    const n = (r: { count: number | null }) => r.count ?? 0;
+    const [messages, toShip, toInspect, pending] = await Promise.all([
+      // Unread messages from the other person (only their own conversations are visible to them).
+      supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null).neq('sender_id', user.id),
+      // Sales they still need to ship.
+      supabase.from('orders').select('id', { count: 'exact', head: true })
+        .eq('seller_id', user.id).eq('status', 'paid').is('shipped_at', null),
+      // Saddles delivered to them that they haven't kept or raised a problem about yet.
+      supabase.from('orders').select('id', { count: 'exact', head: true })
+        .eq('buyer_id', user.id).eq('status', 'paid').not('delivered_at', 'is', null)
+        .is('kept_at', null).is('confirmed_at', null).is('issue_type', null),
+      isAdmin
+        ? supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'draft')
+        : Promise.resolve({ count: 0 })
+    ]);
+    counts.messages = n(messages);
+    counts.toShip = n(toShip);
+    counts.toInspect = n(toInspect);
+    pendingCount = n(pending);
   }
 
   return (
@@ -37,7 +57,8 @@ export default async function Navbar() {
           <Link href="/guides" className="hover:text-saddle-brown">Guides</Link>
           <Link href="/about" className="hover:text-saddle-brown">Our Story</Link>
           {user ? (
-            <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount} />
+            <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount}
+              avatarUrl={avatarUrlFor(user)} initials={initials} counts={counts} />
           ) : (
             <SignInLink
               className="text-[13px] font-semibold text-saddle-brown border border-saddle-tan-line px-[18px] py-[9px] rounded-sm whitespace-nowrap transition-colors hover:bg-saddle-brown hover:text-saddle-cream hover:border-saddle-brown"

@@ -11,7 +11,7 @@ export default async function MessagesPage() {
 
   const { data: conversations } = await supabase
     .from('conversations')
-    .select('*, listings(model, seat_size, slug, brands(name)), messages(body, created_at)')
+    .select('*, listings(model, seat_size, slug, brands(name)), messages(body, created_at, read_at, sender_id)')
     .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
@@ -21,6 +21,7 @@ export default async function MessagesPage() {
       <div className="space-y-2">
         {conversations?.map((c: any) => {
           const lastMessage = c.messages?.[c.messages.length - 1];
+          const unread = (c.messages ?? []).filter((m: any) => !m.read_at && m.sender_id !== user.id).length;
           return (
             <Link
               key={c.id}
@@ -29,6 +30,7 @@ export default async function MessagesPage() {
             >
               <p className="font-semibold">
                 {c.listings?.seat_size}&quot; {c.listings?.brands?.name} {c.listings?.model}
+                {unread > 0 && <span className="ml-2 text-xs bg-red-700 text-white rounded-full px-2 py-0.5 align-middle">{unread} new</span>}
               </p>
               {lastMessage && <p className="text-sm text-gray-500 truncate">{lastMessage.body}</p>}
             </Link>

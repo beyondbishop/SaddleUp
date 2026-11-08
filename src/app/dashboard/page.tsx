@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import ConnectPayoutsButton from '@/components/ConnectPayoutsButton';
 import DeleteListingButton from '@/components/DeleteListingButton';
 import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
+import { avatarUrlFor } from '@/lib/avatar';
 import { SELLER_FEE_CAP_DOLLARS, SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
 export default async function DashboardPage() {
@@ -47,6 +48,15 @@ export default async function DashboardPage() {
           + New Listing
         </Link>
       </div>
+
+      {!avatarUrlFor(user) && (
+        <div className="bg-white border border-saddle-line rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
+          <p className="text-sm">
+            <strong>Add a headshot.</strong> It shows on every saddle you list, so buyers can see who they’re buying from.
+          </p>
+          <Link href="/account/profile" className="shrink-0 border border-saddle-tan-line text-saddle-brown rounded-md px-3 py-1.5 text-sm font-semibold">Add photo</Link>
+        </div>
+      )}
 
       {!payoutsReady && (
         <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">

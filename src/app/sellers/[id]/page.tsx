@@ -2,11 +2,15 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import SaddleCard from '@/components/SaddleCard';
 import { Listing } from '@/lib/types';
+import Avatar from '@/components/Avatar';
+import { getSellerFace } from '@/lib/avatar';
+import { isUuid } from '@/lib/lists-server';
 
 export default async function SellerProfilePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const { data: seller } = await supabase.from('profiles').select('id, full_name, created_at').eq('id', params.id).single();
+  // Profiles are private, so only the public bits (first name, photo, join date) are read here.
+  const seller = isUuid(params.id) ? await getSellerFace(params.id) : null;
   if (!seller) return notFound();
 
   const { data: reviews } = await supabase
@@ -27,10 +31,13 @@ export default async function SellerProfilePage({ params }: { params: { id: stri
 
   return (
     <div className="py-8">
-      <h1 className="text-2xl font-bold text-saddle-brown mb-1">{seller.full_name}</h1>
-      <p className="text-gray-500 mb-2">
-        Selling on SaddleUp since {new Date(seller.created_at).getFullYear()}
-      </p>
+      <div className="flex items-center gap-4 mb-2">
+        <Avatar url={seller.avatarUrl} initials={seller.initials} size={88} />
+        <div>
+          <h1 className="text-2xl font-bold text-saddle-brown mb-1">{seller.firstName}</h1>
+          <p className="text-gray-500">Selling on SaddleUp since {new Date(seller.memberSince).getFullYear()}</p>
+        </div>
+      </div>
       {avgRating ? (
         <p className="mb-6">
           <span className="text-yellow-500">★</span> {avgRating} ({reviews!.length} review

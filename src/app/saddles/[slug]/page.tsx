@@ -11,6 +11,8 @@ import { CONDITION_LABELS, type Condition } from '@/lib/search';
 
 const NotStated = () => <span className="text-gray-500 italic">Not stated</span>;
 import { notFound } from 'next/navigation';
+import Avatar from '@/components/Avatar';
+import { getSellerFace } from '@/lib/avatar';
 
 async function getListing(slug: string) {
   const supabase = createClient();
@@ -52,6 +54,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
   // A saddle mid-checkout (pending_sale) is still public; it just can't be bought by others.
   const notPublic = listing.status !== 'active' && listing.status !== 'pending_sale';
   const canEdit = !!user && (listing.seller_id === user.id || notPublic);
+  const seller = await getSellerFace(listing.seller_id);
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
   // exact saddle when someone searches "16.5 medium tree Antares for sale".
@@ -141,11 +144,20 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dd>{listing.trial_policy ? TRIAL_POLICY_LABELS[listing.trial_policy as keyof typeof TRIAL_POLICY_LABELS] : 'Ask the seller'}</dd>
         </dl>
 
-        <p className="mb-2">
-          <a href={`/sellers/${listing.seller_id}`} className="text-sm underline text-saddle-brown">
-            View seller profile & reviews
+        {seller ? (
+          <a href={`/sellers/${seller.id}`} className="group flex items-center gap-3 mb-4 p-3 bg-white border border-saddle-line rounded-lg hover:border-saddle-brown transition-colors">
+            <Avatar url={seller.avatarUrl} initials={seller.initials} size={56} />
+            <span>
+              <span className="block text-xs text-saddle-muted">Sold by</span>
+              <span className="block font-semibold text-saddle-ink">{seller.firstName}</span>
+              <span className="block text-sm underline text-saddle-brown">View profile & reviews</span>
+            </span>
           </a>
-        </p>
+        ) : listing.seller_id ? (
+          <p className="mb-2">
+            <a href={`/sellers/${listing.seller_id}`} className="text-sm underline text-saddle-brown">View seller profile & reviews</a>
+          </p>
+        ) : null}
 
         <p className="mb-6 whitespace-pre-line">{listing.description}</p>
 

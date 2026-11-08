@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import MessageThread from '@/components/MessageThread';
 
@@ -22,6 +22,13 @@ export default async function ConversationPage({ params }: { params: { id: strin
     .select('*')
     .eq('conversation_id', params.id)
     .order('created_at', { ascending: true });
+
+  // Opening the conversation marks the other person's messages as read (clears the header count).
+  // Messages can't be edited by members, so this runs with the service key after the check above.
+  if (messages?.some((m) => !m.read_at && m.sender_id !== user.id)) {
+    await createAdminClient().from('messages').update({ read_at: new Date().toISOString() })
+      .eq('conversation_id', params.id).neq('sender_id', user.id).is('read_at', null);
+  }
 
   return (
     <div className="py-8 max-w-2xl mx-auto">
