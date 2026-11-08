@@ -12,6 +12,18 @@ import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
 const eyebrow = 'font-mono uppercase text-saddle-gold';
 const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
 
+const HOW_BUYING_WORKS = [
+  ['Pay securely', "Pay the listed price plus shipping, with no buyer commission. We hold your payment; the seller doesn't get it yet."],
+  [
+    'Your saddle ships insured',
+    'The seller ships with a label we provide: tracked, signature on delivery and insured for the full price.'
+  ],
+  [
+    '5 days to try it',
+    "Check the fit for 5 days after delivery. Happy? The seller gets paid. If not, send it back for a refund. You pay return shipping, unless the saddle isn't as described; then the seller pays."
+  ]
+];
+
 const TRUST = [
   ['No buyer commission', `You pay the sticker price. Sellers keep ${SELLER_KEEPS_PERCENT}% of every sale during our beta.`],
   ['5-day inspection', "Your payment is held until you confirm the saddle fits — or it's returned."],
@@ -20,7 +32,8 @@ const TRUST = [
 
 // The niche we focus on for now: close contact jumping saddles.
 const FOCUS = 'hunter_jumper' as const;
-const SEATS = [16, 16.5, 17, 17.5, 18, 18.5];
+// 15–15.5" for kids and small adults.
+const SEATS = [15, 15.5, 16, 16.5, 17, 17.5, 18, 18.5];
 
 function SectionHeader({ title, href, cta }: { title: string; href: string; cta: string }) {
   return (
@@ -70,7 +83,7 @@ function ListingCard({ listing }: { listing: Listing }) {
 
 export default async function HomePage() {
   const supabase = createClient();
-  const [{ data: allBrands }, { data: listings }] = await Promise.all([
+  const [{ data: allBrands }, { data: listings }, { data: forSale }] = await Promise.all([
     approvedBrands(supabase).then((data) => ({ data: data as { id: number; name: string; slug: string }[] })),
     supabase
       .from('listings')
@@ -78,10 +91,19 @@ export default async function HomePage() {
       .or(FOR_SALE)
       .eq('discipline', FOCUS)
       .order('created_at', { ascending: false })
-      .limit(6)
+      .limit(6),
+    // Every saddle for sale, just its brand, to count listings per brand.
+    supabase.from('listings').select('brand_id').or(FOR_SALE)
   ]);
+  const brandCounts = new Map<number, number>();
+  for (const l of (forSale ?? []) as { brand_id: number | null }[]) {
+    if (l.brand_id != null) brandCounts.set(l.brand_id, (brandCounts.get(l.brand_id) ?? 0) + 1);
+  }
   // Brands that make close contact jumping saddles (no western-only makers, no "Other").
-  const brands = brandsForDiscipline(allBrands ?? [], FOCUS).filter((b) => b.name !== 'Other');
+  // Only brands with a saddle for sale right now, so no link leads to an empty page.
+  const brands = brandsForDiscipline(allBrands ?? [], FOCUS).filter(
+    (b) => b.name !== 'Other' && (brandCounts.get(b.id) ?? 0) > 0
+  );
 
   return (
     <div className="full-bleed">
@@ -172,7 +194,7 @@ export default async function HomePage() {
       {/* Shop by seat size */}
       <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-16 pb-10">
         <SectionHeader title="Shop by seat size" href="/saddles" cta="All saddles" />
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
           {SEATS.map((seat) => (
             <Link
               key={seat}
@@ -198,6 +220,20 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* How buying works */}
+      <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-11 pb-2">
+        <SectionHeader title="How buying works" href="/terms" cta="Full terms" />
+        <ol className="grid grid-cols-1 min-[900px]:grid-cols-3 gap-[22px]">
+          {HOW_BUYING_WORKS.map(([title, body], i) => (
+            <li key={title} className="bg-saddle-paper border border-saddle-line rounded-[3px] p-6">
+              <div className={`${eyebrow} text-[11px] tracking-[0.16em] mb-2`}>Step {i + 1}</div>
+              <div className="font-serif text-[23px] text-saddle-ink mb-2">{title}</div>
+              <p className="text-[15px] leading-relaxed text-saddle-body">{body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       {/* Brands */}
       {brands.length > 0 && (
         <section className="max-w-[1200px] mx-auto px-5 sm:px-8 pt-11 pb-2">
@@ -209,7 +245,7 @@ export default async function HomePage() {
                 href={brandPath(b.slug)}
                 className="bg-saddle-paper border border-saddle-line rounded-full px-[18px] py-[9px] text-sm text-saddle-nav transition-colors hover:border-saddle-brown hover:text-saddle-brown"
               >
-                {b.name}
+                {b.name} <span className="text-saddle-muted">({brandCounts.get(b.id)})</span>
               </Link>
             ))}
           </div>

@@ -27,6 +27,10 @@ export default function TermsPage() {
         SaddleUp with a concern about the item's condition or accuracy of the listing. If no
         action is taken within the window, payment is automatically released to the seller.
       </p>
+      <p className="mt-3">
+        If a buyer returns a saddle during the inspection window, the buyer pays return shipping,
+        unless the saddle isn&apos;t as described in the listing; then the seller pays it.
+      </p>
 
       <h2 className="font-semibold mt-6 mb-2">3. Seller Responsibilities</h2>
       <p>

@@ -121,7 +121,7 @@ const CATALOG: Record<string, BrandInfo> = {
   },
   Equiline: { type: 'english', models: [] },
   Equipe: { type: 'english', models: ['Expression', 'Synergy', 'Emporio'] },
-  Hermes: {
+  'Hermès': {
     type: 'english',
     models: [
       { name: 'Steinkraus', for: JUMP },

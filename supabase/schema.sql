@@ -47,7 +47,7 @@ create table brands (
 
 insert into brands (name, slug) values
   ('Antares','antares'),('CWD','cwd'),('Devoucoux','devoucoux'),('Voltaire Design','voltaire-design'),
-  ('Hermes','hermes'),('Stubben','stubben'),('Prestige','prestige'),('Black Country','black-country'),
+  ('Hermès','hermes'),('Stubben','stubben'),('Prestige','prestige'),('Black Country','black-country'),
   ('County Saddlery','county-saddlery'),('Bruno Delgrange','bruno-delgrange'),('Albion','albion'),
   ('Amerigo','amerigo'),('Equipe','equipe'),('Equiline','equiline'),('Schleese','schleese'),
   ('Tad Coffin','tad-coffin'),('Wintec','wintec'),('Pessoa','pessoa'),('Other','other');
