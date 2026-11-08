@@ -43,6 +43,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
   if (!g) notFound();
   const url = `${SITE_URL}/guides/${g.slug}`;
   const { Body, Conclusion } = g;
+  const related = GUIDES.filter((r) => r.slug !== g.slug).slice(0, 3);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -61,7 +62,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
         inLanguage: 'en-US',
         author: { '@type': 'Person', name: 'Danielle Bishop', jobTitle: 'Founder', url: `${SITE_URL}/about` },
         publisher: { '@type': 'Organization', name: 'SaddleUp', url: SITE_URL, logo: `${SITE_URL}/images/logo-square.png` },
-        citation: g.sources.map(([name, u]) => ({ '@type': 'CreativeWork', name, url: u }))
+        ...(g.sources.length > 0 && { citation: g.sources.map(([name, u]) => ({ '@type': 'CreativeWork', name, url: u })) })
       },
       {
         '@type': 'FAQPage',
@@ -133,21 +134,40 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
       {Conclusion && <Conclusion />}
 
       <section className="mt-12 pt-6 border-t border-saddle-line">
-        <h2 className="font-mono uppercase text-saddle-gold text-[11px] tracking-[0.22em] mb-3">Sources and further reading</h2>
-        <ul className="space-y-1.5 text-[14.5px]">
-          {g.sources.map(([label, u]) => (
-            <li key={u}>
-              <a href={u} target="_blank" rel="noopener noreferrer" className="text-saddle-brown underline underline-offset-2 hover:text-saddle-ink">
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
-        <p className="text-[13px] italic text-saddle-muted mt-5">
-          Published {longDate(g.published)}. Marketplace fees, policies, and available services may change. Verify terms
-          with each provider before listing.
+        {g.sources.length > 0 && (
+          <>
+            <h2 className="font-mono uppercase text-saddle-gold text-[11px] tracking-[0.22em] mb-3">Sources and further reading</h2>
+            <ul className="space-y-1.5 text-[14.5px] mb-5">
+              {g.sources.map(([label, u]) => (
+                <li key={u}>
+                  <a href={u} target="_blank" rel="noopener noreferrer" className="text-saddle-brown underline underline-offset-2 hover:text-saddle-ink">
+                    {label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <p className="text-[13px] italic text-saddle-muted">
+          Published {longDate(g.published)}.{' '}
+          {g.note ?? 'Marketplace fees, policies, and available services may change. Verify terms with each provider before listing.'}
         </p>
       </section>
+
+      {related.length > 0 && (
+        <section className="mt-12 rounded-[3px] border border-saddle-line bg-saddle-paper px-5 py-5">
+          <h2 className="font-mono uppercase text-saddle-gold text-[11px] tracking-[0.22em] mb-3">More guides</h2>
+          <ul className="space-y-3">
+            {related.map((r) => (
+              <li key={r.slug}>
+                <Link href={`/guides/${r.slug}`} className="font-serif text-[19px] leading-snug text-saddle-ink hover:text-saddle-brown">
+                  {r.title} →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </article>
   );
 }

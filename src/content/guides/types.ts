@@ -14,6 +14,8 @@ export type Guide = {
   /** Rendered as an FAQ section and as FAQPage structured data. */
   faqs: { q: string; a: string }[];
   sources: [label: string, url: string][];
+  /** Disclaimer at the very end. Defaults to a note that fees and policies may change. */
+  note?: string;
   /** Article body before the FAQ. */
   Body: () => JSX.Element;
   /** Closing section after the FAQ. */

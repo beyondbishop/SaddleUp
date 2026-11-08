@@ -3,8 +3,9 @@
 
 import type { Guide } from './types';
 import whereToSell from './where-to-sell-used-saddle-online';
+import whatIsItWorth from './how-much-is-my-used-saddle-worth';
 
-export const GUIDES: Guide[] = [whereToSell].sort((a, b) => b.published.localeCompare(a.published));
+export const GUIDES: Guide[] = [whereToSell, whatIsItWorth].sort((a, b) => b.published.localeCompare(a.published));
 
 export const getGuide = (slug: string) => GUIDES.find((g) => g.slug === slug);
 
