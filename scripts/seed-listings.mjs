@@ -165,7 +165,7 @@ for (const [i, row] of rows.entries()) {
       status: 'unclaimed',
       source: 'seeded'
     })
-    .select('id, claim_token')
+    .select('id')
     .single();
 
   if (error) {
@@ -173,7 +173,17 @@ for (const [i, row] of rows.entries()) {
     continue;
   }
 
-  results.push({ row, saddle, claim_url: `${SITE_URL}/claim/${listing.claim_token}` });
+  const { data: claim, error: tokenError } = await supabase
+    .from('listing_claim_tokens')
+    .insert({ listing_id: listing.id })
+    .select('token')
+    .single();
+  if (tokenError) {
+    problems.push(`Line ${line} (${saddle}): could not create claim link — ${tokenError.message}`);
+    continue;
+  }
+
+  results.push({ row, saddle, claim_url: `${SITE_URL}/claim/${claim.token}` });
 }
 
 const message = (r) => {

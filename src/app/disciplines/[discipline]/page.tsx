@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { FOR_SALE } from '@/lib/search';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import LandingPage from '@/components/LandingPage';
@@ -11,7 +12,7 @@ async function load(slug: string) {
   const { data } = await createClient()
     .from('listings')
     .select('*, brands(name, slug)')
-    .eq('status', 'active')
+    .or(FOR_SALE)
     .eq('discipline', discipline)
     .order('created_at', { ascending: false })
     .limit(60);

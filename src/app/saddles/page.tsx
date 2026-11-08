@@ -5,7 +5,7 @@ import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import type { Metadata } from 'next';
 import { brandPath, disciplinePath } from '@/lib/seo';
 import type { Discipline } from '@/lib/types';
-import { applyCriteria, describeCriteria, filtersOnOptionalDetails, hasCriteria, parseCriteria, searchUrl } from '@/lib/search';
+import { applyCriteria, describeCriteria, filtersOnOptionalDetails, hasCriteria, parseCriteria, searchUrl, FOR_SALE } from '@/lib/search';
 import SaveSearchButton from '@/components/lists/SaveSearchButton';
 import ListCriteriaBanner from '@/components/lists/ListCriteriaBanner';
 import { isUuid } from '@/lib/lists-server';
@@ -76,7 +76,7 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
     supabase
       .from('listings')
       .select('*, brands(name, slug)', { count: 'exact' })
-      .eq('status', 'active')
+      .or(FOR_SALE)
       .order('created_at', { ascending: false }),
     criteria,
     brand?.id ?? null

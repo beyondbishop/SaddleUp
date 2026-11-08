@@ -8,7 +8,7 @@ export interface ClaimTips {
   askingPrice?: number | null;
   /** AI estimate from current listings online (not SaddleUp sales data). */
   priceRange?: { low: number; typical: number; high: number } | null;
-  /** Whether the hidden listing already has their photos. */
+  /** Whether the listing already has their photos. */
   hasPhotos?: boolean;
   /** The saddle's discipline, to show what buyers would search for. */
   discipline?: string | null;
@@ -43,8 +43,8 @@ function priceTip(t: ClaimTips): string | null {
 
 /**
  * The message an importer pastes into Messenger. Short and useful even if the seller never
- * claims: tips first, then the free listing. Honest throughout: the listing isn't public until
- * claimed, the fee is the real one, and the price tip doesn't claim SaddleUp sales data.
+ * claims: tips first, then the free listing. Honest throughout: the listing is on the site but
+ * kept out of Google until claimed, buyer messages are passed on, the fee is the real one, and the price tip doesn't claim SaddleUp sales data.
  *
  * `saddle` reads like `17.5" Pessoa A/O`.
  */
@@ -73,9 +73,9 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
       : `SaddleUp was started by a horse mom who's been through the pain of trying to sell a saddle, to make it easy. Her story: ${siteUrl()}/about`,
     `Facebook posts only show up on Facebook. I made you a free SaddleUp listing${fix ? ' (spelling fixed)' : ''}${
       tips.hasPhotos ? ' with your photos' : ''
-    }. We're new, so there aren't many listings yet, but once you claim it, yours can show up on Google and AI search when riders look for "${searchFor}":\n${claimUrl}`,
+    }. It's on the site now, and if a buyer asks about it I'll pass their message straight to you. Claim it to answer buyers yourself and get paid through SaddleUp. Once it's claimed, it can also show up on Google and AI search when riders look for "${searchFor}":\n${claimUrl}`,
     `We're in beta: free to list, and just ${SELLER_FEE_PERCENT}% if it sells. That includes the ~3% card processing fee, so there's nothing else to pay. If you ever want to ship it, we handle the payment and shipping label.`,
-    `No pressure. If you don't claim it, it never goes public.`
+    `No pressure. If you'd rather it not be on SaddleUp, just tell me and I'll take it down.`
   ]
     .filter(Boolean)
     .join('\n\n');

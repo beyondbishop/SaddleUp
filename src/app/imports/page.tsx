@@ -45,7 +45,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   // Admins can look at anyone's imports (linked from the Users page).
   const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
   const admin = createAdminClient();
-  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, discipline, status, claimed_at, claim_token, images, brands(name))';
+  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, discipline, status, claimed_at, images, brands(name), listing_claim_tokens(token))';
   const importsQuery = (cols: string) =>
     admin.from('listing_imports').select(cols).eq('importer_id', importerId).order('created_at', { ascending: false }).limit(500);
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
@@ -65,7 +65,8 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     const l = r.listings;
     const saddle = l ? `${l.seat_size}" ${l.brands?.name && l.brands.name !== 'Other' ? `${l.brands.name} ` : ''}${l.model}` : 'Saddle';
     const stage = stageOf(l?.status, l?.claimed_at ?? null, r.messaged_at, r.link_first_opened_at ?? null);
-    const claimUrl = l?.claim_token ? claimUrlFor(l.claim_token) : null;
+    const token = Array.isArray(l?.listing_claim_tokens) ? l.listing_claim_tokens[0]?.token : l?.listing_claim_tokens?.token;
+    const claimUrl = token ? claimUrlFor(token) : null;
     // The importer's saved message (with any tips from import time), else a fresh one.
     const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0, discipline: l?.discipline, fromFounder: isAdmin && importerId === user.id }) : null;
     return { ...r, l, saddle, stage, claimUrl, message };

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
-import { matchListing, type SearchCriteria } from '@/lib/search';
+import { matchListing, type SearchCriteria, FOR_SALE } from '@/lib/search';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const { data: newListings } = await admin
     .from('listings')
     .select('*, brands(name, slug)')
-    .eq('status', 'active')
+    .or(FOR_SALE)
     .gte('created_at', since);
 
   if (!newListings?.length) return NextResponse.json({ checked: 0, notified: 0 });

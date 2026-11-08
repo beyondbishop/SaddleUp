@@ -7,7 +7,8 @@ import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import type { Metadata } from 'next';
-import { CONDITION_LABELS, type Condition } from '@/lib/search';
+import { CONDITION_LABELS, isForSale, type Condition } from '@/lib/search';
+import { getViewer } from '@/lib/roles';
 
 const NotStated = () => <span className="text-gray-500 italic">Not stated</span>;
 import { notFound } from 'next/navigation';
@@ -35,7 +36,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       `${title}, ${DISCIPLINE_LABELS[listing.discipline]} saddle for sale on SaddleUp. Condition: ${listing.condition ?? 'used'}.`,
     alternates: { canonical: `/saddles/${listing.slug}` },
     openGraph: { images: listing.images?.[0] ? [listing.images[0]] : [] },
-    // Only live listings belong in search results.
+    // Only live listings belong in search results. Unclaimed saddles stay out of Google until
+    // their seller has claimed them.
     robots: listing.status === 'active' ? undefined : { index: false, follow: false }
   };
 }
@@ -47,13 +49,12 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const price = listing.price_cents / 100;
 
   // Owners and admins can open listings that aren't public yet; tell them so.
-  const supabase = createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { user, isAdmin } = await getViewer();
   // A saddle mid-checkout (pending_sale) is still public; it just can't be bought by others.
-  const notPublic = listing.status !== 'active' && listing.status !== 'pending_sale';
-  const canEdit = !!user && (listing.seller_id === user.id || notPublic);
+  const notPublic = !isForSale(listing) && listing.status !== 'pending_sale';
+  // Unclaimed but shown: the seller hasn't joined yet, so shoppers message SaddleUp instead.
+  const awaitingSeller = listing.status === 'unclaimed' && !notPublic;
+  const canEdit = !!user && (listing.seller_id === user.id || notPublic || isAdmin);
   const seller = await getSellerFace(listing.seller_id);
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
@@ -70,7 +71,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
       priceCurrency: 'USD',
       price,
       availability:
-        listing.status === 'active'
+        listing.status === 'active' || awaitingSeller
           ? 'https://schema.org/InStock'
           : listing.status === 'sold'
             ? 'https://schema.org/SoldOut'
@@ -88,14 +89,16 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
   return (
     <div className="py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-      {(notPublic || canEdit) && (
+      {(notPublic || canEdit || (awaitingSeller && isAdmin)) && (
         <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 bg-saddle-sand border border-saddle-line rounded p-3 text-sm">
           <span>
             {notPublic
               ? listing.status === 'draft'
                 ? 'Waiting for review — only you and SaddleUp admins can see this listing.'
                 : `This listing is ${listing.status.replace('_', ' ')} and isn't public.`
-              : 'This is your listing.'}
+              : awaitingSeller
+                ? 'Not claimed yet. It shows on the site, and messages about it come to you.'
+                : 'This is your listing.'}
           </span>
           {canEdit && (
             <a href={`/dashboard/listings/${listing.id}/edit`} className="underline font-semibold text-saddle-brown">
@@ -161,8 +164,20 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
         <p className="mb-6 whitespace-pre-line">{listing.description}</p>
 
-        <BuyButton listingId={listing.id} priceCents={listing.price_cents} status={listing.status} />
-        <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />
+        {awaitingSeller ? (
+          <div className="bg-saddle-sand border border-saddle-line rounded-lg p-4">
+            <p className="font-semibold text-saddle-ink">Interested in this saddle?</p>
+            <p className="text-sm text-saddle-muted mt-1">
+              Send us a message. We&apos;ll pass it to the seller and get back to you with their answer.
+            </p>
+            <InquiryBox listingId={listing.id} sellerId={null} buttonLabel="Message about this saddle" />
+          </div>
+        ) : (
+          <>
+            <BuyButton listingId={listing.id} priceCents={listing.price_cents} status={listing.status} />
+            <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />
+          </>
+        )}
       </div>
     </div>
   );

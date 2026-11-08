@@ -15,6 +15,17 @@ import {
   type TreeWidth
 } from '@/lib/types';
 
+/**
+ * Saddles shoppers can see in browse and search: live listings, plus saddles added for a seller
+ * who hasn't claimed them yet (messages about those go to SaddleUp). Use as `.or(FOR_SALE)`.
+ */
+export const FOR_SALE = 'status.eq.active,and(status.eq.unclaimed,show_before_claim.is.true)';
+
+/** Same rule for one listing already loaded. */
+export function isForSale(l: { status: string; show_before_claim?: boolean | null }) {
+  return l.status === 'active' || (l.status === 'unclaimed' && !!l.show_before_claim);
+}
+
 export const CONDITION_LABELS = {
   new: 'New / never used',
   excellent: 'Excellent',

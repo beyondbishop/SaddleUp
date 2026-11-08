@@ -11,7 +11,7 @@ export default async function MessagesPage() {
 
   const { data: conversations } = await supabase
     .from('conversations')
-    .select('*, listings(model, seat_size, slug, brands(name)), messages(body, created_at, read_at, sender_id)')
+    .select('*, listings(model, seat_size, slug, status, brands(name)), messages(body, created_at, read_at, sender_id)')
     .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
@@ -30,6 +30,9 @@ export default async function MessagesPage() {
             >
               <p className="font-semibold">
                 {c.listings?.seat_size}&quot; {c.listings?.brands?.name} {c.listings?.model}
+                {c.listings?.status === 'unclaimed' && c.seller_id === user.id && (
+                  <span className="ml-2 text-xs bg-saddle-sand text-saddle-muted rounded-full px-2 py-0.5 align-middle">Unclaimed: pass to seller</span>
+                )}
                 {unread > 0 && <span className="ml-2 text-xs bg-red-700 text-white rounded-full px-2 py-0.5 align-middle">{unread} new</span>}
               </p>
               {lastMessage && <p className="text-sm text-gray-500 truncate">{lastMessage.body}</p>}

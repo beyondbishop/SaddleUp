@@ -68,6 +68,8 @@ export interface Listing {
   meta_description?: string | null;
   trial_policy?: TrialPolicy | null;
   location_zip?: string | null;
+  /** Unclaimed saddle shown on the site before its seller claims it. */
+  show_before_claim?: boolean | null;
   panel_flocking?: PanelFlocking | null;
   ebay_item_id?: string | null;
   ebay_item_url?: string | null;

@@ -44,13 +44,17 @@ async function recordOpen(listingId: string, req: Request) {
 
 export async function GET(req: Request, { params }: { params: { token: string } }) {
   if (!/^[0-9a-f-]{36}$/i.test(params.token)) return NextResponse.json({ images: [] });
-  const { data } = await createAdminClient()
-    .from('listings')
-    .select('id, images')
-    .eq('claim_token', params.token)
-    .eq('status', 'unclaimed')
-    .is('seller_id', null)
-    .maybeSingle();
+  const admin = createAdminClient();
+  const { data: claim } = await admin.from('listing_claim_tokens').select('listing_id').eq('token', params.token).maybeSingle();
+  const { data } = claim
+    ? await admin
+        .from('listings')
+        .select('id, images')
+        .eq('id', claim.listing_id)
+        .eq('status', 'unclaimed')
+        .is('seller_id', null)
+        .maybeSingle()
+    : { data: null };
   if (data) await recordOpen(data.id, req);
   return NextResponse.json({ images: ((data?.images as string[] | null) ?? []).slice(0, 4) });
 }

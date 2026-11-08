@@ -29,7 +29,7 @@ function sourceKey(url: unknown): string | null {
 }
 
 /**
- * Quick add: create a hidden, claimable listing and record who imported it. Runs with the
+ * Quick add: create a claimable listing (public, messages go to SaddleUp) and record who imported it. Runs with the
  * service key after checking the caller may import (admins and importers).
  */
 async function seedImport(values: Record<string, unknown>, userId: string, meta: { sourceUrl?: unknown; sellerName?: unknown } | undefined) {
@@ -58,10 +58,21 @@ async function seedImport(values: Record<string, unknown>, userId: string, meta:
 
   const { data: listing, error } = await admin
     .from('listings')
-    .insert({ ...values, seller_id: null, status: 'unclaimed', source: 'seeded' })
-    .select('id, claim_token')
+    .insert({ ...values, seller_id: null, status: 'unclaimed', source: 'seeded', show_before_claim: true })
+    .select('id')
     .single();
   if (error || !listing) return { data: null, error };
+
+  // The claim link's secret lives in its own private table (listings are public; the token isn't).
+  const { data: claim, error: tokenError } = await admin
+    .from('listing_claim_tokens')
+    .insert({ listing_id: listing.id })
+    .select('token')
+    .single();
+  if (tokenError || !claim) {
+    await admin.from('listings').delete().eq('id', listing.id);
+    return fail("Couldn't create the claim link.", tokenError?.code);
+  }
 
   const { error: importError } = await admin.from('listing_imports').insert({
     listing_id: listing.id,
@@ -77,7 +88,7 @@ async function seedImport(values: Record<string, unknown>, userId: string, meta:
     await admin.from('listings').delete().eq('id', listing.id);
     return fail(importError.code === '23505' ? 'That post has already been added to SaddleUp by someone.' : "Couldn't save the import.", importError.code);
   }
-  return { data: listing, error: null };
+  return { data: { id: listing.id, claim_token: claim.token }, error: null };
 }
 
 export const dynamic = 'force-dynamic';

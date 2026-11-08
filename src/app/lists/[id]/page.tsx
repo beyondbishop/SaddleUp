@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { requireUser, isUuid, storedCriteria } from '@/lib/lists-server';
 import ListDetail, { type ListItemView, type SuggestionView } from '@/components/lists/ListDetail';
-import { applyCriteria, criteriaToParams, describeCriteria, matchListing, searchUrl } from '@/lib/search';
+import { applyCriteria, criteriaToParams, describeCriteria, matchListing, searchUrl, FOR_SALE } from '@/lib/search';
 
 const SUGGESTION_LIMIT = 24;
 const LISTING_FIELDS =
@@ -46,7 +46,7 @@ export default async function ListPage({
       ? (await supabase.from('brands').select('id, name').eq('slug', criteria.brand).maybeSingle()).data
       : null;
     const { data: matches, count } = await applyCriteria(
-      supabase.from('listings').select(LISTING_FIELDS, { count: 'exact' }).eq('status', 'active').order('created_at', { ascending: false }),
+      supabase.from('listings').select(LISTING_FIELDS, { count: 'exact' }).or(FOR_SALE).order('created_at', { ascending: false }),
       criteria,
       brand?.id ?? null
     ).limit(SUGGESTION_LIMIT + exclude.size);

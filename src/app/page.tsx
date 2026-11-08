@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 import { brandsForDiscipline } from '@/lib/saddle-catalog';
-import { searchUrl } from '@/lib/search';
+import { searchUrl, FOR_SALE } from '@/lib/search';
 import SaddleValueCheck from '@/components/sell/SaddleValueCheck';
 import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
 
@@ -74,7 +74,7 @@ export default async function HomePage() {
     supabase
       .from('listings')
       .select('*, brands(name, slug)')
-      .eq('status', 'active')
+      .or(FOR_SALE)
       .eq('discipline', FOCUS)
       .order('created_at', { ascending: false })
       .limit(6)

@@ -29,7 +29,7 @@ async function toReadPhoto(file: File): Promise<ReadPhoto & { preview: string }>
   return { media_type: 'image/jpeg', data: url.slice(url.indexOf(',') + 1), preview: url };
 }
 
-/** Saves a read photo to listing storage so it can go on the hidden listing. */
+/** Saves a read photo to listing storage so it can go on the listing. */
 async function uploadReadPhoto(photo: ReadPhoto, i: number): Promise<string | null> {
   try {
     const bytes = Uint8Array.from(atob(photo.data), (c) => c.charCodeAt(0));
@@ -134,7 +134,7 @@ export default function AdminQuickAdd({
       setError(photos.length ? "Couldn't pick out any saddle details from that text or those photos." : "Couldn't pick out any saddle details from that text.");
       return;
     }
-    // Saddle and stamp photos go on the hidden listing so the seller starts with them; screenshots don't.
+    // Saddle and stamp photos go on the listing so the seller starts with them; screenshots don't.
     const keep = sent.filter((_, i) => (result.photoKinds?.[i] ?? 'saddle') === 'saddle' || result.photoKinds?.[i] === 'stamp');
     let images: string[] = [];
     if (keep.length) {
@@ -189,7 +189,7 @@ export default function AdminQuickAdd({
     <div className="space-y-8">
       {latest && !parsed && (
         <section className="max-w-2xl bg-saddle-paper border border-saddle-green rounded p-5 space-y-3">
-          <p className="font-serif text-xl text-saddle-ink">✓ Hidden listing created: {latest.saddle}</p>
+          <p className="font-serif text-xl text-saddle-ink">✓ Listing created: {latest.saddle}</p>
           <div>
             <div className="text-xs font-mono uppercase tracking-[0.14em] text-saddle-gold mb-1">Claim link</div>
             <div className="flex flex-wrap items-center gap-2">

@@ -65,7 +65,7 @@ export default function ListingForm({
   prefillImages?: string[];
   ebaySource?: EbaySource;
   /**
-   * Admin "quick add" mode: saves a HIDDEN listing with no seller (status 'unclaimed') and hands
+   * Admin "quick add" mode: saves a listing with no seller (status 'unclaimed', shown on the site, messages go to SaddleUp) and hands
    * back its claim token instead of redirecting. Photos are optional; the seller can add or change them after claiming.
    */
   onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean }) => void;
@@ -474,7 +474,7 @@ export default function ListingForm({
       <div>
         {onSeeded && (
           <p className="text-xs text-saddle-muted mb-1">
-            Optional. Photos here go on the hidden listing, so the seller sees their saddle when they claim it and can add or change them.
+            Optional. Photos here go on the listing, so the seller sees their saddle when they claim it and can add or change them.
           </p>
         )}
         <PhotoUploader images={images} setImages={setImages} />
@@ -505,7 +505,7 @@ export default function ListingForm({
       )}
 
       <button type="submit" disabled={saving} className="bg-saddle-green text-white px-6 py-3 rounded-md font-semibold">
-        {saving ? 'Saving…' : existing ? 'Save Changes' : onSeeded ? 'Create hidden listing + claim link' : 'Publish Listing'}
+        {saving ? 'Saving…' : existing ? 'Save Changes' : onSeeded ? 'Create listing + claim link' : 'Publish Listing'}
       </button>
     </form>
   );

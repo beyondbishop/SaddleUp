@@ -5,7 +5,12 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { goToSignIn } from '@/lib/return-to';
 
-export default function InquiryBox({ listingId, sellerId }: { listingId: string; sellerId: string }) {
+export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Question' }: {
+  listingId: string;
+  /** null for an unclaimed saddle: the database routes the conversation to SaddleUp. */
+  sellerId: string | null;
+  buttonLabel?: string;
+}) {
   const supabase = createClient();
   const router = useRouter();
   const [message, setMessage] = useState('');
@@ -24,7 +29,7 @@ export default function InquiryBox({ listingId, sellerId }: { listingId: string;
       goToSignIn();
       return;
     }
-    if (user.id === sellerId) {
+    if (sellerId && user.id === sellerId) {
       setError("This is your own listing.");
       setSending(false);
       return;
@@ -41,6 +46,7 @@ export default function InquiryBox({ listingId, sellerId }: { listingId: string;
     if (!convo) {
       const { data: newConvo, error: convoError } = await supabase
         .from('conversations')
+        // The database fills in the seller from the listing (SaddleUp, for an unclaimed saddle).
         .insert({ listing_id: listingId, buyer_id: user.id, seller_id: sellerId })
         .select('id')
         .single();
@@ -73,7 +79,7 @@ export default function InquiryBox({ listingId, sellerId }: { listingId: string;
         className="w-full border rounded p-2 text-sm mb-2"
       />
       <button type="submit" disabled={sending} className="bg-saddle-brown text-white px-4 py-2 rounded-md font-semibold text-sm">
-        {sending ? 'Sending…' : 'Ask a Question'}
+        {sending ? 'Sending…' : buttonLabel}
       </button>
     </form>
   );
