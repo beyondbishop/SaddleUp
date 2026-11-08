@@ -32,7 +32,8 @@ export const HELPER_FIELDS = [
 const ReplySchema = z.object({
   reply: z.string(),
   changes: z.array(z.object({ field: z.enum(HELPER_FIELDS), value: z.string() })),
-  quick_replies: z.array(z.string())
+  quick_replies: z.array(z.string()),
+  seller_notes: z.array(z.string())
 });
 
 export type HelperReply = z.infer<typeof ReplySchema>;
@@ -55,7 +56,9 @@ Changes (the changes array):
 - Use exact field names. For choice fields, value must be one of the values in <choices> (the part before the colon), e.g. tree_width "medium_narrow", brand_id "12".
 - seat_size, price, year_manufactured, tree_width_cm, panel_length_cm: plain numbers ("17.5", "2400"). location_state: 2-letter code.
 - description: the complete new description text (it replaces the old one). Keep the seller's facts and SaddleUp's plain style; edit only what's needed.
-- Only include fields you are actually changing. Empty array when you're only asking a question.`;
+- Only include fields you are actually changing. Empty array when you're only asking a question.
+
+seller_notes: the complete, current list of judgment calls on this listing that the seller may want to check, written to the seller in one plain friendly sentence each, e.g. "We marked your saddle Medium-narrow because you listed it as 27 cm and Stubben's standard (Medium) is 28 cm." Include a choice only when it was uncertain (a width chosen from a cm size, a guessed year, a model picked from a few options), not things the seller stated plainly. Repeat earlier notes that still apply; drop ones that no longer do. Empty list when there are none. They go in the message to the seller, so never mention SaddleUp's internal tools or warnings.`;
 
 function contextBlock(c: HelperContext): string {
   const lines = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${k}: ${v}`).join('\n') || '(empty)';
@@ -95,6 +98,7 @@ export async function listingHelperReply(turns: HelperTurn[], context: HelperCon
   return {
     reply: out.reply.trim().slice(0, 1200),
     changes: out.changes.slice(0, 12).map((c) => ({ field: c.field, value: c.value.slice(0, 5000) })),
-    quick_replies: out.quick_replies.map((q) => q.trim()).filter(Boolean).slice(0, 3)
+    quick_replies: out.quick_replies.map((q) => q.trim()).filter(Boolean).slice(0, 3),
+    seller_notes: out.seller_notes.map((n) => n.trim().slice(0, 300)).filter(Boolean).slice(0, 3)
   };
 }

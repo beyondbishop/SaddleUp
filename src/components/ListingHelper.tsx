@@ -28,11 +28,14 @@ const OPENER = "I've just opened the helper. What should I check or fix first?";
 export default function ListingHelper({
   getContext,
   apply,
-  autoStart
+  autoStart,
+  onSellerNotes
 }: {
   getContext: () => Record<string, unknown>;
   apply: (changes: HelperChange[]) => { changed: string[]; undo: () => void };
   autoStart: boolean;
+  /** The helper's current list of judgment calls to mention to the seller. */
+  onSellerNotes?: (notes: string[]) => void;
 }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [quick, setQuick] = useState<string[]>([]);
@@ -80,6 +83,7 @@ export default function ListingHelper({
         { role: 'assistant', content: json.reply, changed: result.changed, undo: result.changed.length ? result.undo : undefined }
       ]);
       setQuick(json.quick_replies ?? []);
+      if (Array.isArray(json.seller_notes)) onSellerNotes?.(json.seller_notes);
     } catch (e) {
       setError(e instanceof Error && e.name !== 'TimeoutError' ? e.message : 'That took too long. Try again.');
       // Let them try the same message again.

@@ -70,7 +70,7 @@ export default function ListingForm({
    * Admin "quick add" mode: saves a listing with no seller (status 'unclaimed', shown on the site, messages go to SaddleUp) and hands
    * back its claim token instead of redirecting. Photos are optional; the seller can add or change them after claiming.
    */
-  onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean }) => void;
+  onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean; notes: string[] }) => void;
   /** Quick add: where the saddle was found and the seller's name, recorded with the import. */
   importMeta?: { sourceUrl?: string; sellerName?: string };
   /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
@@ -132,6 +132,8 @@ export default function ListingForm({
 
   // ---------- Listing helper: read the form for it, and apply its changes ----------
   const formRef = useRef<HTMLFormElement>(null);
+  // Judgment calls to mention in the message to the seller (from the helper, when it's used).
+  const sellerNotes = useRef<string[]>([]);
 
   function el(name: string) {
     return formRef.current?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | RadioNodeList | null;
@@ -338,12 +340,24 @@ export default function ListingForm({
 
     if (mode === 'seed') {
       const brandName = brands.find((b) => b.id === brandId)?.name;
+      // Without the helper's notes, still explain a width chosen from a cm size.
+      const treeCm = Number(form.get('tree_width_cm'));
+      const treeLabel = TREE_WIDTH_LABELS[String(form.get('tree_width')) as keyof typeof TREE_WIDTH_LABELS];
+      const fallbackNotes =
+        treeCm > 0 && treeLabel
+          ? [
+              `We marked your saddle ${treeLabel} because you listed it as ${treeCm} cm${
+                brandName === 'Stubben' ? " and Stubben's standard (Medium) is 28 cm" : ''
+              }.`
+            ]
+          : [];
       onSeeded!({
         id: data.id,
         claim_token: data.claim_token,
         saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`,
         price,
-        hasPhotos: images.length > 0
+        hasPhotos: images.length > 0,
+        notes: sellerNotes.current.length ? sellerNotes.current : fallbackNotes
       });
       return;
     }
@@ -369,6 +383,7 @@ export default function ListingForm({
         apply={applyHelperChanges}
         // Start the conversation by itself when the reader left things to check.
         autoStart={!existing && !!(readerNotes?.warnings?.length || readerNotes?.missing?.length)}
+        onSellerNotes={(notes) => (sellerNotes.current = notes)}
       />
 
       <fieldset>
