@@ -356,6 +356,7 @@ export default function AdminQuickAdd({
             prefill={parsed.prefill}
             prefillImages={parsed.images}
             importMeta={{ sourceUrl, sellerName }}
+            readerNotes={{ findings: parsed.photoFindings ?? [], warnings: parsed.warnings, missing: parsed.missing }}
             onSeeded={({ id, claim_token, saddle, price, hasPhotos }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;
               const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline, fromFounder };

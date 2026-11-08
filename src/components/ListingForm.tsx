@@ -7,6 +7,7 @@ import slugify from 'slugify';
 import ZipField from './ZipField';
 import PhotoUploader from './PhotoUploader';
 import PriceSuggest from './PriceSuggest';
+import ListingHelper, { type HelperChange } from './ListingHelper';
 import type { EbaySource, ListingPrefill } from '@/lib/ebay/map';
 import {
   DISCIPLINE_CHOICES,
@@ -57,6 +58,7 @@ export default function ListingForm({
   ebaySource,
   onSeeded,
   importMeta,
+  readerNotes,
   afterSave = '/dashboard'
 }: {
   brands: { id: number; name: string }[];
@@ -73,6 +75,8 @@ export default function ListingForm({
   importMeta?: { sourceUrl?: string; sellerName?: string };
   /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
   afterSave?: string;
+  /** What the AI reader noticed (photo notes, warnings, missing fields), for the listing helper. */
+  readerNotes?: { findings?: string[]; warnings?: string[]; missing?: string[] };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -124,6 +128,142 @@ export default function ListingForm({
     if (brandId && !brandsForDiscipline(brands, d).some((b) => String(b.id) === brandId)) setBrandId('');
     if (seat && !seatSizesFor(d).includes(Number(seat))) setSeat('');
     if (tree && !treeOptionsFor(d).some((t) => t.value === tree)) setTree('');
+  }
+
+  // ---------- Listing helper: read the form for it, and apply its changes ----------
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function el(name: string) {
+    return formRef.current?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | RadioNodeList | null;
+  }
+
+  /** Current value of a form field (radio groups included). */
+  function valueOf(name: string): string {
+    if (name === 'discipline') return discipline;
+    if (name === 'brand_id') return brandId;
+    if (name === 'seat_size') return seat;
+    if (name === 'tree_width') return tree;
+    const e = el(name);
+    if (!e) return '';
+    return (e as any).value ?? '';
+  }
+
+  function helperContext() {
+    const form: Record<string, string> = {};
+    const options: Record<string, string[]> = {};
+    for (const name of HELPER_FIELDS) {
+      const v = valueOf(name);
+      if (!v) continue;
+      const e = el(name);
+      const label =
+        name === 'brand_id' ? brands.find((b) => String(b.id) === v)?.name
+        : e instanceof HTMLSelectElement ? e.selectedOptions[0]?.textContent ?? undefined
+        : undefined;
+      form[name] = label && label !== v ? `${v} (${label})` : v;
+    }
+    options.discipline = DISCIPLINE_CHOICES.map((d) => `${d.value}: ${d.label}`);
+    options.brand_id = (discipline ? brandOptions : brands).map((b) => `${b.id}: ${b.name}`);
+    options.seat_size = (discipline ? seatOptions : []).map((n) => `${n}: ${formatSeat(n)}`);
+    options.tree_width = (discipline ? treeOptions : []).map((t) => `${t.value}: ${t.label}`);
+    options.trial_policy = Object.entries(TRIAL_POLICY_LABELS).map(([k, v]) => `${k}: ${v}`);
+    for (const name of HELPER_FIELDS) {
+      const e = el(name);
+      if (options[name] || !(e instanceof HTMLSelectElement)) continue;
+      options[name] = Array.from(e.options).filter((o) => o.value).map((o) => `${o.value}: ${o.textContent}`);
+    }
+    // Required fields still empty, in the form's own words.
+    const missing = new Set(readerNotes?.missing ?? []);
+    for (const name of ['discipline', 'brand_id', 'model', 'seat_size', 'tree_width', 'price']) {
+      if (!valueOf(name)) missing.add(HELPER_LABELS[name] ?? name);
+    }
+    return {
+      form,
+      options,
+      findings: readerNotes?.findings ?? [],
+      warnings: readerNotes?.warnings ?? [],
+      missing: Array.from(missing)
+    };
+  }
+
+  /** Set an input/select/textarea the way typing would, so React and any listeners see it. */
+  function setNative(e: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) {
+    const proto = e instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : e instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(e, value);
+    e.dispatchEvent(new Event('input', { bubbles: true }));
+    e.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  /** Write one field. Returns false when the value isn't allowed for that field. */
+  function writeField(name: string, value: string): boolean {
+    if (name === 'discipline') {
+      if (!DISCIPLINE_CHOICES.some((d) => d.value === value)) return false;
+      chooseDiscipline(value as Discipline);
+      return true;
+    }
+    if (name === 'brand_id') {
+      const b = brands.find((x) => String(x.id) === value || x.name.toLowerCase() === value.toLowerCase());
+      if (!b) return false;
+      setBrandId(String(b.id));
+      return true;
+    }
+    if (name === 'seat_size') {
+      if (!(Number(value) > 0)) return false;
+      setSeat(String(Number(value)));
+      return true;
+    }
+    if (name === 'tree_width') {
+      if (!(value in TREE_WIDTH_LABELS)) return false;
+      setTree(value);
+      return true;
+    }
+    const e = el(name);
+    if (!e) return false;
+    if (e instanceof RadioNodeList) {
+      const radio = Array.from(e).find((r) => (r as HTMLInputElement).value === value) as HTMLInputElement | undefined;
+      if (!radio) return false;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+    if (e instanceof HTMLSelectElement && value && !Array.from(e.options).some((o) => o.value === value)) return false;
+    setNative(e, value);
+    return true;
+  }
+
+  function flash(names: string[]) {
+    // Wait a beat so fields enabled by a discipline change have rendered.
+    setTimeout(() => {
+      for (const name of names) {
+        const e = el(name);
+        const target = e instanceof RadioNodeList ? (e[0] as HTMLElement | undefined)?.closest('fieldset') : (e as HTMLElement | null);
+        if (!target) continue;
+        target.classList.add('ring-2', 'ring-saddle-gold', 'transition-shadow');
+        setTimeout(() => target.classList.remove('ring-2', 'ring-saddle-gold'), 2500);
+      }
+    }, 50);
+  }
+
+  function applyHelperChanges(changes: HelperChange[]) {
+    // Discipline first: it decides which brands, seats and trees are allowed.
+    const ordered = [...changes].sort((a, b) => (a.field === 'discipline' ? -1 : b.field === 'discipline' ? 1 : 0));
+    const before: HelperChange[] = [];
+    const done: string[] = [];
+    for (const c of ordered) {
+      const previous = valueOf(c.field);
+      if (previous === c.value) continue;
+      if (writeField(c.field, c.value)) {
+        before.push({ field: c.field, value: previous });
+        done.push(c.field);
+      }
+    }
+    flash(done);
+    return {
+      changed: done.map((f) => HELPER_LABELS[f] ?? f),
+      undo: () => {
+        for (const c of [...before].reverse()) writeField(c.field, c.value);
+        flash(before.map((c) => c.field));
+      }
+    };
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -191,6 +331,11 @@ export default function ListingForm({
     setSaving(false);
     if (!ok) return setError(data.error ?? "Couldn't save — please try again.");
 
+    // Work out the saddle's fair price range for its public page, without making anyone wait.
+    // (Reuses the price check already done for this form when the details haven't changed.)
+    const savedId = existing?.id ?? data.id;
+    if (savedId) fetch(`/api/listings/${savedId}/price-range`, { method: 'POST', keepalive: true }).catch(() => {});
+
     if (mode === 'seed') {
       const brandName = brands.find((b) => b.id === brandId)?.name;
       onSeeded!({
@@ -209,6 +354,7 @@ export default function ListingForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       // The browser blocks submit when a required field is empty; say which one, next to the button.
       onInvalidCapture={(e) => {
@@ -218,6 +364,12 @@ export default function ListingForm({
       }}
       className="max-w-2xl space-y-4"
     >
+      <ListingHelper
+        getContext={helperContext}
+        apply={applyHelperChanges}
+        // Start the conversation by itself when the reader left things to check.
+        autoStart={!existing && !!(readerNotes?.warnings?.length || readerNotes?.missing?.length)}
+      />
 
       <fieldset>
         <legend className="block text-sm font-semibold mb-2">What discipline is the saddle for?</legend>
@@ -463,7 +615,8 @@ export default function ListingForm({
       <div>
         <label htmlFor="price" className="block text-sm font-semibold mb-1">Price (USD)</label>
         <input id="price" name="price" type="number" min={1} step="any" required defaultValue={existing ? existing.price_cents / 100 : prefill?.price ?? ''} className={field} />
-        <PriceSuggest />
+        {/* Check prices automatically when the form arrives filled in (import, eBay, home-page check). */}
+        <PriceSuggest auto={!existing && !!(prefill?.brand_id || prefill?.model)} />
       </div>
 
       <div>
@@ -510,3 +663,17 @@ export default function ListingForm({
     </form>
   );
 }
+
+/** Fields the listing helper may read and change (names match the form inputs). */
+const HELPER_FIELDS = [
+  'discipline', 'brand_id', 'model', 'seat_size', 'tree_width', 'tree_width_cm', 'color', 'condition',
+  'panel_flocking', 'panel_type', 'year_manufactured', 'panel_length_cm', 'trial_policy', 'price', 'description',
+  'location_city', 'location_state', 'location_zip'
+] as const;
+
+const HELPER_LABELS: Record<string, string> = {
+  discipline: 'discipline', brand_id: 'brand', model: 'model', seat_size: 'seat size', tree_width: 'tree width',
+  tree_width_cm: 'tree (cm)', color: 'color', condition: 'condition', panel_flocking: 'panels', panel_type: 'flap / panel',
+  year_manufactured: 'year', panel_length_cm: 'panel length', trial_policy: 'trial policy', price: 'price',
+  description: 'description', location_city: 'city', location_state: 'state', location_zip: 'ZIP'
+};

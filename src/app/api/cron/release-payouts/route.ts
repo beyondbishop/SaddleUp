@@ -4,9 +4,12 @@ import { releasePayout } from '@/lib/payouts';
 import { recordMissingRewards } from '@/lib/rewards';
 import { syncOpenShipments } from '@/lib/shipment-sync';
 import { sendDailyReminders } from '@/lib/reminders';
+import { refreshStalePriceRanges } from '@/lib/listing-price-range';
 
 // Daily: pay sellers whose buyer confirmed receipt or whose inspection window (which starts at
 // confirmed delivery) has ended, and free saddles left reserved by abandoned checkouts.
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const auth = req.headers.get('authorization');
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -50,7 +53,15 @@ export async function GET(req: Request) {
     return 0;
   });
 
+  // Fair price ranges the save-time check missed (new listings, edits, ranges over 3 weeks old).
+  // A couple a day keeps this well inside the time limit; most ranges are set when a listing is saved.
+  const priceRangesUpdated = await refreshStalePriceRanges(2).catch((e) => {
+    console.error('Price range catch-up failed', e);
+    return 0;
+  });
+
   return NextResponse.json({
+    priceRangesUpdated,
     shipmentsChecked,
     remindersSent,
     rewardsRecorded,

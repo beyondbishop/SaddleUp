@@ -45,7 +45,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   // Admins can look at anyone's imports (linked from the Users page).
   const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
   const admin = createAdminClient();
-  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, discipline, status, claimed_at, images, brands(name), listing_claim_tokens(token))';
+  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, discipline, status, claimed_at, images, price_cents, price_range_low, price_range_typical, price_range_high, brands(name), listing_claim_tokens(token))';
   const importsQuery = (cols: string) =>
     admin.from('listing_imports').select(cols).eq('importer_id', importerId).order('created_at', { ascending: false }).limit(500);
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
@@ -68,7 +68,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     const token = Array.isArray(l?.listing_claim_tokens) ? l.listing_claim_tokens[0]?.token : l?.listing_claim_tokens?.token;
     const claimUrl = token ? claimUrlFor(token) : null;
     // The importer's saved message (with any tips from import time), else a fresh one.
-    const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0, discipline: l?.discipline, fromFounder: isAdmin && importerId === user.id }) : null;
+    const message = claimUrl ? r.message ?? claimMessage(r.seller_name, saddle, claimUrl, { hasPhotos: (l?.images?.length ?? 0) > 0, discipline: l?.discipline, fromFounder: isAdmin && importerId === user.id, askingPrice: l?.price_cents ? l.price_cents / 100 : null, priceRange: l?.price_range_typical ? { low: l.price_range_low, typical: l.price_range_typical, high: l.price_range_high } : null }) : null;
     return { ...r, l, saddle, stage, claimUrl, message };
   });
   const counts = STAGE_ORDER.map((s) => [s, items.filter((i) => i.stage === s).length] as const);

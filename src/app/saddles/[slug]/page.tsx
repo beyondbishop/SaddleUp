@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import FairPriceRange from '@/components/FairPriceRange';
 import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
 import PhotoGallery from '@/components/PhotoGallery';
@@ -121,6 +122,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
         <p className="text-3xl font-bold my-3">
           {price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
         </p>
+        <FairPriceRange price={price} low={(listing as any).price_range_low ?? null} high={(listing as any).price_range_high ?? null} />
 
         <dl className="grid grid-cols-2 gap-y-2 text-sm mb-6">
           <dt className="text-gray-500">Discipline</dt>

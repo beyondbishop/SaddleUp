@@ -289,6 +289,7 @@ export default function NewListingWithEbayImport({
         prefill={fill?.prefill}
         prefillImages={fill?.images}
         ebaySource={fill?.ebay}
+        readerNotes={fill ? { findings: fill.photoFindings ?? [], warnings: fill.warnings, missing: fill.missing ?? [] } : undefined}
       />
     </div>
   );

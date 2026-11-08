@@ -5,7 +5,8 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import { aiPriceRange, type SaddleDetails } from '@/lib/ai-price-range';
+import type { SaddleDetails } from '@/lib/ai-price-range';
+import { cachedPriceRange } from '@/lib/listing-price-range';
 import { aiReaderConfigured } from '@/lib/ai-parse-listing';
 import { allowAnonymousAiCall, ANON_LIMIT_MESSAGE } from '@/lib/ai-quota';
 
@@ -48,7 +49,8 @@ export async function POST(req: Request) {
   };
 
   try {
-    const range = await aiPriceRange(details);
+    // Same saddle details as a recent check -> the saved answer, at no extra AI cost.
+    const { key: _key, ...range } = await cachedPriceRange(details);
     return NextResponse.json(range);
   } catch (e) {
     console.error('Price range failed', e);

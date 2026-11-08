@@ -34,11 +34,20 @@ function spelling(t: ClaimTips): { wrong: string; right: string } | null {
   return wrong && right ? { wrong, right } : null;
 }
 
-/** Suggest a price only when theirs is clearly above what similar saddles go for. */
+/**
+ * The price range for similar saddles, with what it means for their price. Above the range: a
+ * gentle nudge toward the top of it. Within or below: reassurance (a reason to trust SaddleUp).
+ */
 function priceTip(t: ClaimTips): string | null {
   const r = t.priceRange;
-  if (!r || !t.askingPrice || t.askingPrice <= r.typical * 1.1) return null;
-  return `Similar saddles are selling for around ${usd(r.typical)}. At ${usd(t.askingPrice)} it may sit longer.`;
+  if (!r) return null;
+  const range = `${usd(r.low)}–${usd(r.high)}`;
+  if (!t.askingPrice) return `Similar saddles are listed for about ${range} right now.`;
+  if (t.askingPrice > r.high) {
+    return `Similar saddles are listed for about ${range} right now. At ${usd(t.askingPrice)} it may sit longer; something nearer ${usd(r.high)} would likely sell faster.`;
+  }
+  if (t.askingPrice >= r.low) return `Your price of ${usd(t.askingPrice)} is right in line with similar saddles (about ${range}).`;
+  return `Similar saddles are listed for about ${range}, so at ${usd(t.askingPrice)} yours is a great deal for buyers.`;
 }
 
 /**
@@ -66,7 +75,7 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
   return [
     `Hi${first ? ` ${first}` : ''}! I came across your ${saddle} saddle.`,
     tipLines.length
-      ? `${tipLines.length === 1 ? 'A quick tip' : 'Two quick tips'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
+      ? `${tipLines.length === 1 ? 'A quick note' : 'Two quick notes'} to help it sell, whether or not you use SaddleUp:\n${tipLines.join('\n')}`
       : null,
     tips.fromFounder
       ? `I've been through the pain of trying to sell a saddle myself, so I built SaddleUp to make it easy. Our story: ${siteUrl()}/about`

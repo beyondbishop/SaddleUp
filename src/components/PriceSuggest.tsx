@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Range {
   low: number;
@@ -21,17 +21,34 @@ const usd = (n: number) => `$${n.toLocaleString('en-US')}`;
 /**
  * "Suggest a price" under the listing form's price box: reads the saddle details already on the
  * form, asks /api/price-range, and shows low / typical / high. Clicking one fills the price.
+ * With `auto`, it runs by itself as soon as the form has a brand or model (imports, eBay, the
+ * home-page check), so nobody has to remember to click.
  */
-export default function PriceSuggest() {
+export default function PriceSuggest({ auto = false }: { auto?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<Range | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [form, setForm] = useState<HTMLFormElement | null>(null);
+  const [asking, setAsking] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!auto) return;
+    // Let the form's prefilled values settle first.
+    const timer = setTimeout(() => {
+      const f = box.current?.closest('form');
+      if (f && (fieldValue(f, 'brand_id') || fieldValue(f, 'model'))) run(f, true);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto]);
 
   async function suggest(e: React.MouseEvent<HTMLButtonElement>) {
-    const f = e.currentTarget.form;
-    if (!f) return;
+    if (e.currentTarget.form) run(e.currentTarget.form, false);
+  }
+
+  async function run(f: HTMLFormElement, quiet: boolean) {
     setForm(f);
     const data = new FormData(f);
     const body: Record<string, string> = {};
@@ -41,9 +58,11 @@ export default function PriceSuggest() {
       if (typeof v === 'string' && v.trim()) body[k] = v;
     }
     if (!body.brand_id && !body.model) {
-      setError('Choose the brand (and model if you know it) first.');
+      if (!quiet) setError('Choose the brand (and model if you know it) first.');
       return;
     }
+    const current = Number(fieldValue(f, 'price'));
+    setAsking(current > 0 ? current : null);
     setLoading(true);
     setError(null);
     setRange(null);
@@ -59,7 +78,8 @@ export default function PriceSuggest() {
       if (!res.ok) throw new Error(json.error ?? "Couldn't estimate a price right now.");
       setRange(json);
     } catch (err) {
-      setError(err instanceof Error && err.name !== 'TimeoutError' ? err.message : 'That took too long. Try again in a moment.');
+      // A background check that fails stays quiet; the button is still there to try again.
+      if (!quiet) setError(err instanceof Error && err.name !== 'TimeoutError' ? err.message : 'That took too long. Try again in a moment.');
     } finally {
       setLoading(false);
     }
@@ -75,7 +95,7 @@ export default function PriceSuggest() {
   }
 
   return (
-    <div className="mt-2">
+    <div ref={box} className="mt-2">
       <button
         type="button"
         onClick={suggest}
@@ -110,6 +130,15 @@ export default function PriceSuggest() {
               </button>
             ))}
           </div>
+          {asking != null && picked == null && (
+            <p className={`text-sm font-semibold ${asking > range.high ? 'text-red-800' : 'text-saddle-green'}`}>
+              {asking > range.high
+                ? `The asking price (${usd(asking)}) is above this range, so it may sit longer.`
+                : asking < range.low
+                  ? `The asking price (${usd(asking)}) is below this range - priced to sell.`
+                  : `The asking price (${usd(asking)}) is within this range.`}
+            </p>
+          )}
           <p className="text-sm text-saddle-ink">{range.reasoning}</p>
           <p className="text-xs text-saddle-muted">
             An AI estimate{range.sources.length ? ` from ${range.sources.join(', ').toLowerCase()}` : ''}
@@ -119,4 +148,9 @@ export default function PriceSuggest() {
       )}
     </div>
   );
+}
+
+function fieldValue(f: HTMLFormElement, name: string): string {
+  const el = f.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+  return el?.value?.trim() ?? '';
 }
