@@ -63,7 +63,7 @@ export interface MatchableListing {
   brands?: { name?: string; slug?: string } | null;
   model: string;
   seat_size: number;
-  tree_width: TreeWidth;
+  tree_width: TreeWidth | null;
   price_cents: number;
   condition: string | null;
   location_state: string | null;
@@ -233,7 +233,7 @@ export function matchListing(l: MatchableListing, c: SearchCriteria): MatchResul
     reasons.push(`${l.seat_size}" seat (you want ${range(c.seat_min, c.seat_max, '"')})`);
   }
   if (c.tree) {
-    if (!c.tree.includes(l.tree_width)) return no;
+    if (!l.tree_width || !c.tree.includes(l.tree_width)) return no;
     reasons.push(`${TREE_WIDTH_LABELS[l.tree_width]} tree (seller-reported)`);
   }
   if (c.price_min !== undefined || c.price_max !== undefined) {

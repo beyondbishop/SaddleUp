@@ -60,7 +60,7 @@ export default function ModerationCard({ listing, sellerEmail }: { listing: any;
   const title = `${listing.seat_size}" ${listing.brands?.name && listing.brands.name !== 'Other' ? `${listing.brands.name} ` : ''}${listing.model}`;
   const details = [
     DISCIPLINE_LABELS[listing.discipline as keyof typeof DISCIPLINE_LABELS],
-    `${TREE_WIDTH_LABELS[listing.tree_width as keyof typeof TREE_WIDTH_LABELS]} tree`,
+    listing.tree_width ? `${TREE_WIDTH_LABELS[listing.tree_width as keyof typeof TREE_WIDTH_LABELS]} tree` : 'No tree width yet',
     listing.color,
     listing.condition,
     [listing.location_city, listing.location_state].filter(Boolean).join(', '),

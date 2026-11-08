@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { approvedBrands } from '@/lib/brands-server';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
-import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
+import { DISCIPLINE_LABELS, Listing, treeWidthText } from '@/lib/types';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 import { brandsForDiscipline } from '@/lib/saddle-catalog';
 import { searchUrl, FOR_SALE } from '@/lib/search';
@@ -60,7 +60,7 @@ function ListingCard({ listing }: { listing: Listing }) {
         <div className={`${eyebrow} text-[10px] tracking-[0.16em] mb-[7px]`}>{DISCIPLINE_LABELS[listing.discipline]}</div>
         <div className="font-serif text-xl leading-[1.15] text-saddle-ink">{title}</div>
         <div className="text-[13px] text-saddle-muted mt-1">
-          {TREE_WIDTH_LABELS[listing.tree_width]} Tree{location ? ` · ${location}` : ''}
+          {treeWidthText(listing.tree_width)}{location ? ` · ${location}` : ''}
         </div>
         <div className="font-serif text-[22px] text-saddle-brown mt-3">{price}</div>
       </div>

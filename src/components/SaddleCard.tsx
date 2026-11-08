@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Listing, TREE_WIDTH_LABELS } from '@/lib/types';
+import { Listing, treeWidthText } from '@/lib/types';
 import FavoriteButton from './FavoriteButton';
 import Avatar from './Avatar';
 import { CONDITION_LABELS, type Condition } from '@/lib/search';
@@ -41,7 +41,7 @@ export default function SaddleCard({ listing, seller, distance }: {
             {listing.seat_size}&quot; {listing.brands?.name} {listing.model}
           </p>
           <p className="text-sm text-gray-600">
-            {TREE_WIDTH_LABELS[listing.tree_width]} Tree
+            {treeWidthText(listing.tree_width)}
             {listing.location_state ? ` · ${listing.location_state}` : ''}
           </p>
           {distance && <p className="text-xs text-saddle-green font-semibold">{distance}</p>}

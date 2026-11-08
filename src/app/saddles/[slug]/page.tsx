@@ -29,7 +29,7 @@ async function getListing(slug: string) {
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const listing = await getListing(params.slug);
   if (!listing) return {};
-  const title = `${listing.seat_size}" ${listing.brands?.name} ${listing.model} — ${TREE_WIDTH_LABELS[listing.tree_width]} Tree`;
+  const title = `${listing.seat_size}" ${listing.brands?.name} ${listing.model}${listing.tree_width ? ` — ${TREE_WIDTH_LABELS[listing.tree_width]} Tree` : ''}`;
   return {
     title,
     description:
@@ -83,7 +83,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
     },
     additionalProperty: [
       { '@type': 'PropertyValue', name: 'Seat Size', value: `${listing.seat_size} in` },
-      { '@type': 'PropertyValue', name: 'Tree Width', value: TREE_WIDTH_LABELS[listing.tree_width] },
+      ...(listing.tree_width ? [{ '@type': 'PropertyValue', name: 'Tree Width', value: TREE_WIDTH_LABELS[listing.tree_width] }] : []),
       { '@type': 'PropertyValue', name: 'Discipline', value: DISCIPLINE_LABELS[listing.discipline] }
     ]
   };
@@ -146,7 +146,20 @@ export default async function ListingPage({ params }: { params: { slug: string }
             </a>
           </dd>
           <dt className="text-gray-500">Tree Width</dt>
-          <dd>{TREE_WIDTH_LABELS[listing.tree_width]} <span className="text-gray-500 text-xs">(seller-reported)</span></dd>
+          <dd>
+            {listing.tree_width ? (
+              <>{TREE_WIDTH_LABELS[listing.tree_width]} <span className="text-gray-500 text-xs">(seller-reported)</span></>
+            ) : canEdit ? (
+              <span className="text-sm">
+                <NotStated />{' '}
+                <a href="/guides/how-to-measure-a-saddle#tree" className="underline text-saddle-brown">How to find it</a>
+                {' · '}
+                <a href={`/dashboard/listings/${listing.id}/edit`} className="underline text-saddle-brown">Add it</a>
+              </span>
+            ) : (
+              <NotStated />
+            )}
+          </dd>
           <dt className="text-gray-500">Leather Color</dt>
           <dd className="capitalize">{listing.color ?? <NotStated />}</dd>
           <dt className="text-gray-500">Panels</dt>

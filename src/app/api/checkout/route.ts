@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         {
           price_data: {
             currency: 'usd',
-            product_data: { name: `${listing.model} — ${listing.seat_size}" ${listing.tree_width}` },
+            product_data: { name: `${listing.model} — ${listing.seat_size}"${listing.tree_width ? ` ${listing.tree_width}` : ''}` },
             unit_amount: listing.price_cents
           },
           quantity: 1

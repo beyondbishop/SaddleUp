@@ -14,7 +14,19 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 
 export type ListingEmailKind = 'submitted' | 'live';
-type Info = { firstName: string | null; saddle: string; priceCents: number | null; url: string; image: string | null; status: string };
+type Info = {
+  firstName: string | null;
+  saddle: string;
+  priceCents: number | null;
+  url: string;
+  image: string | null;
+  status: string;
+  /** Saved without a tree width: ask for it, with links to the guide and the edit page. */
+  treeMissing?: boolean;
+  editUrl?: string;
+};
+
+const TREE_GUIDE_URL = `${SITE}/guides/how-to-measure-a-saddle#tree`;
 
 function build(kind: ListingEmailKind, info: Info) {
   const hi = info.firstName ? `Hi ${info.firstName},` : 'Hi there,';
@@ -36,6 +48,14 @@ function build(kind: ListingEmailKind, info: Info) {
     : 'Listings with clear photos sell faster. If you can, add a shot of the gullet from the front, the panels from underneath, and the seat from the side. You can add photos while I review.';
   const button = live ? 'See your saddle live' : 'See your listing';
   const closing = live ? 'Fingers crossed it finds its perfect horse soon.' : 'Thanks again for trusting SaddleUp with your saddle.';
+  const treeAsk = info.treeMissing
+    ? {
+        title: 'One thing that will help it sell: the tree width',
+        body: `Your listing doesn’t have a tree width yet. Riders filter by tree width to find saddles that fit their horse, so adding it puts your ${info.saddle} in front of more of the right buyers. If it isn’t stamped under the flap, you can measure it in about five minutes with a tape measure.`,
+        guide: 'How to find your tree width',
+        edit: 'Add it to your listing'
+      }
+    : null;
   const footer = 'You’re getting this because you listed a saddle on SaddleUp. Just hit reply if you have a question. It comes straight to me.';
 
   const p = (t: string, margin = '0 0 14px') => `<p style="font-size:15px;line-height:1.5;margin:${margin}">${t}</p>`;
@@ -56,6 +76,13 @@ function build(kind: ListingEmailKind, info: Info) {
   ${paras.map((t) => p(esc(t))).join('\n  ')}
   ${card}
   <p style="margin:20px 0 24px"><a href="${info.url}" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">${button}</a></p>
+  ${treeAsk ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 20px;width:100%"><tr>
+    <td style="background:#fff8e8;border:1px solid #e8cf96;border-radius:6px;padding:14px 16px;font-family:Georgia,serif;font-size:14px;line-height:1.5;color:#2b2118">
+      <strong style="display:block;font-size:15px;margin-bottom:6px">${esc(treeAsk.title)}</strong>
+      ${esc(treeAsk.body)}
+      <div style="margin-top:10px"><a href="${TREE_GUIDE_URL}" style="color:#2f4a3a;font-weight:bold">${esc(treeAsk.guide)} →</a>${info.editUrl ? `&nbsp;&nbsp;·&nbsp;&nbsp;<a href="${info.editUrl}" style="color:#2f4a3a">${esc(treeAsk.edit)}</a>` : ''}</div>
+    </td>
+  </tr></table>` : ''}
   ${tipBox}
   ${p(esc(closing))}
   ${p('Happy riding,', '0 0 16px')}
@@ -67,6 +94,10 @@ function build(kind: ListingEmailKind, info: Info) {
     ...paras,
     `${info.saddle}${info.priceCents ? ` · ${usd(info.priceCents)}` : ''} · ${live ? 'Live' : 'In review'}`,
     `${button}: ${info.url}`,
+    ...(treeAsk ? [`${treeAsk.title}
+${treeAsk.body}
+${treeAsk.guide}: ${TREE_GUIDE_URL}${info.editUrl ? `
+${treeAsk.edit}: ${info.editUrl}` : ''}`] : []),
     `Pro tip: ${tip}`,
     closing,
     `Happy riding,\n\n${TEXT_SIGNATURE}`,
@@ -87,6 +118,7 @@ export function previewListingEmails() {
   };
   return {
     submitted: build('submitted', sample),
+    submittedNoTree: build('submitted', { ...sample, treeMissing: true, editUrl: 'https://saddleup.me/dashboard/listings/sample/edit' }),
     live: build('live', { ...sample, status: 'active' })
   };
 }
@@ -97,7 +129,7 @@ export async function sendListingEmail(listingId: string, kind: ListingEmailKind
     const admin = createAdminClient();
     const { data: listing } = await admin
       .from('listings')
-      .select('id, slug, status, seller_id, seat_size, model, price_cents, images, brands(name)')
+      .select('id, slug, status, seller_id, seat_size, model, tree_width, price_cents, images, brands(name)')
       .eq('id', listingId)
       .maybeSingle();
     if (!listing?.seller_id || !listing.slug) return; // unclaimed imports have no seller to tell
@@ -114,7 +146,9 @@ export async function sendListingEmail(listingId: string, kind: ListingEmailKind
       priceCents: listing.price_cents,
       url: `${SITE}/saddles/${listing.slug}`,
       image: images[0] && /^https:\/\//.test(images[0]) ? images[0] : null,
-      status: listing.status
+      status: listing.status,
+      treeMissing: !listing.tree_width,
+      editUrl: `${SITE}/dashboard/listings/${listing.id}/edit`
     });
     const result = await sendEmail({ to: profile.email, from, subject, html, text, idempotencyKey: `listing-${kind}-${listing.id}` });
     if (result.status === 'failed') console.error(`Listing ${kind} email failed`, listingId, result.detail);

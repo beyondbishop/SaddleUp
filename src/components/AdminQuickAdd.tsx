@@ -489,12 +489,12 @@ export default function AdminQuickAdd({
             prefillImages={parsed.images}
             importMeta={{ sourceUrl, sellerName }}
             readerNotes={{ findings: parsed.photoFindings ?? [], warnings: parsed.warnings, missing: parsed.missing }}
-            onSeeded={({ id, claim_token, saddle, price, hasPhotos, notes }) => {
+            onSeeded={({ id, claim_token, saddle, price, hasPhotos, notes, treeMissing }) => {
               const claimUrl = `${siteUrl.replace(/\/$/, '')}/claim/${claim_token}`;
               // The post didn't give the seat or tree, or the width was a judgment call: share the measuring guide.
               const measureGuide =
-                parsed.missing.some((m) => m === 'seat size' || m === 'tree width') || notes.some((n) => /^sizing:/i.test(n));
-              const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline, fromFounder, listingNotes: notes, measureGuide };
+                treeMissing || parsed.missing.some((m) => m === 'seat size' || m === 'tree width') || notes.some((n) => /^sizing:/i.test(n));
+              const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline, fromFounder, listingNotes: notes, measureGuide, treeMissing };
               setCreated((prev) => [{ id, key: parsed.key, saddle, sellerName, sourceUrl, claimUrl, tips }, ...prev]);
               reset();
             }}

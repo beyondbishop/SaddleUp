@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
+import { treeWidthText, type TreeWidth } from '@/lib/types';
 import { CONDITION_LABELS, type Condition } from '@/lib/search';
 import { loadSaved } from '@/lib/saved-store';
 
@@ -14,7 +14,7 @@ export type ListItemView = {
   savedAt: string;
   availability: 'available' | 'in_checkout' | 'sold' | 'unavailable';
   listing: {
-    slug: string; model: string; seat_size: number; tree_width: TreeWidth; price_cents: number;
+    slug: string; model: string; seat_size: number; tree_width: TreeWidth | null; price_cents: number;
     images: string[] | null; condition: string | null; location_state: string | null;
     brands: { name: string } | null;
   } | null;
@@ -356,7 +356,7 @@ function ListItemCard({ listId, item, onRemove }: { listId: string; item: ListIt
           <div className="p-3">
             <p className="font-semibold text-saddle-brown">{l.seat_size}&quot; {l.brands?.name} {l.model}</p>
             <p className="text-sm text-gray-600">
-              {TREE_WIDTH_LABELS[l.tree_width]} Tree{l.location_state ? ` · ${l.location_state}` : ''}
+              {treeWidthText(l.tree_width)}{l.location_state ? ` · ${l.location_state}` : ''}
             </p>
             <p className="text-xs text-gray-500">
               {l.condition ? `${CONDITION_LABELS[l.condition as Condition] ?? l.condition} condition` : 'Condition not stated'}

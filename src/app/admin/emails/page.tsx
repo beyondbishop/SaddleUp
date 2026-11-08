@@ -68,6 +68,7 @@ export default async function AdminEmailsPage() {
   const listingEmails = previewListingEmails();
   const listing: Preview[] = [
     { id: 'listing-submitted', when: 'Right after a seller adds a saddle', to: 'Seller', ...listingEmails.submitted },
+    { id: 'listing-submitted-no-tree', when: 'Same, when the seller saved it without a tree width (the live email gets the same box)', to: 'Seller', ...listingEmails.submittedNoTree },
     { id: 'listing-live', when: 'You approve it in the review queue', to: 'Seller', ...listingEmails.live }
   ];
 

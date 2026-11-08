@@ -21,6 +21,8 @@ export interface ClaimTips {
   listingNotes?: string[];
   /** Seat size or tree width was missing or uncertain, so point them to the measuring guide. */
   measureGuide?: boolean;
+  /** The listing was saved without a tree width, so ask for it and link the tree-width section. */
+  treeMissing?: boolean;
 }
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -64,9 +66,11 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
     price,
     fix ? `Spelling: "${fix.wrong}" is spelled "${fix.right}". Buyers search by brand, so fixing it on Facebook helps them find you.` : null,
     ...choices,
-    tips.measureGuide
-      ? `Measurements: Buyers look for seat size and tree width first. If you're not sure of yours, this quick guide shows exactly where to measure: ${siteUrl()}/guides/how-to-measure-a-saddle`
-      : null
+    tips.treeMissing
+      ? `Tree width: Your post didn't mention the tree width, so I left it blank. Riders filter by it, so adding it will help your saddle reach the right buyers. This quick guide shows how to find it: ${siteUrl()}/guides/how-to-measure-a-saddle#tree`
+      : tips.measureGuide
+        ? `Measurements: Buyers look for seat size and tree width first. If you're not sure of yours, this quick guide shows exactly where to measure: ${siteUrl()}/guides/how-to-measure-a-saddle`
+        : null
   ].filter((n): n is string => !!n);
 
   return [

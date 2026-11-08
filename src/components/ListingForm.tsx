@@ -148,7 +148,7 @@ export default function ListingForm({
    * Admin "quick add" mode: saves a listing with no seller (status 'unclaimed', shown on the site, messages go to SaddleUp) and hands
    * back its claim token instead of redirecting. Photos are optional; the seller can add or change them after claiming.
    */
-  onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean; notes: string[] }) => void;
+  onSeeded?: (listing: { id: string; claim_token: string; saddle: string; price: number; hasPhotos: boolean; notes: string[]; treeMissing: boolean }) => void;
   /** Quick add: where the saddle was found and the seller's name, recorded with the import. */
   importMeta?: { sourceUrl?: string; sellerName?: string };
   /** Where to go after a successful save (admins editing a seller's listing go back to the review queue). */
@@ -388,7 +388,7 @@ export default function ListingForm({
       model,
       discipline: form.get('discipline'),
       seat_size: seatSize,
-      tree_width: form.get('tree_width'),
+      tree_width: form.get('tree_width') || null,
       panel_type: form.get('panel_type') || null,
       panel_flocking: form.get('panel_flocking') || null,
       flap_length: form.get('flap_length') || null,
@@ -453,7 +453,8 @@ export default function ListingForm({
         saddle: `${seatSize}" ${brandName && brandName !== 'Other' ? `${brandName} ` : ''}${model}`,
         price,
         hasPhotos: images.length > 0,
-        notes: sellerNotes.current.length ? sellerNotes.current : fallbackNotes
+        notes: sellerNotes.current.length ? sellerNotes.current : fallbackNotes,
+        treeMissing: !form.get('tree_width')
       });
       return;
     }
@@ -604,13 +605,12 @@ export default function ListingForm({
           <select
             id="tree_width"
             name="tree_width"
-            required
             disabled={!discipline}
             value={tree}
             onChange={(e) => setTree(e.target.value)}
             className={field}
           >
-            <option value="" disabled>Select…</option>
+            <option value="">Not sure yet</option>
             {treeOptions.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
@@ -618,6 +618,12 @@ export default function ListingForm({
               <option value={tree}>{TREE_WIDTH_LABELS[tree as keyof typeof TREE_WIDTH_LABELS]}</option>
             )}
           </select>
+          {discipline && !tree && (
+            <p className="text-xs text-saddle-muted mt-1">
+              You can save without it and add it later. Riders filter by tree width, so listings that have it get seen by more of the right buyers.{' '}
+              <a href="/guides/how-to-measure-a-saddle#tree" target="_blank" rel="noopener noreferrer" className="underline text-saddle-brown">How to find it ↗</a>
+            </p>
+          )}
         </div>
       </div>
 

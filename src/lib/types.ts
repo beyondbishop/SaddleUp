@@ -17,6 +17,14 @@ export const TREE_WIDTH_LABELS: Record<TreeWidth, string> = {
   adjustable: 'Adjustable'
 };
 
+/** "Medium Tree", or a fallback when the seller hasn't added the tree width yet. */
+export const treeWidthText = (tw: TreeWidth | null | undefined, missing = 'Tree width not listed') =>
+  tw ? `${TREE_WIDTH_LABELS[tw]} Tree` : missing;
+
+/** Where the measuring guide explains how to find the tree width. */
+export const TREE_GUIDE_PATH = '/guides/how-to-measure-a-saddle#tree';
+
+
 export type PanelFlocking = 'wool' | 'foam' | 'cair';
 
 export const PANEL_FLOCKING_LABELS: Record<PanelFlocking, string> = {
@@ -51,7 +59,8 @@ export interface Listing {
   model: string;
   discipline: Discipline;
   seat_size: number;
-  tree_width: TreeWidth;
+  /** Null when the seller doesn't know it yet. */
+  tree_width: TreeWidth | null;
   panel_type: string | null;
   flap_length: string | null;
   year_manufactured: number | null;

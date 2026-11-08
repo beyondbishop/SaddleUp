@@ -676,3 +676,6 @@ $$;
 drop trigger if exists trg_listings_touch_updated_at on listings;
 create trigger trg_listings_touch_updated_at before update on listings
   for each row execute function listings_touch_updated_at();
+
+-- ---------- TREE WIDTH OPTIONAL (also in migrations/20261119_tree_width_optional.sql) ----------
+alter table listings alter column tree_width drop not null;

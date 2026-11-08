@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
+import { treeWidthText, type TreeWidth } from '@/lib/types';
 import GoogleButton from '@/components/GoogleButton';
 import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
 
@@ -22,7 +22,7 @@ interface Claimable {
   seat_size: number;
   model: string;
   brand_name: string | null;
-  tree_width: TreeWidth;
+  tree_width: TreeWidth | null;
   price_cents: number;
 }
 
@@ -184,7 +184,7 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
         )}
         <div className="font-serif text-xl text-saddle-ink">{saddleName}</div>
         <div className="text-sm text-saddle-muted">
-          {TREE_WIDTH_LABELS[listing!.tree_width]} Tree · $
+          {treeWidthText(listing!.tree_width)} · $
           {(listing!.price_cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}
         </div>
       </div>
