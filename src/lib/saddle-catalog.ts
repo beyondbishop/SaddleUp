@@ -194,3 +194,22 @@ export function modelsFor(brandName: string | undefined, d: Discipline | '' | nu
 
 /** Brand names to insert into the `brands` table (kept in sync with the migration). */
 export const CATALOG_BRAND_NAMES = Object.keys(CATALOG);
+
+/**
+ * What to call a saddle when the seller doesn't know the model, so titles still read naturally
+ * ("17" Stubben Close Contact"). Saved in the model field, and shown as blank when editing.
+ */
+export const GENERIC_MODEL: Record<string, string> = {
+  hunter_jumper: 'Close Contact',
+  dressage: 'Dressage',
+  all_purpose: 'All Purpose',
+  eventing: 'Eventing',
+  pony_child: 'Pony',
+  western: 'Western',
+  endurance: 'Endurance'
+};
+
+/** True when the model field just holds the generic name for its discipline (model unknown). */
+export function isGenericModel(model: string | null | undefined, discipline: string | null | undefined): boolean {
+  return !!model && !!discipline && GENERIC_MODEL[discipline]?.toLowerCase() === model.trim().toLowerCase();
+}

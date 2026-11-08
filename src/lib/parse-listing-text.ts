@@ -347,6 +347,7 @@ export function summarizeFill(prefill: ListingPrefill): { found: string[]; missi
     ['location_state', 'location']
   ];
   const found = labels.filter(([k]) => prefill[k] != null && prefill[k] !== '').map(([, l]) => l);
-  const missing = labels.filter(([k]) => prefill[k] == null || prefill[k] === '').map(([, l]) => l);
+  // Model is optional (sellers often don't know it), so it's never listed as missing.
+  const missing = labels.filter(([k]) => k !== 'model' && (prefill[k] == null || prefill[k] === '')).map(([, l]) => l);
   return { found, missing };
 }

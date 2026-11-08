@@ -7,6 +7,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/server';
 import { aiPriceRange, type PriceRange, type SaddleDetails } from '@/lib/ai-price-range';
+import { isGenericModel } from '@/lib/saddle-catalog';
 
 /** A cached range is reused for this long; prices move, so older checks are redone. */
 const CACHE_DAYS = 21;
@@ -62,7 +63,8 @@ const LISTING_FIELDS =
 function detailsFromListing(l: any): SaddleDetails {
   return {
     brand: l.brands?.name && l.brands.name !== 'Other' ? l.brands.name : null,
-    model: l.model ?? null,
+    // "Close Contact" etc. just means the model isn't known.
+    model: l.model && !isGenericModel(l.model, l.discipline) ? l.model : null,
     discipline: l.discipline ?? null,
     seat_size: l.seat_size ?? null,
     tree_width: l.tree_width ?? null,

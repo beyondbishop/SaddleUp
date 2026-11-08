@@ -13,6 +13,8 @@ import {
   DISCIPLINE_CHOICES,
   brandsForDiscipline,
   formatSeat,
+  GENERIC_MODEL,
+  isGenericModel,
   modelsFor,
   seatSizesFor,
   treeLabelFor,
@@ -175,7 +177,7 @@ export default function ListingForm({
     }
     // Required fields still empty, in the form's own words.
     const missing = new Set(readerNotes?.missing ?? []);
-    for (const name of ['discipline', 'brand_id', 'model', 'seat_size', 'tree_width', 'price']) {
+    for (const name of ['discipline', 'brand_id', 'seat_size', 'tree_width', 'price']) {
       if (!valueOf(name)) missing.add(HELPER_LABELS[name] ?? name);
     }
     return {
@@ -278,7 +280,8 @@ export default function ListingForm({
     setError(null);
 
     const form = new FormData(e.currentTarget);
-    const model = String(form.get('model'));
+    // Model is optional: when it isn't known, call it by its style ("Close Contact") so titles read well.
+    const model = String(form.get('model') ?? '').trim() || GENERIC_MODEL[discipline] || 'Saddle';
     const seatSize = Number(form.get('seat_size'));
     const brandId = Number(form.get('brand_id'));
     const price = Number(form.get('price'));
@@ -434,16 +437,19 @@ export default function ListingForm({
           )}
         </div>
         <div>
-          <label htmlFor="model" className="block text-sm font-semibold mb-1">Model</label>
+          <label htmlFor="model" className="block text-sm font-semibold mb-1">
+            Model <span className="font-normal text-saddle-muted">(optional)</span>
+          </label>
           <input
             id="model"
             name="model"
-            required
             disabled={!discipline}
             list="model-suggestions"
             autoComplete="off"
             placeholder={modelSuggestions.length ? `e.g. ${modelSuggestions.slice(0, 2).join(', ')}` : 'Model name'}
-            defaultValue={existing?.model ?? prefill?.model}
+            defaultValue={
+              existing ? (isGenericModel(existing.model, existing.discipline) ? '' : existing.model) : prefill?.model ?? ''
+            }
             className={field}
           />
           <datalist id="model-suggestions">
@@ -451,6 +457,9 @@ export default function ListingForm({
               <option key={m} value={m} />
             ))}
           </datalist>
+          <p className="text-xs text-saddle-muted mt-1">
+            Not sure? Leave it blank{discipline && GENERIC_MODEL[discipline] ? ` and it will show as ${GENERIC_MODEL[discipline]}` : ''}.
+          </p>
         </div>
       </div>
 
