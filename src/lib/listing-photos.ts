@@ -126,7 +126,7 @@ export async function withBestCover(images: string[]): Promise<{ images: string[
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ images: images.slice(0, 20) }),
-      signal: AbortSignal.timeout(35_000)
+      signal: AbortSignal.timeout(60_000)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !Array.isArray(data.images)) return { images, changed: false };

@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 import { aiParseListing, aiReaderConfigured, type ListingPhoto } from '@/lib/ai-parse-listing';
 import { parseListingText, summarizeFill } from '@/lib/parse-listing-text';
 import { zipForCity } from '@/lib/zip-lookup';
+import { isOurStorageUrl } from '@/lib/storage-url';
 import { allowAnonymousAiCall, ANON_LIMIT_MESSAGE } from '@/lib/ai-quota';
 import type { ListingPrefill } from '@/lib/ebay/map';
 
@@ -88,26 +89,8 @@ const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif
 
 function readPhotos(raw: unknown, rawUrls: unknown): ListingPhoto[] | 'invalid' {
   if (rawUrls != null) {
-    // Only photos in our own listing storage. Compared by host and path, so a trailing slash or
-    // stray whitespace in the env var doesn't reject good links.
-    if (!Array.isArray(rawUrls) || rawUrls.length > MAX_URL_PHOTOS) return 'invalid';
-    let storageHost = '';
-    try {
-      storageHost = new URL((process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim()).host;
-    } catch {}
-    const ours = (u: unknown) => {
-      if (typeof u !== 'string' || u.length > 1000) return false;
-      try {
-        const url = new URL(u);
-        return url.protocol === 'https:' && url.host === storageHost && url.pathname.startsWith('/storage/v1/object/public/saddle-images/') && !url.pathname.includes('..');
-      } catch {
-        return false;
-      }
-    };
-    if (!storageHost || !rawUrls.every(ours)) {
-      console.error('parse-listing: rejected photo URLs', { storageHost, sample: rawUrls[0] });
-      return 'invalid';
-    }
+    // Only photos in our own listing storage.
+    if (!Array.isArray(rawUrls) || rawUrls.length > MAX_URL_PHOTOS || !rawUrls.every(isOurStorageUrl)) return 'invalid';
     return rawUrls.map((url: string) => ({ url }));
   }
   if (raw == null) return [];

@@ -5,9 +5,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { pickCoverPhoto } from '@/lib/ai-cover-photo';
+import { isOurStorageUrl } from '@/lib/storage-url';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 40;
+export const maxDuration = 60;
 
 const MAX = 20;
 
@@ -19,9 +20,8 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as { images?: unknown };
-  const ours = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/saddle-images/`;
   const images = Array.isArray(body.images) ? body.images.filter((u): u is string => typeof u === 'string') : [];
-  if (!images.length || images.length > MAX || images.some((u) => !u.startsWith(ours))) {
+  if (!images.length || images.length > MAX || !images.every(isOurStorageUrl)) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
 

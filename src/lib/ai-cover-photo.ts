@@ -26,7 +26,7 @@ best: the photo's number (1-based); 0 only if no photo shows a saddle at all. fa
 export async function pickCoverPhoto(urls: string[]): Promise<{ index: number; facingRight: boolean } | null> {
   if (!process.env.ANTHROPIC_API_KEY || urls.length < 2) return null;
   try {
-    const client = new Anthropic({ timeout: 25_000, maxRetries: 0 });
+    const client = new Anthropic({ timeout: 50_000, maxRetries: 0 }) // up to 20 photos;
     const res = await client.beta.messages.parse({
       model: 'claude-sonnet-5-5',
       max_tokens: 2000,

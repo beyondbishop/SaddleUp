@@ -10,6 +10,7 @@ import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import { sourceKey } from '@/lib/import-source';
+import { isOurStorageUrl } from '@/lib/storage-url';
 import { sendListingEmail } from '@/lib/listing-emails';
 import { listingAccess } from '@/lib/listing-access';
 
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
   }
 
   // Only our own storage can hold a listing's video.
-  if (typeof row.video_url === 'string' && !row.video_url.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/saddle-images/`)) {
+  if (typeof row.video_url === 'string' && !isOurStorageUrl(row.video_url)) {
     delete row.video_url;
   }
 
