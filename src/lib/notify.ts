@@ -177,6 +177,32 @@ function render(msg: Msg, url: string) {
   return { html, text };
 }
 
+/** Every order email rendered with a sample order, for the /admin/emails review page. */
+export function previewOrderEmails() {
+  const day = 864e5;
+  const order = {
+    id: 'sample',
+    sale_price_cents: 185000,
+    shipping_cents: 9500,
+    seller_payout_cents: 166500,
+    dispatch_due_at: new Date(Date.now() + 3 * day).toISOString(),
+    release_at: new Date(Date.now() + 9 * day).toISOString(),
+    tracking_number: '1Z999AA10123456784',
+    carrier: 'ups'
+  };
+  const ctx: Ctx = { order, saddle: '17.5" CWD SE02', data: {}, site: 'https://saddleup.me' };
+  const out: { event: string; role: Role; subject: string; html: string; text: string; sms?: string }[] = [];
+  for (const [event, roles] of Object.entries(TEMPLATES)) {
+    for (const role of ['buyer', 'seller', 'admin'] as Role[]) {
+      const t = roles[role];
+      if (!t) continue;
+      const msg = t(ctx);
+      out.push({ event, role, subject: msg.subject, sms: msg.sms, ...render(msg, link(ctx, role)) });
+    }
+  }
+  return out;
+}
+
 async function deliver(key: string, base: { order_id: string; user_id: string | null; channel: 'email' | 'sms'; template: string }, send: () => Promise<SendResult>) {
   const admin = createAdminClient();
   // Claim this message first; a duplicate event finds the row already there and stops.

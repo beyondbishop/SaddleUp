@@ -21,7 +21,7 @@ function SignupForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -30,6 +30,11 @@ function SignupForm() {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
       }
     });
+    if (!error && data.session) {
+      // Signed straight in (email confirmation off): send the welcome email now. Otherwise it
+      // goes out when they click the confirmation link (/auth/callback).
+      await fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
+    }
     setLoading(false);
     if (error) return setError(error.message);
     setDone(true);

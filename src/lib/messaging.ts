@@ -10,7 +10,7 @@ export const smsConfigured = () =>
   !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_MESSAGING_SERVICE_SID) &&
   process.env.TWILIO_SMS_ENABLED === 'on';
 
-export async function sendEmail(opts: { to: string; subject: string; html: string; text: string; idempotencyKey: string }): Promise<SendResult> {
+export async function sendEmail(opts: { to: string; from?: string; subject: string; html: string; text: string; idempotencyKey: string }): Promise<SendResult> {
   if (!emailConfigured()) return { status: 'skipped', detail: 'email not configured' };
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -20,7 +20,7 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
         'Content-Type': 'application/json',
         'Idempotency-Key': opts.idempotencyKey.slice(0, 256)
       },
-      body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [opts.to], subject: opts.subject, html: opts.html, text: opts.text })
+      body: JSON.stringify({ from: opts.from ?? process.env.EMAIL_FROM, to: [opts.to], subject: opts.subject, html: opts.html, text: opts.text })
     });
     const json = await res.json().catch(() => ({}));
     return res.ok ? { status: 'sent', detail: json.id ?? '' } : { status: 'failed', detail: `${res.status} ${json.message ?? ''}`.trim() };

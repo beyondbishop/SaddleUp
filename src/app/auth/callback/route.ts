@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/safe-next';
+import { sendWelcomeOnce } from '@/lib/welcome';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -12,8 +13,11 @@ export async function GET(req: Request) {
   const code = url.searchParams.get('code');
 
   if (code) {
-    const { error } = await createClient().auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, url.origin));
+    const { data, error } = await createClient().auth.exchangeCodeForSession(code);
+    if (!error) {
+      if (data.user) await sendWelcomeOnce(data.user.id); // once per person; no-op after the first
+      return NextResponse.redirect(new URL(next, url.origin));
+    }
     console.error('Google sign-in could not finish', error);
   }
   return NextResponse.redirect(new URL(`/auth/login?error=google&next=${encodeURIComponent(next)}`, url.origin));

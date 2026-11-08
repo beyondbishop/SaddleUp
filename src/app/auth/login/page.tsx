@@ -25,6 +25,8 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return setError(error.message);
+    // Catch-all for anyone who never got their welcome email; does nothing once it's been sent.
+    fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
     router.push(next);
     router.refresh();
   }
