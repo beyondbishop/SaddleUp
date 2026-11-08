@@ -14,6 +14,24 @@ const CONTACT_EMAIL = 'danielle@saddleup.me';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+// Shared by every email so they all look like they come from Danielle: logo on top, her headshot at the bottom.
+/** SaddleUp logo, linked to the site. Goes first in every email. */
+export const emailLogo = () =>
+  `<p style="margin:0 0 20px"><a href="${SITE}"><img src="${IMG}/logo.png" alt="SaddleUp" width="140" height="53" style="display:block;border:0;width:140px;height:53px"></a></p>`;
+
+/** Danielle's sign-off with her headshot. */
+export const emailSignature = () => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr>
+    <td style="padding:0 14px 0 0;vertical-align:middle"><img src="${IMG}/danielle-headshot.jpg" alt="Danielle Bishop" width="88" height="88" style="display:block;border:0;width:88px;height:88px;border-radius:50%"></td>
+    <td style="vertical-align:middle;font-family:Georgia,serif;line-height:1.4">
+      <div style="font-size:16px;color:#2b2118;font-weight:bold">Danielle Bishop</div>
+      <div style="font-size:13px;color:#7a6a5a">Founder, SaddleUp</div>
+      <div style="font-size:13px"><a href="mailto:${CONTACT_EMAIL}" style="color:#2f4a3a">${CONTACT_EMAIL}</a></div>
+    </td>
+  </tr></table>`;
+
+/** Plain-text version of the sign-off. */
+export const TEXT_SIGNATURE = `Danielle Bishop\nFounder, SaddleUp\n${CONTACT_EMAIL}`;
+
 // Written in Danielle's own voice and sent from danielle@saddleup.me, so replies (feedback) reach her.
 export function welcomeEmail(fullName: string | null) {
   const first = fullName?.trim().split(/\s+/)[0];
@@ -36,7 +54,7 @@ export function welcomeEmail(fullName: string | null) {
 
   const p = (t: string, margin = '0 0 14px') => `<p style="font-size:15px;line-height:1.5;margin:${margin}">${t}</p>`;
   const html = `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#2b2118">
-  <p style="margin:0 0 20px"><a href="${SITE}"><img src="${IMG}/logo.png" alt="SaddleUp" width="140" height="53" style="display:block;border:0;width:140px;height:53px"></a></p>
+  ${emailLogo()}
   ${p(esc(hi))}
   ${paras.map((t) => p(esc(t))).join('\n  ')}
   ${things
@@ -45,14 +63,7 @@ export function welcomeEmail(fullName: string | null) {
   <p style="margin:24px 0"><a href="${SITE}/saddles" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">Start browsing</a></p>
   ${feedback.map((t) => p(esc(t))).join('\n  ')}
   ${p('Happy riding,', '0 0 16px')}
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr>
-    <td style="padding:0 14px 0 0;vertical-align:middle"><img src="${IMG}/danielle-headshot.jpg" alt="Danielle Bishop" width="88" height="88" style="display:block;border:0;width:88px;height:88px;border-radius:50%"></td>
-    <td style="vertical-align:middle;font-family:Georgia,serif;line-height:1.4">
-      <div style="font-size:16px;color:#2b2118;font-weight:bold">Danielle Bishop</div>
-      <div style="font-size:13px;color:#7a6a5a">Founder, SaddleUp</div>
-      <div style="font-size:13px"><a href="mailto:${CONTACT_EMAIL}" style="color:#2f4a3a">${CONTACT_EMAIL}</a></div>
-    </td>
-  </tr></table>
+  ${emailSignature()}
   <p style="font-size:12px;color:#7a6a5a;margin:24px 0 0">You’re getting this one-time email because you created a SaddleUp account.</p>
 </div>`;
 
@@ -61,7 +72,7 @@ export function welcomeEmail(fullName: string | null) {
     ...paras,
     ...things.map(([title, body, url]) => `${title}: ${body}\n${url}`),
     ...feedback,
-    `Happy riding,\n\nDanielle Bishop\nFounder, SaddleUp\n${CONTACT_EMAIL}`
+    `Happy riding,\n\n${TEXT_SIGNATURE}`
   ].join('\n\n');
 
   return { subject, html, text };

@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
+import { sendListingEmail } from '@/lib/listing-emails';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 });
   }
 
+  // Only a saddle coming out of review gets the "it's live" email (not one restored after removal).
+  const { data: before } = await supabase.from('listings').select('status').eq('id', id).maybeSingle();
+
   const { data: listing, error } = await supabase
     .from('listings')
     .update({ status })
@@ -34,5 +38,6 @@ export async function POST(req: Request) {
   }
   // Approved: new page to index. Rejected: tell search engines to re-check (it's no longer public).
   await notifyIndexNow(listingPaths(listing as any));
+  if (status === 'active' && before?.status === 'draft') await sendListingEmail(id, 'live');
   return NextResponse.json({ ok: true });
 }

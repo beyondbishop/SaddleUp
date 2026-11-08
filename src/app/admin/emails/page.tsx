@@ -3,6 +3,7 @@ import { getViewer } from '@/lib/roles';
 import { WELCOME_FROM, welcomeEmail } from '@/lib/welcome';
 import { previewOrderEmails } from '@/lib/notify';
 import { loginLinkEmail } from '@/lib/login-link';
+import { previewListingEmails } from '@/lib/listing-emails';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Emails · Admin', robots: { index: false } };
@@ -63,6 +64,12 @@ export default async function AdminEmailsPage() {
     { id: 'login-link', when: '“Forgot password?”, or you tap “Email sign-in link” on Users', to: 'Member', ...loginLinkEmail('Jane Rider', 'jane@example.com', 'https://saddleup.me/auth/confirm?token_hash=…') }
   ];
 
+  const listingEmails = previewListingEmails();
+  const listing: Preview[] = [
+    { id: 'listing-submitted', when: 'Right after a seller adds a saddle', to: 'Seller', ...listingEmails.submitted },
+    { id: 'listing-live', when: 'You approve it in the review queue', to: 'Seller', ...listingEmails.live }
+  ];
+
   const orders: Preview[] = previewOrderEmails()
     .sort((a, b) => ORDER_SEQUENCE.indexOf(a.event) - ORDER_SEQUENCE.indexOf(b.event))
     .map((e) => ({
@@ -77,6 +84,7 @@ export default async function AdminEmailsPage() {
 
   const sections = [
     { title: 'Joining and signing in', blurb: 'What someone gets when they sign up, or when you send them a sign-in link.', items: onboarding },
+    { title: 'Listing a saddle', blurb: 'Sent to the seller when they add a saddle, and again when it goes live.', items: listing },
     { title: 'Buying and selling', blurb: 'Sent as an order moves along. Happy path first, then the exceptions.', items: orders }
   ];
 

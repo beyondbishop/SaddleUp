@@ -10,6 +10,7 @@ import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
 import { sourceKey } from '@/lib/import-source';
+import { sendListingEmail } from '@/lib/listing-emails';
 
 // Importers (not admins) may add this many hidden listings per day. Keeps outreach personal
 // and protects importers' Facebook accounts from looking like spam.
@@ -144,6 +145,10 @@ export async function POST(req: Request) {
   const saved = result.data as { status?: string; slug?: string } & Record<string, unknown>;
   if (body.mode === 'update' && saved.status === 'active' && saved.slug) {
     await notifyIndexNow(listingPaths(saved as any));
+  }
+  // A seller just added a saddle: confirm it's in, where it stands (in review), and link to it.
+  if (body.mode === 'create' && typeof saved.id === 'string') {
+    await sendListingEmail(saved.id, 'submitted');
   }
   return NextResponse.json(result.data);
 }
