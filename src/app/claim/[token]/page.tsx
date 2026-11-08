@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { treeWidthText, type TreeWidth } from '@/lib/types';
 import GoogleButton from '@/components/GoogleButton';
 import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
+import { authErrorText } from '@/lib/auth-error';
 
 const PERKS = [
   ['Found by the right riders', 'Buyers search by seat size and tree width, so the people who see your saddle are the ones it fits.'],
@@ -100,7 +101,7 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
     }
     if (signUpError) {
       setSaving(false);
-      return setError(signUpError.message);
+      return setError(authErrorText(signUpError));
     }
     if (!signUp.session) {
       // Email confirmation is on: they confirm, land back on this page signed in, and click Claim.

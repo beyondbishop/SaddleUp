@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { authErrorText } from '@/lib/auth-error';
 
 // Where emailed sign-in links land. The person is already signed in; here they can set a new
 // password. Google users can skip it.
@@ -32,7 +33,7 @@ export default function SetPasswordPage() {
     setError(null);
     const { error } = await supabase.auth.updateUser({ password });
     setSaving(false);
-    if (error) return setError(error.message);
+    if (error) return setError(authErrorText(error));
     setDone(true);
   }
 

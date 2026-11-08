@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-next';
 import { welcomeUrl } from '@/lib/onboarding';
 import GoogleButton from '@/components/GoogleButton';
+import { authErrorText } from '@/lib/auth-error';
 
 // One page for both: "Create an account" on the left, "Sign in" on the right, Google above both.
 // Served at /auth/login and /auth/signup; `focus` says which one the visitor came for, which
@@ -40,7 +41,7 @@ function SignupForm({ next }: { next: string }) {
     });
     if (error) {
       setLoading(false);
-      return setError(error.message);
+      return setError(authErrorText(error));
     }
     if (data.session) {
       // Signed straight in (email confirmation off): welcome email now, then on to where they were going.
@@ -105,7 +106,7 @@ function LoginForm({ next }: { next: string }) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      return setError(error.message);
+      return setError(authErrorText(error));
     }
     // Catch-all for anyone who never got their welcome email; does nothing once it's been sent.
     fetch('/api/account/welcome', { method: 'POST' }).catch(() => {});
