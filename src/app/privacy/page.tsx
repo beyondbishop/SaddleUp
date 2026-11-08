@@ -6,7 +6,7 @@ export default function PrivacyPage() {
       <h1 className="text-2xl font-bold text-saddle-brown mb-2">Privacy Policy</h1>
       <p className="text-sm text-gray-500 mb-6">
         {/* Draft wording: have a lawyer review this before relying on it. */}
-        Last updated November 6, 2026
+        Last updated November 8, 2026
       </p>
       <p>
         SaddleUp collects the information you provide when creating an account, listing a
@@ -24,6 +24,13 @@ export default function PrivacyPage() {
         the saddle&apos;s details and estimate its value. Photos are only saved to SaddleUp if you go on to create a
         listing. To limit misuse, we count how often the tool is used from each connection using a code that changes
         daily; we don&apos;t store your IP address.
+      </p>
+      <p className="mt-4">
+        To show sellers how their listings are doing, we count views of each listing: roughly where visitors are (state or
+        country), how they found it (for example a SaddleUp search, Google or Facebook), and which search filters they
+        used. Visitors are counted with a code that changes daily, so a view can&apos;t be traced back to you; we don&apos;t
+        store names or IP addresses for this, and sellers only see totals. We also use Vercel Web Analytics, which counts
+        page visits without cookies.
       </p>
       <p className="mt-4">
         We rely on trusted service providers to run SaddleUp: Supabase (accounts and data), Vercel (hosting), Stripe
