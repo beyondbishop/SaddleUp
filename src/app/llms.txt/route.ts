@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { SITE_URL, DISCIPLINE_INTROS, brandPath, disciplinePath } from '@/lib/seo';
 import { DISCIPLINE_LABELS, type Discipline } from '@/lib/types';
 import { SELLER_FEE_PERCENT, SELLER_KEEPS_PERCENT } from '@/lib/fees';
+import { GUIDES } from '@/content/guides';
 
 export const revalidate = 3600;
 
@@ -34,6 +35,10 @@ export async function GET() {
     '## Key pages',
     `- [Browse all saddles](${SITE_URL}/saddles): filter by discipline, brand, seat size, tree width, panels (wool flocked, foam, CAIR) and price`,
     `- [Sell a saddle](${SITE_URL}/dashboard/listings/new)`,
+    '',
+    '## Guides',
+    `- [All guides](${SITE_URL}/guides)`,
+    ...GUIDES.map((g) => `- [${g.title}](${SITE_URL}/guides/${g.slug}): ${g.summary}`),
     '',
     '## Saddles by discipline',
     ...(Object.keys(DISCIPLINE_LABELS) as Discipline[]).map(

@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 import type { Discipline } from '@/lib/types';
+import { GUIDES } from '@/content/guides';
 
 // Served at /sitemap.xml and rebuilt at most hourly. Lists every public page search engines
 // should know about: core pages, each live listing, and the discipline/brand landing pages that
@@ -24,6 +25,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: SITE_URL, lastModified: latest, changeFrequency: 'daily', priority: 1 },
     { url: `${SITE_URL}/saddles`, lastModified: latest, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/about`, changeFrequency: 'yearly', priority: 0.5 },
+    {
+      url: `${SITE_URL}/guides`,
+      lastModified: GUIDES[0] ? new Date(GUIDES[0].updated) : undefined,
+      changeFrequency: 'weekly',
+      priority: 0.7
+    },
+    ...GUIDES.map((g) => ({
+      url: `${SITE_URL}/guides/${g.slug}`,
+      lastModified: new Date(g.updated),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7
+    })),
     { url: `${SITE_URL}/terms`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${SITE_URL}/privacy`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${SITE_URL}/seller-agreement`, changeFrequency: 'yearly', priority: 0.2 }

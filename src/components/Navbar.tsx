@@ -34,6 +34,7 @@ export default async function Navbar() {
           <Link href="/saddles" className="hover:text-saddle-brown">Browse Saddles</Link>
           {/* Find My Fit (/match) is hidden until it's ready; the page still works. */}
           <Link href="/dashboard" className="hover:text-saddle-brown">Sell a Saddle</Link>
+          <Link href="/guides" className="hover:text-saddle-brown">Guides</Link>
           <Link href="/about" className="hover:text-saddle-brown">Our Story</Link>
           {user ? (
             <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount} />
