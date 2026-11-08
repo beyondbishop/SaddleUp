@@ -44,9 +44,9 @@ export async function POST(req: Request) {
   let aiError: string | null = null;
   if (aiReaderConfigured() && brands?.length) {
     try {
-      const { prefill, warnings, photoFindings, photoKinds, modelCandidates, spellingFixes } = await aiParseListing(text, brands, photos);
+      const { prefill, warnings, photoFindings, photoKinds, modelCandidates, spellingFixes, sellerName } = await aiParseListing(text, brands, photos);
       await addZip(prefill);
-      return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, photoFindings, photoKinds, modelCandidates, spellingFixes, reader: 'ai' });
+      return NextResponse.json({ prefill, ...summarizeFill(prefill), warnings, photoFindings, photoKinds, modelCandidates, spellingFixes, sellerName, reader: 'ai' });
     } catch (e) {
       console.error('AI listing reader failed; using rules instead', e);
       aiError = describeAiError(e);

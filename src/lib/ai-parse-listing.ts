@@ -40,7 +40,8 @@ function schemaFor(brandNames: string[]) {
     photo_findings: z.array(z.string()),
     photo_kinds: z.array(z.enum(['saddle', 'stamp', 'screenshot', 'other'])),
     model_candidates: z.array(z.string()),
-    post_spelling_fixes: z.array(z.string())
+    post_spelling_fixes: z.array(z.string()),
+    seller_name: z.string()
   });
 }
 
@@ -88,6 +89,7 @@ Photos: you may also get photos of the saddle and/or screenshots of the post. Th
 - photo_findings: one short note per thing you read or saw in the photos and used, e.g. "Stamp: 17.5 seat, MW tree, 2A flap, serial 0412" or "Condition: light wear on seat and knee rolls". Empty list when there were no photos or nothing useful in them.
 - model_candidates: when the model isn't stated in the text or clearly legible on the saddle, up to 3 likely model names for this brand, best first (the first one matching model). Empty list when the model is certain.
 - post_spelling_fixes: misspellings in the seller's post of the brand or model (or other words buyers search for) that would stop the post showing up in searches, as "wrong → right", e.g. "Pesoa → Pessoa". Only real misspellings of searchable names, not grammar or style. Empty list when there are none.
+- seller_name: the name of the person selling, when the post shows it: the poster's name copied at the top of a Facebook post (often followed by a date or group name), "Posted by …", a sign-off like "Thanks, Jane", or the poster's name in a screenshot of the post. Write it as shown (first and last name if given). Never use other names in the post (trainers, horses, previous owners, commenters). '' when it isn't clear.
 - photo_kinds: one entry per photo, in the order sent: saddle (shows the saddle or a part of it), stamp (close-up of a stamp, plate or tag), screenshot (a screenshot of the post, a message or a web page), other. Empty list when no photos were sent.`;
 
 export interface AiParseResult {
@@ -100,6 +102,8 @@ export interface AiParseResult {
   modelCandidates: string[];
   /** Searchable names the seller misspelled in their post, as "wrong → right". */
   spellingFixes: string[];
+  /** The poster's name, when the post or a screenshot shows it. */
+  sellerName: string | null;
 }
 
 export type ListingPhoto = { media_type: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'; data: string };
@@ -182,6 +186,7 @@ export async function aiParseListing(
     photoFindings: out.photo_findings.filter((f) => f.trim()).slice(0, 10),
     photoKinds: photos.map((_, i) => out.photo_kinds[i] ?? 'saddle'),
     spellingFixes: out.post_spelling_fixes.map((f) => f.trim().slice(0, 80)).filter(Boolean).slice(0, 3),
-    modelCandidates: [...new Set(out.model_candidates.map((m) => m.trim().slice(0, 80)).filter(Boolean))].slice(0, 3)
+    modelCandidates: [...new Set(out.model_candidates.map((m) => m.trim().slice(0, 80)).filter(Boolean))].slice(0, 3),
+    sellerName: out.seller_name.trim().replace(/\s+/g, ' ').slice(0, 80) || null
   };
 }

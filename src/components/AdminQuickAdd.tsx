@@ -76,6 +76,7 @@ export default function AdminQuickAdd({
         photoFindings?: string[];
         modelCandidates?: string[];
         spellingFixes?: string[];
+        sellerName?: string | null;
         images: string[];
         photoNote: string | null;
       })
@@ -191,6 +192,8 @@ export default function AdminQuickAdd({
     setPickedModel(null);
     const key = String(Date.now());
     setParsed({ ...result, images, photoNote, key });
+    // Seller's name from the post, unless one was typed already.
+    if (!sellerName.trim() && result.sellerName) setSellerName(result.sellerName);
     setSimilar([]);
     if (result.prefill.brand_id && result.prefill.seat_size) {
       fetch('/api/imports/check', {
@@ -375,7 +378,7 @@ export default function AdminQuickAdd({
           <input
             value={sellerName}
             onChange={(e) => setSellerName(e.target.value)}
-            placeholder="Seller's name (for the message)"
+            placeholder="Seller's name (optional - we'll read it from the post if it's there)"
             className="w-full border border-saddle-line rounded p-2 bg-saddle-paper text-sm"
           />
           {error && <p className="text-red-700 text-sm">{error}</p>}
@@ -394,6 +397,17 @@ export default function AdminQuickAdd({
             <button type="button" onClick={() => setParsed(null)} className="text-sm underline text-saddle-brown">
               ← Back to the pasted text
             </button>
+          </div>
+          <div className="max-w-2xl flex flex-wrap items-center gap-2 text-sm">
+            <label htmlFor="seller-name-after" className="font-semibold">Seller&apos;s name:</label>
+            <input
+              id="seller-name-after"
+              value={sellerName}
+              onChange={(e) => setSellerName(e.target.value)}
+              placeholder="Not in the post - add it for the message"
+              className="flex-1 min-w-[12rem] border border-saddle-line rounded p-1.5 bg-saddle-paper"
+            />
+            {parsed.sellerName && sellerName === parsed.sellerName && <span className="text-xs text-saddle-muted">read from the post</span>}
           </div>
           {similar.length > 0 && (
             <div className="max-w-2xl rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
