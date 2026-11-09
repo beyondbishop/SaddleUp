@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { avatarUrlFor, hasUploadedAvatar, initialsOf } from '@/lib/avatar';
 import { memberZip, placeForZip } from '@/lib/distance';
 import { safeNext } from '@/lib/safe-next';
+import { claimPendingListing, claimedEditUrl } from '@/lib/pending-claim';
 import { INTENTS, type Intent } from '@/lib/onboarding';
 import { MESSAGE_SMS_CONSENT_FROM, SMS_CONSENT_TEXT, verifyConfigured } from '@/lib/messaging';
 import Onboarding from '@/components/onboarding/Onboarding';
@@ -20,6 +21,9 @@ export default async function WelcomePage({ searchParams }: { searchParams: { ne
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) redirect(`/auth/login?next=${encodeURIComponent(next)}`);
+  // A saddle they started claiming in another browser: claim it and take them straight to it.
+  const claimedId = await claimPendingListing(user);
+  if (claimedId) redirect(claimedEditUrl(claimedId));
 
   const { data: p, error } = await supabase
     .from('profiles')

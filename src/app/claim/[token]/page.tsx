@@ -64,10 +64,16 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
       // Remember this browser as an importer's, so later signed-out opens here aren't counted as the seller.
       if (photos?.viewerIsImporter) document.cookie = `${TEAM_COOKIE}=1; max-age=31536000; path=/; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
       const row = (data as Claimable[] | null)?.[0];
+      // Already claimed into their account (e.g. from another browser): their dashboard has it.
+      if (!row && auth.user) return router.replace('/dashboard');
       if (!row) return setStatus('not_found');
       setListing(row);
       setSignedInEmail(auth.user?.email ?? null);
       setStatus('found');
+      // Back here signed in after starting the claim (confirmed email, Google): finish it without another tap.
+      const u = auth.user;
+      const back = new URLSearchParams(window.location.search).has('auto') || u?.user_metadata?.claim_token === params.token;
+      if (u?.email_confirmed_at && back && !photos?.viewerIsImporter) claim();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.token]);
@@ -91,10 +97,16 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
     const { data: signUp, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, first_name: fullName.trim().split(/\s+/)[0] || null }, emailRedirectTo: window.location.href }
+      options: {
+        // claim_token: if they confirm their email in another browser (common from Facebook's in-app
+        // browser), the claim finishes on whatever page they reach first signed in (lib/pending-claim).
+        data: { full_name: fullName, first_name: fullName.trim().split(/\s+/)[0] || null, claim_token: params.token },
+        emailRedirectTo: `${window.location.origin}/claim/${params.token}?auto=1`
+      }
     });
 
-    if (signUpError && /already registered/i.test(signUpError.message)) {
+    // An existing account: Supabase says "already registered", or (with email confirmation on) returns a user with no identities.
+    if ((signUpError && /already registered/i.test(signUpError.message)) || (!signUpError && signUp.user?.identities?.length === 0)) {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
         setSaving(false);
@@ -286,7 +298,13 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
         </div>
       ) : (
         <div>
-          <GoogleButton next={`/claim/${params.token}`} label="Claim with Google" />
+          {typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('auto') && (
+            <p className="mb-4 rounded border border-saddle-green bg-saddle-paper p-3 text-sm text-saddle-ink">
+              <strong>Your email is confirmed.</strong> Enter the same email and password below (or use Google) to finish claiming
+              your saddle.
+            </p>
+          )}
+          <GoogleButton next={`/claim/${params.token}?auto=1`} label="Claim with Google" />
           <p className="text-xs text-saddle-muted text-center mt-2">You&apos;ll come back here to finish claiming.</p>
         <div className="flex items-center gap-3 my-4 text-xs text-saddle-muted">
         <span className="flex-1 border-t border-saddle-line" />or<span className="flex-1 border-t border-saddle-line" />

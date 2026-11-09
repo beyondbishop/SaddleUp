@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/safe-next';
+import { claimPendingListing, claimedEditUrl } from '@/lib/pending-claim';
 
 const TYPES: EmailOtpType[] = ['recovery', 'magiclink', 'email', 'signup', 'invite', 'email_change'];
 
@@ -15,8 +16,11 @@ export async function GET(req: Request) {
   const type = url.searchParams.get('type') as EmailOtpType | null;
 
   if (token_hash && type && TYPES.includes(type)) {
-    const { error } = await createClient().auth.verifyOtp({ token_hash, type });
-    if (!error) return NextResponse.redirect(new URL(next, url.origin));
+    const { data, error } = await createClient().auth.verifyOtp({ token_hash, type });
+    if (!error) {
+      const claimedId = await claimPendingListing(data.user);
+      return NextResponse.redirect(new URL(claimedId ? claimedEditUrl(claimedId) : next, url.origin));
+    }
     console.error('Email sign-in link failed', error.message);
   }
   return NextResponse.redirect(new URL(`/auth/login?error=link&next=${encodeURIComponent(next)}`, url.origin));

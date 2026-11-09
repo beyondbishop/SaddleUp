@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
+import { claimPendingListing, claimedEditUrl } from '@/lib/pending-claim';
 import { redirect } from 'next/navigation';
 import ConnectPayoutsButton from '@/components/ConnectPayoutsButton';
 import DeleteListingButton from '@/components/DeleteListingButton';
@@ -14,6 +15,8 @@ export default async function DashboardPage() {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?next=/dashboard');
+  const claimedId = await claimPendingListing(user);
+  if (claimedId) redirect(claimedEditUrl(claimedId));
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
   // Started payout setup but not marked ready yet (e.g. just back from Stripe): ask Stripe.
