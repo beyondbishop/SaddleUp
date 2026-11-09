@@ -6,6 +6,7 @@ import DeleteListingButton from '@/components/DeleteListingButton';
 import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
 import { avatarUrlFor } from '@/lib/avatar';
 import { SELLER_FEE_CAP_DOLLARS, SELLER_KEEPS_PERCENT } from '@/lib/fees';
+import { orderStage, publicSaleLabel } from '@/lib/order-rules';
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -25,6 +26,22 @@ export default async function DashboardPage() {
     .select('*, brands(name)')
     .eq('seller_id', user.id)
     .order('created_at', { ascending: false });
+
+  // Sold saddles read "On Trial" until the sale is final, then "Sold" (same as shoppers see).
+  const soldIds = (listings ?? []).filter((l) => l.status === 'sold').map((l) => l.id);
+  const { data: sales } = soldIds.length
+    ? await supabase
+        .from('orders')
+        .select('id, listing_id, status, payout_status, shipped_at, delivered_at, release_at, kept_at, confirmed_at, issue_type, review_status, created_at')
+        .in('listing_id', soldIds)
+        .order('created_at', { ascending: true })
+    : { data: [] as any[] };
+  const saleByListing = new Map<string, any>();
+  for (const o of sales ?? []) saleByListing.set(o.listing_id, o); // latest wins
+  const statusText = (l: { id: string; status: string }) => {
+    const o = saleByListing.get(l.id);
+    return (o && publicSaleLabel(orderStage(o))) ?? l.status.replace('_', ' ');
+  };
 
   // Views in the last 30 days per listing (row-level security limits this to the seller's own).
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -77,7 +94,12 @@ export default async function DashboardPage() {
                 {l.seat_size}&quot; {l.brands?.name} {l.model}
               </p>
               <p className="text-sm text-gray-500">
-                {l.status} · ${(l.price_cents / 100).toLocaleString()}
+                {saleByListing.has(l.id) ? (
+                  <Link href={`/sales/${saleByListing.get(l.id).id}`} className="underline">{statusText(l)}</Link>
+                ) : (
+                  statusText(l)
+                )}{' '}
+                · ${(l.price_cents / 100).toLocaleString()}
               </p>
               {l.status === 'active' && (
                 <p className="text-sm text-saddle-green">

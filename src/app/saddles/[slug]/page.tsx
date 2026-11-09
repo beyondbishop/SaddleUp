@@ -1,4 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import OrderProgress from '@/components/orders/OrderProgress';
+import { orderStage, publicSaleLabel } from '@/lib/order-rules';
 import FairPriceRange from '@/components/FairPriceRange';
 import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
@@ -51,8 +53,35 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
   // Owners and admins can open listings that aren't public yet; tell them so.
   const { user, isAdmin } = await getViewer();
+  // The sale behind a sold saddle (orders are private, so read with the service key and only
+  // show the buyer/seller the details).
+  const order =
+    listing.status === 'sold'
+      ? (
+          await createAdminClient()
+            .from('orders')
+            .select('id, buyer_id, seller_id, status, payout_status, shipped_at, delivered_at, release_at, kept_at, confirmed_at, issue_type, review_status, dispatch_due_at, created_at')
+            .eq('listing_id', listing.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        ).data
+      : null;
+  // Shoppers see "On Trial" while the sale is in progress, then "Sold".
+  const saleLabel = order ? publicSaleLabel(orderStage(order)) : null;
+  const orderRole: 'buyer' | 'seller' | 'admin' | null = !order || !user
+    ? null
+    : user.id === order.buyer_id
+      ? 'buyer'
+      : user.id === order.seller_id
+        ? 'seller'
+        : isAdmin
+          ? 'admin'
+          : null;
+
   // A saddle mid-checkout (pending_sale) is still public; it just can't be bought by others.
-  const notPublic = !isForSale(listing) && listing.status !== 'pending_sale';
+  // A sold saddle stays public too, marked On Trial / Sold.
+  const notPublic = !isForSale(listing) && listing.status !== 'pending_sale' && !saleLabel;
   // Unclaimed but shown: the seller hasn't joined yet, so shoppers message SaddleUp instead.
   const awaitingSeller = listing.status === 'unclaimed' && !notPublic;
   const canEdit = !!user && (listing.seller_id === user.id || notPublic || isAdmin);
@@ -130,6 +159,15 @@ export default async function ListingPage({ params }: { params: { slug: string }
       </div>
 
       <div>
+        {saleLabel && (
+          <span
+            className={`inline-block mb-2 px-3 py-1 rounded-full text-sm font-semibold ${
+              saleLabel === 'On Trial' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-saddle-brown text-white'
+            }`}
+          >
+            {saleLabel}
+          </span>
+        )}
         <h1 className="text-2xl font-bold text-saddle-brown">
           {listing.seat_size}&quot; {listing.brands?.name} {listing.model}
         </h1>
@@ -200,6 +238,30 @@ export default async function ListingPage({ params }: { params: { slug: string }
               Send us a message. We&apos;ll pass it to the seller and get back to you with their answer.
             </p>
             <InquiryBox listingId={listing.id} sellerId={null} buttonLabel="Message about this saddle" />
+          </div>
+        ) : saleLabel ? (
+          <div className="bg-white border border-saddle-line rounded-lg p-4 space-y-3">
+            {orderRole ? (
+              <>
+                <p className="font-semibold text-saddle-ink">
+                  {orderRole === 'buyer' ? 'Your purchase' : orderRole === 'seller' ? 'Your sale' : 'Sale progress'}
+                </p>
+                <OrderProgress order={order!} role={orderRole} />
+                <a
+                  href={orderRole === 'buyer' ? `/orders/${order!.id}` : `/sales/${order!.id}`}
+                  className="inline-block text-sm underline font-semibold text-saddle-brown"
+                >
+                  {orderRole === 'buyer' ? 'Go to your order' : 'Go to the sale'}
+                </a>
+              </>
+            ) : (
+              <p className="text-sm text-saddle-muted">
+                {saleLabel === 'On Trial'
+                  ? 'This saddle has sold and is with its buyer for a 5-day trial. If they send it back, it could be listed again.'
+                  : 'This saddle has sold.'}{' '}
+                <a href="/saddles" className="underline text-saddle-brown">Browse similar saddles</a>
+              </p>
+            )}
           </div>
         ) : (
           <>

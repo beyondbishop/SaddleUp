@@ -147,6 +147,11 @@ export async function POST(req: Request) {
       // charged to the platform's own Stripe balance and held. The seller is
       // paid out via a separate Transfer (see src/lib/payouts.ts) once the buyer
       // confirms receipt or the inspection window after delivery elapses.
+      custom_text: {
+        submit: {
+          message: `5-day trial from delivery. If you send it back, you pay return shipping (about $${(quote.amount_cents / 100).toFixed(2)}), unless the saddle isn't as described.`
+        }
+      },
       customer_email: user.email,
       expires_at: sessionExpiresAt,
       // Set by the server, so the webhook can trust these amounts.

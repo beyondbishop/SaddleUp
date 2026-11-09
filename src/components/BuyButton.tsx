@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ReturnShippingNote from '@/components/orders/ReturnShippingNote';
 
 type Quote = { quoteId: string; amountCents: number; service: string | null; days: number | null; zip: string };
 
@@ -150,6 +151,8 @@ export default function BuyButton({
         </dl>
       )}
 
+      {quote && <ReturnShippingNote shippingCents={quote.amountCents} className="mb-3" />}
+
       <button
         onClick={handleBuy}
         disabled={loading || !quote}
@@ -159,8 +162,9 @@ export default function BuyButton({
       </button>
       {error && <p role="alert" className="text-red-600 text-sm mt-2">{error}</p>}
       <p className="text-xs text-gray-500 mt-2">
-        Payment is processed by Stripe and held for a 5-day inspection window that starts when the saddle is
-        delivered. The seller isn&apos;t paid until you keep it or the window passes. If the delivery address at
+        Payment is processed by Stripe and held for a 5-day trial that starts when the carrier delivers the
+        saddle. The seller isn&apos;t paid until you keep it or the trial ends. If you send it back, you pay
+        return shipping unless it isn&apos;t as described. If the delivery address at
         checkout is in a different ZIP, SaddleUp covers any difference in shipping.
       </p>
     </div>

@@ -87,7 +87,7 @@ export const TIMELINE: { stage: Stage; label: string }[] = [
   { stage: 'paid', label: 'Paid' },
   { stage: 'awaiting_shipment', label: 'Awaiting shipment' },
   { stage: 'shipped', label: 'Shipped' },
-  { stage: 'inspection', label: 'Delivered: inspection open' },
+  { stage: 'inspection', label: 'Delivered: on trial' },
   { stage: 'kept', label: 'Kept' },
   { stage: 'completed', label: 'Completed' }
 ];
@@ -114,3 +114,34 @@ export const EVENT_LABELS: Record<string, string> = {
   refunded: 'Refunded',
   disputed: 'Card dispute opened'
 };
+
+/**
+ * The steps on the order progress bar, shown to the buyer and seller on the saddle page and the
+ * order page. The 5-day trial (inspection window) starts when the carrier confirms delivery.
+ */
+export const PROGRESS_STEPS = ['Paid', 'Shipped', 'Delivered', 'On trial', 'Complete'] as const;
+
+/** Which progress step is current (0-based); PROGRESS_STEPS.length when everything is done. */
+export function progressIndex(stage: Stage): number {
+  switch (stage) {
+    case 'paid':
+    case 'awaiting_shipment':
+      return 1; // paid; waiting to ship
+    case 'shipped':
+      return 2; // on its way
+    case 'inspection':
+      return 3; // delivered; trial running
+    case 'kept':
+      return 4; // trial over; payout on its way
+    case 'completed':
+      return PROGRESS_STEPS.length;
+    default:
+      return -1; // issue / refunded: no bar
+  }
+}
+
+/** What shoppers see on a saddle that has sold: "On Trial" until the sale is final, then "Sold". */
+export function publicSaleLabel(stage: Stage | null): 'On Trial' | 'Sold' | null {
+  if (!stage || stage === 'refunded') return null;
+  return stage === 'kept' || stage === 'completed' ? 'Sold' : 'On Trial';
+}

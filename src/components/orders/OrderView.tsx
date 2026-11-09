@@ -1,5 +1,7 @@
-import { EVENT_LABELS, ISSUE_REASONS, TIMELINE, formatDeadline, orderStage } from '@/lib/order-rules';
+import { EVENT_LABELS, ISSUE_REASONS, formatDeadline, orderStage } from '@/lib/order-rules';
 import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
+import OrderProgress from '@/components/orders/OrderProgress';
+import ReturnShippingNote from '@/components/orders/ReturnShippingNote';
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -9,7 +11,6 @@ export type OrderEvent = { id: number; type: string; actor: string; created_at: 
 export default function OrderView({ order, events, role }: { order: any; events: OrderEvent[]; role: 'buyer' | 'seller' | 'admin' }) {
   const snap = order.listing_snapshot ?? order.listings ?? {};
   const stage = orderStage(order);
-  const currentIndex = TIMELINE.findIndex((t) => t.stage === stage);
   const issueLabel = order.issue_type
     ? order.issue_reason === 'delivery_exception'
       ? 'The carrier reported a delivery problem'
@@ -53,19 +54,12 @@ export default function OrderView({ order, events, role }: { order: any; events:
           </p>
         </div>
       ) : (
-        <ol className="flex flex-wrap gap-x-2 gap-y-1 text-sm" aria-label="Order progress">
-          {TIMELINE.filter((t) => t.stage !== 'paid').map((t, i) => {
-            const idx = TIMELINE.findIndex((x) => x.stage === t.stage);
-            const done = idx < currentIndex;
-            const current = idx === currentIndex;
-            return (
-              <li key={t.stage} aria-current={current ? 'step' : undefined}
-                className={`px-2 py-1 rounded ${current ? 'bg-saddle-green text-white font-semibold' : done ? 'bg-saddle-cream text-saddle-brown' : 'bg-gray-100 text-gray-500'}`}>
-                {done ? '✓ ' : ''}{t.label}
-              </li>
-            );
-          })}
-        </ol>
+        <div className="space-y-3">
+          <OrderProgress order={order} role={role} />
+          {role === 'buyer' && stage !== 'completed' && stage !== 'kept' && (
+            <ReturnShippingNote shippingCents={order.shipping_cents} />
+          )}
+        </div>
       )}
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
