@@ -14,19 +14,17 @@ type Msg = { subject: string; lines: string[]; sms?: string; personal?: Personal
 type Ctx = { order: any; saddle: string; data: any; site: string; firstName?: string | null; transitDays?: number };
 
 /**
- * The personal style (like the welcome email): logo, a hello by first name, the sale timeline
- * with where they are, what each step means, a pro tip, and Danielle's signature. Sent from
- * Danielle's address so replies reach her. Order emails move to this one at a time.
+ * The personal style (like the welcome email) used for every buyer and seller order email:
+ * logo, a hello by first name, the sale timeline with where they are and what each step means,
+ * a pro tip where one helps, and Danielle's signature. Sent from her address so replies reach
+ * her. Admin alerts stay short and plain.
  */
 type Personal = {
-  /** What each part of the process means, in order, for under the timeline. */
-  steps: [string, string][];
-  /** Which timeline step they're on (0–4). */
-  current: number;
-  button: string;
-  tip: string;
+  /** Which timeline step they're on (0–4; 5 = all done). Leave out for emails without the timeline. */
+  current?: number;
+  button?: string;
+  tip?: string;
   closing: string;
-  footer: string;
 };
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -34,16 +32,46 @@ const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minim
 const link = (ctx: Ctx, role: Role) =>
   role === 'admin' ? `${ctx.site}/admin/orders` : role === 'seller' ? `${ctx.site}/sales/${ctx.order.id}` : `${ctx.site}/orders/${ctx.order.id}`;
 
+const BUYER_FOOTER = 'You’re getting this because you bought a saddle on SaddleUp. Questions? Just hit reply. It comes straight to me.';
+const SELLER_FOOTER = 'You’re getting this because you sold a saddle on SaddleUp. Questions? Just hit reply. It comes straight to me.';
+
+/** What each part of the sale means, in order, for under the timeline. Same five steps as the bar. */
+function stepNotes(c: Ctx, role: 'buyer' | 'seller'): [string, string][] {
+  const days = c.transitDays ?? 5;
+  const ret = c.order.shipping_cents ? ` (about ${usd(c.order.shipping_cents)})` : '';
+  return role === 'seller'
+    ? [
+        ['Sold', 'The buyer has paid. SaddleUp holds the money safely until the sale is final.'],
+        ['Ship it', `Pack the saddle and ship it by ${formatDeadline(c.order.dispatch_due_at)}. Your prepaid, insured shipping label is on your sale page: print it, tape it to the box and drop it off with the carrier.`],
+        ['Delivered', `The buyer signs for it, usually about ${days} days after you ship. I’ll email you when it arrives.`],
+        ['5-day trial', 'The buyer has 5 days from delivery to try the saddle on their horse.'],
+        ['You’re paid', `Once they keep it, or the 5 days end, I send ${usd(c.order.seller_payout_cents)} to your Stripe account. It usually reaches your bank within a few business days.`]
+      ]
+    : [
+        ['Ordered', 'You’ve paid, and SaddleUp holds your payment safely. The seller isn’t paid until the sale is final.'],
+        ['Shipped', `The seller ships by ${formatDeadline(c.order.dispatch_due_at)}. I’ll email you the tracking number as soon as it’s on its way.`],
+        ['Delivered', `Someone signs for it, usually about ${days} days after it ships. Your trial starts when the carrier confirms delivery.`],
+        ['5-day trial', `You have 5 days to try it on your horse. Keep it, or request a return. If you send it back, you pay return shipping${ret}, unless it isn’t as described.`],
+        ['It’s yours', 'Once you keep it, or the 5 days end, the sale is final and the seller is paid.']
+      ];
+}
+
 /** event type -> message per recipient role. Missing role = that person isn't told. */
 const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
   paid: {
     buyer: (c) => ({
-      subject: `Order confirmed: ${c.saddle}`,
+      subject: `🎉 Order confirmed: your ${c.saddle}`,
       lines: [
-        `Thanks for your order. You paid ${usd(c.order.sale_price_cents + (c.order.shipping_cents ?? 0))}${c.order.shipping_cents ? ` (including ${usd(c.order.shipping_cents)} shipping)` : ''}.`,
-        `The seller ships by ${formatDeadline(c.order.dispatch_due_at)}. Your payment is held until you've had 5 days to inspect the saddle after delivery.`
+        `Congratulations on your new saddle! Your order for the ${c.saddle} is confirmed. You paid ${usd(c.order.sale_price_cents + (c.order.shipping_cents ?? 0))}${c.order.shipping_cents ? `, including ${usd(c.order.shipping_cents)} for insured shipping` : ''}.`,
+        `The seller ships it by ${formatDeadline(c.order.dispatch_due_at)}. Here’s how the whole purchase works from here, and where you are now:`
       ],
-      sms: `SaddleUp: Order confirmed for ${c.saddle}. Seller ships by ${formatDeadline(c.order.dispatch_due_at)}. Track it:`
+      sms: `SaddleUp: Order confirmed for ${c.saddle}. Seller ships by ${formatDeadline(c.order.dispatch_due_at)}. Track it:`,
+      personal: {
+        current: 1,
+        button: 'View your order',
+        tip: 'Before it arrives, have a thin, plain pad ready and plan to check the fit on your horse’s bare back first, then ride. Take photos from the side and from behind. They make it easy to get a second opinion from your trainer or fitter during the trial.',
+        closing: 'Thank you for buying on SaddleUp. I hope it’s the one.'
+      }
     }),
     seller: (c) => ({
       subject: `🎉 Your ${c.saddle} sold!`,
@@ -54,78 +82,149 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
       sms: `SaddleUp: Your ${c.saddle} sold! Ship by ${formatDeadline(c.order.dispatch_due_at)}. Print your label:`,
       personal: {
         current: 1,
-        steps: [
-          ['Sold', 'The buyer has paid. SaddleUp holds the money safely until the sale is final.'],
-          ['Ship it (you are here)', `Pack the saddle and ship it by ${formatDeadline(c.order.dispatch_due_at)}. Your prepaid, insured shipping label is on your sale page: print it, tape it to the box and drop it off with the carrier.`],
-          ['Delivered', `The buyer signs for it, usually about ${c.transitDays ?? 5} days after you ship. I’ll email you when it arrives.`],
-          ['5-day trial', 'The buyer has 5 days from delivery to try the saddle on their horse.'],
-          ['You’re paid', `Once they keep it, or the 5 days end, I send ${usd(c.order.seller_payout_cents)} to your Stripe account. It usually reaches your bank within a few business days.`]
-        ],
         button: 'Print your shipping label',
         tip: 'Stuff the gullet with a towel, wrap the saddle in a clean blanket or bag, and pad every side of the box. Take a few photos of it packed before you seal it. If anything happens in transit, those photos make the insurance claim quick.',
-        closing: 'Thank you for selling on SaddleUp. I hope it’s the perfect fit for its new horse.',
-        footer: 'You’re getting this because you sold a saddle on SaddleUp. Questions? Just hit reply. It comes straight to me.'
+        closing: 'Thank you for selling on SaddleUp. I hope it’s the perfect fit for its new horse.'
       }
     })
   },
+  dispatch_reminder: {
+    seller: (c) => ({
+      subject: `Reminder: please ship your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}`,
+      lines: [
+        `Just a friendly reminder that your ${c.saddle} needs to ship by ${formatDeadline(c.order.dispatch_due_at)}. The buyer is excited to try it!`,
+        'Your prepaid, insured label is waiting on your sale page. Here’s where the sale is now:'
+      ],
+      sms: `SaddleUp: Reminder to ship your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}. Label:`,
+      personal: {
+        current: 1,
+        button: 'Print your shipping label',
+        tip: 'If you’re reusing a box, cover or remove every old label and barcode, and tape the new label flat on the largest side. That way the carrier scans the right one.',
+        closing: 'Thanks for getting it out the door.'
+      }
+    })
+  },
+  dispatch_overdue: {
+    seller: (c) => ({
+      subject: `Your ${c.saddle} is overdue to ship`,
+      lines: [
+        `Your ${c.saddle} was due to ship by ${formatDeadline(c.order.dispatch_due_at)}, and I haven’t seen it with the carrier yet.`,
+        'Please ship it today, or reply and let me know what’s going on. If a sale doesn’t ship, I may need to cancel it and refund the buyer.'
+      ],
+      sms: `SaddleUp: Your ${c.saddle} is overdue to ship. Please ship today or contact us.`,
+      personal: { current: 1, button: 'Print your shipping label', closing: 'If something’s come up, just reply. I’m happy to help.' }
+    }),
+    admin: (c) => ({ subject: `Overdue to ship: ${c.saddle}`, lines: [`Was due ${formatDeadline(c.order.dispatch_due_at)}.`] })
+  },
   shipped: {
     buyer: (c) => ({
-      subject: `Your saddle is on its way`,
+      subject: `Your ${c.saddle} has shipped!`,
       lines: [
-        `The carrier has your ${c.saddle}.${c.order.tracking_number ? ` Tracking: ${(c.order.carrier ?? '').toUpperCase()} ${c.order.tracking_number}.` : ''}`,
-        `Someone will need to sign for it. Your 5-day inspection starts when it's delivered.`
+        `Good news: your ${c.saddle} is with the carrier.${c.order.tracking_number ? ` Tracking: ${(c.order.carrier ?? '').toUpperCase()} ${c.order.tracking_number}.` : ''}`,
+        'Someone will need to sign for it. Your 5-day trial starts when the carrier confirms delivery. Here’s where you are now:'
       ],
-      sms: `SaddleUp: Your ${c.saddle} has shipped${c.order.tracking_number ? ` (${(c.order.carrier ?? '').toUpperCase()} ${c.order.tracking_number})` : ''}. Details:`
+      sms: `SaddleUp: Your ${c.saddle} has shipped${c.order.tracking_number ? ` (${(c.order.carrier ?? '').toUpperCase()} ${c.order.tracking_number})` : ''}. Details:`,
+      personal: {
+        current: 2,
+        button: 'Track your saddle',
+        tip: 'If you won’t be home to sign, use the carrier’s app to hold the package at a nearby location or pick a different day. A saddle sitting at the depot is much better than one sent back.',
+        closing: 'Almost there!'
+      }
     })
   },
   delivered: {
     buyer: (c) => ({
-      subject: `Delivered: your 5-day inspection has started`,
+      subject: `Your ${c.saddle} has arrived: your 5-day trial starts now`,
       lines: [
-        `Your ${c.saddle} was delivered. You have until ${formatDeadline(c.order.release_at)} to inspect it.`,
-        `Happy with it? Choose "Keep this saddle". If something's wrong, request a return or report a problem before then. If you do nothing, the seller is paid when the inspection ends.`
+        `Your ${c.saddle} was delivered. Your 5-day trial runs until ${formatDeadline(c.order.release_at)}.`,
+        'Happy with it? Tap “Keep this saddle” on your order. If it doesn’t fit, request a return before the trial ends. If you do nothing, the sale becomes final when the trial ends. Here’s where you are now:'
       ],
-      sms: `SaddleUp: Your ${c.saddle} was delivered. Inspect it by ${formatDeadline(c.order.release_at)}. Keep, return or report a problem:`
+      sms: `SaddleUp: Your ${c.saddle} was delivered. Your 5-day trial ends ${formatDeadline(c.order.release_at)}. Keep, return or report a problem:`,
+      personal: {
+        current: 3,
+        button: 'Keep it or request a return',
+        tip: 'Check the fit before you ride: saddle on a bare back, girth loose. Look for even contact along the panels and two to three fingers of clearance at the withers. Keep all the packaging until you’re sure. You’ll need it if you send the saddle back.',
+        closing: 'Enjoy trying it. I hope it’s a perfect fit.'
+      }
     }),
     seller: (c) => ({
-      subject: `Delivered to the buyer`,
-      lines: [`Your ${c.saddle} was delivered. The buyer has until ${formatDeadline(c.order.release_at)} to inspect it, then your payout is sent.`],
-      sms: `SaddleUp: Your ${c.saddle} was delivered. Buyer inspection ends ${formatDeadline(c.order.release_at)}.`
+      subject: `Your ${c.saddle} was delivered`,
+      lines: [
+        `Your ${c.saddle} has arrived safely. The buyer now has 5 days to try it, until ${formatDeadline(c.order.release_at)}.`,
+        `When they keep it, or the trial ends, I’ll send your ${usd(c.order.seller_payout_cents)}. Here’s where the sale is now:`
+      ],
+      sms: `SaddleUp: Your ${c.saddle} was delivered. The buyer's trial ends ${formatDeadline(c.order.release_at)}.`,
+      personal: {
+        current: 3,
+        button: 'View your sale',
+        tip: 'Now is a good time to check that the bank account on your Stripe payout account is right, so nothing holds up your payout.',
+        closing: 'Nearly done. Thank you for your patience.'
+      }
     })
   },
   inspection_reminder_2d: {
     buyer: (c) => ({
-      subject: `About 2 days left to inspect your saddle`,
-      lines: [`Your inspection window for the ${c.saddle} ends ${formatDeadline(c.order.release_at)}. Keep it, or tell us if something's wrong before then.`],
-      sms: `SaddleUp: About 2 days left to inspect your ${c.saddle} (ends ${formatDeadline(c.order.release_at)}).`
+      subject: `About 2 days left in your saddle trial`,
+      lines: [`Just a heads-up: your trial of the ${c.saddle} ends ${formatDeadline(c.order.release_at)}. If you love it, tap “Keep this saddle”. If it isn’t right, request a return before then.`],
+      sms: `SaddleUp: About 2 days left in your trial of the ${c.saddle} (ends ${formatDeadline(c.order.release_at)}).`,
+      personal: {
+        current: 3,
+        button: 'Keep it or request a return',
+        tip: 'Not sure yet? Ride in it on two different days, and ask your trainer or saddle fitter to take a look. A saddle can feel different on a horse that’s fresh compared with one that’s been worked.',
+        closing: 'Take your time. You still have a couple of days.'
+      }
     })
   },
   inspection_reminder_1d: {
     buyer: (c) => ({
-      subject: `Last day to inspect your saddle`,
-      lines: [`Your inspection window for the ${c.saddle} ends ${formatDeadline(c.order.release_at)}. After that the seller is paid and returns aren't available through SaddleUp.`],
-      sms: `SaddleUp: Last day to inspect your ${c.saddle}. Ends ${formatDeadline(c.order.release_at)}.`
+      subject: `Last day of your saddle trial`,
+      lines: [`Today is the last day of your trial of the ${c.saddle}. It ends ${formatDeadline(c.order.release_at)}. After that the sale is final and returns aren’t available through SaddleUp.`],
+      sms: `SaddleUp: Last day of your trial of the ${c.saddle}. Ends ${formatDeadline(c.order.release_at)}.`,
+      personal: {
+        current: 3,
+        button: 'Keep it or request a return',
+        tip: 'Love it? Tapping “Keep this saddle” lets the seller get paid today instead of waiting for the trial to run out. They’ll really appreciate it.',
+        closing: 'Whatever you decide, I’m glad you tried it.'
+      }
     })
   },
   kept: {
     seller: (c) => ({
-      subject: `The buyer is keeping your saddle`,
-      lines: [`Good news: the buyer kept your ${c.saddle}. Your payout of ${usd(c.order.seller_payout_cents)} is on its way.`],
-      sms: `SaddleUp: The buyer kept your ${c.saddle}. Your ${usd(c.order.seller_payout_cents)} payout is on its way.`
+      subject: `🎉 The buyer is keeping your ${c.saddle}`,
+      lines: [`Great news: the buyer loves your ${c.saddle} and is keeping it. Your payout of ${usd(c.order.seller_payout_cents)} is on its way.`],
+      sms: `SaddleUp: The buyer kept your ${c.saddle}. Your ${usd(c.order.seller_payout_cents)} payout is on its way.`,
+      personal: {
+        current: 4,
+        button: 'View your sale',
+        tip: 'Have another saddle sitting in the tack room? Listing it takes about five minutes, and buyers on SaddleUp are looking for the right fit.',
+        closing: 'Congratulations on a great sale.'
+      }
     })
   },
   inspection_expired: {
     buyer: (c) => ({
-      subject: `Your inspection window has ended`,
-      lines: [`The 5-day inspection for your ${c.saddle} has ended and the seller is being paid. Enjoy the saddle!`]
+      subject: `Your ${c.saddle} is officially yours`,
+      lines: [`Your 5-day trial has ended, so the ${c.saddle} is officially yours and the seller is being paid. Enjoy it!`],
+      personal: {
+        current: 5,
+        button: 'View your order',
+        tip: 'Give it a gentle clean and condition before your first big ride. Have the flocking checked after a few weeks, once it has settled to your horse.',
+        closing: 'Thank you for buying on SaddleUp. Happy riding with your new saddle!'
+      }
     })
     // The seller hears from "payout_sent" a moment later.
   },
   payout_sent: {
     seller: (c) => ({
-      subject: `Payout sent: ${usd(c.order.seller_payout_cents)}`,
-      lines: [`We've sent ${usd(c.order.seller_payout_cents)} for your ${c.saddle} to your Stripe account. It usually reaches your bank within a few business days.`],
-      sms: `SaddleUp: ${usd(c.order.seller_payout_cents)} for your ${c.saddle} has been sent to your Stripe account.`
+      subject: `💸 Your ${usd(c.order.seller_payout_cents)} payout is on its way`,
+      lines: [`I’ve sent ${usd(c.order.seller_payout_cents)} for your ${c.saddle} to your Stripe account. It usually reaches your bank within a few business days. That’s the sale complete!`],
+      sms: `SaddleUp: ${usd(c.order.seller_payout_cents)} for your ${c.saddle} has been sent to your Stripe account.`,
+      personal: {
+        current: 5,
+        button: 'View your sale',
+        tip: 'Know a rider with a saddle that doesn’t fit? Send them SaddleUp. Every saddle that finds the right horse makes the whole community better.',
+        closing: 'Thank you for selling with SaddleUp.'
+      }
     })
   },
   payout_failed: {
@@ -133,65 +232,86 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
   },
   return_requested: {
     buyer: (c) => ({
-      subject: `We received your return request`,
-      lines: [`Thanks for telling us about your ${c.saddle}. The seller's payout is paused and SaddleUp will contact you about next steps, usually within one business day.`]
+      subject: `I’ve got your return request`,
+      lines: [
+        `Thanks for letting me know about your ${c.saddle}. I’m sorry it wasn’t the right one.`,
+        `The seller’s payout is paused, and I’ll be in touch about next steps, usually within one business day. You pay return shipping${c.order.shipping_cents ? ` (about ${usd(c.order.shipping_cents)})` : ''}, unless the saddle isn’t as described.`
+      ],
+      personal: {
+        button: 'View your order',
+        tip: 'Keep the saddle clean and dry, and pack it the way it arrived. Take a few photos before you seal the box.',
+        closing: 'We’ll find you the right one.'
+      }
     }),
     seller: (c) => ({
-      subject: `The buyer requested a return`,
-      lines: [`The buyer of your ${c.saddle} has requested a return. Your payout is paused while SaddleUp reviews it, and we'll contact you.`],
-      sms: `SaddleUp: The buyer of your ${c.saddle} requested a return. Payout paused while we review.`
+      subject: `The buyer asked to return your ${c.saddle}`,
+      lines: [
+        `The buyer of your ${c.saddle} has asked to return it. Your payout is paused while I review it, and I’ll be in touch, usually within one business day.`,
+        'This happens sometimes. Fit is personal, and it doesn’t mean anything is wrong with your saddle.'
+      ],
+      sms: `SaddleUp: The buyer of your ${c.saddle} requested a return. Payout paused while we review.`,
+      personal: { button: 'View your sale', closing: 'I’ll keep you posted.' }
     }),
     admin: (c) => ({ subject: `Return requested: ${c.saddle}`, lines: [`Reason: ${c.data?.reason ?? ''}. Review it in Orders to review.`] })
   },
   problem_reported: {
     buyer: (c) => ({
-      subject: `We received your report`,
-      lines: [`Thanks for telling us about the problem with your ${c.saddle}. The seller's payout is paused and SaddleUp will contact you, usually within one business day.`]
+      subject: `I’ve got your report`,
+      lines: [`Thanks for telling me about the problem with your ${c.saddle}. The seller’s payout is paused, and I’ll be in touch, usually within one business day.`],
+      personal: {
+        button: 'View your order',
+        tip: 'If anything is damaged, take clear photos of the saddle and the box before you move anything. They help a lot with the carrier’s insurance.',
+        closing: 'I’m sorry about this. We’ll sort it out.'
+      }
     }),
     seller: (c) => ({
-      subject: `The buyer reported a problem`,
-      lines: [`The buyer of your ${c.saddle} reported a problem. Your payout is paused while SaddleUp reviews it, and we'll contact you.`],
-      sms: `SaddleUp: The buyer of your ${c.saddle} reported a problem. Payout paused while we review.`
+      subject: `The buyer reported a problem with your ${c.saddle}`,
+      lines: [`The buyer of your ${c.saddle} reported a problem. Your payout is paused while I look into it, and I’ll be in touch, usually within one business day.`],
+      sms: `SaddleUp: The buyer of your ${c.saddle} reported a problem. Payout paused while we review.`,
+      personal: { button: 'View your sale', closing: 'I’ll keep you posted.' }
     }),
     admin: (c) => ({ subject: `Problem reported: ${c.saddle}`, lines: [`Reason: ${c.data?.reason ?? ''}. Review it in Orders to review.`] })
   },
   delivery_problem: {
     buyer: (c) => ({
-      subject: `A delivery problem with your saddle`,
-      lines: [`The carrier reported a problem delivering your ${c.saddle}. SaddleUp is looking into it and will be in touch. Your payment stays protected.`],
-      sms: `SaddleUp: The carrier reported a delivery problem with your ${c.saddle}. We're on it.`
+      subject: `A delivery problem with your ${c.saddle}`,
+      lines: [`The carrier reported a problem delivering your ${c.saddle}. I’m looking into it and will be in touch. Your payment stays protected the whole time.`],
+      sms: `SaddleUp: The carrier reported a delivery problem with your ${c.saddle}. We're on it.`,
+      personal: { current: 2, button: 'View your order', closing: 'Sorry for the hiccup. I’m on it.' }
     }),
     seller: (c) => ({
-      subject: `A delivery problem with your sale`,
-      lines: [`The carrier reported a problem delivering your ${c.saddle}. SaddleUp is looking into it; your payout is paused meanwhile.`]
+      subject: `A delivery problem with your ${c.saddle}`,
+      lines: [`The carrier reported a problem delivering your ${c.saddle}. I’m looking into it. Your payout is paused for now.`],
+      personal: { current: 2, button: 'View your sale', closing: 'I’ll keep you posted.' }
     }),
     admin: (c) => ({ subject: `Delivery problem: ${c.saddle}`, lines: [`Carrier status: ${c.data?.status ?? ''}. Review it in Orders to review.`] })
   },
   review_resolved: {
-    buyer: (c) => ({ subject: `Update on your order`, lines: [`SaddleUp has finished reviewing your order for the ${c.saddle}. See the order page for details.`] }),
-    seller: (c) => ({ subject: `Update on your sale`, lines: [`SaddleUp has finished reviewing the sale of your ${c.saddle}. Your payout follows the normal schedule again.`] })
-  },
-  dispatch_reminder: {
-    seller: (c) => ({
-      subject: `Reminder: ship by ${formatDeadline(c.order.dispatch_due_at)}`,
-      lines: [`Please ship the ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}. Your prepaid label is on the sale page.`],
-      sms: `SaddleUp: Reminder to ship your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}. Label:`
-    })
-  },
-  dispatch_overdue: {
-    seller: (c) => ({
-      subject: `Your sale is overdue to ship`,
-      lines: [`The ${c.saddle} was due to ship by ${formatDeadline(c.order.dispatch_due_at)}. Please ship it today or contact SaddleUp. Orders that don't ship may be cancelled and refunded.`],
-      sms: `SaddleUp: Your ${c.saddle} is overdue to ship. Please ship today or contact us.`
+    buyer: (c) => ({
+      subject: `An update on your ${c.saddle}`,
+      lines: [`I’ve finished reviewing your order for the ${c.saddle}. You’ll find the details on your order page.`],
+      personal: { button: 'View your order', closing: 'Thank you for your patience.' }
     }),
-    admin: (c) => ({ subject: `Overdue to ship: ${c.saddle}`, lines: [`Was due ${formatDeadline(c.order.dispatch_due_at)}.`] })
+    seller: (c) => ({
+      subject: `An update on your ${c.saddle}`,
+      lines: [`I’ve finished reviewing the sale of your ${c.saddle}. Your payout follows the normal schedule again.`],
+      personal: { button: 'View your sale', closing: 'Thank you for your patience.' }
+    })
   },
   refunded: {
     buyer: (c) => ({
       subject: `Your refund is on its way`,
-      lines: [`We've refunded your order for the ${c.saddle}. It usually appears on your card within 5–10 business days.`]
+      lines: [`I’ve refunded your order for the ${c.saddle}. It usually shows up on your card within 5 to 10 business days.`],
+      personal: {
+        tip: 'Save a search with your seat size and tree width, and I’ll email you the moment a saddle that fits is listed.',
+        closing: 'I hope we find you the right one soon.'
+      }
     }),
-    seller: (c) => ({ subject: `Order refunded`, lines: [`The order for your ${c.saddle} has been refunded to the buyer.`] })
+    seller: (c) => ({
+      subject: `The order for your ${c.saddle} was refunded`,
+      lines: [`The order for your ${c.saddle} has been refunded to the buyer. If the saddle is coming back to you, I’ll help you get it listed again.`],
+      personal: { button: 'View your sale', closing: 'Just reply if you have any questions.' }
+    })
   }
 };
 
@@ -214,16 +334,20 @@ function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const hi = ctx.firstName ? `Hi ${ctx.firstName},` : 'Hi there,';
   const tRole = role === 'seller' ? 'seller' : 'buyer';
+  const footer = role === 'seller' ? SELLER_FOOTER : BUYER_FOOTER;
+  const hasTimeline = pers.current !== undefined;
+  const cur = pers.current ?? -1;
+  const notes = hasTimeline ? stepNotes(ctx, tRole) : [];
   const p = (t: string, margin = '0 0 14px') => `<p style="font-size:15px;line-height:1.5;margin:${margin}">${t}</p>`;
-  const steps = pers.steps
+  const steps = notes
     .map(([title, body], i) => {
-      const here = i === pers.current;
+      const here = i === cur;
       return `<tr>
       <td style="vertical-align:top;padding:0 10px 10px 0;width:26px"><div style="width:22px;height:22px;line-height:22px;border-radius:11px;text-align:center;font-size:12px;font-weight:bold;font-family:Georgia,serif;${
-        i < pers.current ? 'background:#2f4a3a;color:#fff' : here ? 'background:#b8742a;color:#fff' : 'background:#f1e9dd;color:#8a7b6b'
-      }">${i < pers.current ? '✓' : i + 1}</div></td>
+        i < cur ? 'background:#2f4a3a;color:#fff' : here ? 'background:#b8742a;color:#fff' : 'background:#f1e9dd;color:#8a7b6b'
+      }">${i < cur ? '✓' : i + 1}</div></td>
       <td style="vertical-align:top;padding:0 0 10px;font-family:Georgia,serif;font-size:14px;line-height:1.5;color:#2b2118">
-        <strong style="color:${here ? '#b8742a' : '#2b2118'}">${esc(title)}</strong><br>${esc(body)}
+        <strong style="color:${here ? '#b8742a' : '#2b2118'}">${esc(title)}${here ? ' (you are here)' : ''}</strong><br>${esc(body)}
       </td>
     </tr>`;
     })
@@ -232,27 +356,31 @@ function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
   ${emailLogo()}
   ${p(esc(hi))}
   ${msg.lines.map((l) => p(esc(l))).join('\n  ')}
-  ${timelineHtml(ctx.order, tRole, { transitDays: ctx.transitDays, current: pers.current })}
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 8px;width:100%">${steps}</table>
-  <p style="margin:8px 0 24px"><a href="${url}" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">${esc(pers.button)}</a></p>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 20px;width:100%"><tr>
+  ${hasTimeline ? timelineHtml(ctx.order, tRole, { transitDays: ctx.transitDays, current: cur }) : ''}
+  ${steps ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 8px;width:100%">${steps}</table>` : ''}
+  <p style="margin:8px 0 24px"><a href="${url}" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">${esc(pers.button ?? (role === 'seller' ? 'View your sale' : 'View your order'))}</a></p>
+  ${pers.tip ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 20px;width:100%"><tr>
     <td style="background:#f6f0e6;border-left:3px solid #2f4a3a;padding:12px 14px;font-family:Georgia,serif;font-size:14px;line-height:1.5;color:#2b2118"><strong style="color:#2f4a3a">Pro tip:</strong> ${esc(pers.tip)}</td>
-  </tr></table>
+  </tr></table>` : ''}
   ${p(esc(pers.closing))}
   ${p('Happy riding,', '0 0 16px')}
   ${emailSignature()}
-  <p style="font-size:12px;color:#7a6a5a;margin:24px 0 0">${esc(pers.footer)}</p>
+  <p style="font-size:12px;color:#7a6a5a;margin:24px 0 0">${esc(footer)}</p>
 </div>`;
   const text = [
     hi,
     ...msg.lines,
-    timelineText(ctx.order, tRole, { transitDays: ctx.transitDays, current: pers.current }),
-    pers.steps.map(([t, b], i) => `${i + 1}. ${t}: ${b}`).join('\n'),
-    `${pers.button}: ${url}`,
-    `Pro tip: ${pers.tip}`,
+    ...(hasTimeline
+      ? [
+          timelineText(ctx.order, tRole, { transitDays: ctx.transitDays, current: cur }),
+          notes.map(([t, b], i) => `${i + 1}. ${t}${i === cur ? ' (you are here)' : ''}: ${b}`).join('\n')
+        ]
+      : []),
+    `${pers.button ?? (role === 'seller' ? 'View your sale' : 'View your order')}: ${url}`,
+    ...(pers.tip ? [`Pro tip: ${pers.tip}`] : []),
     pers.closing,
     `Happy riding,\n\n${TEXT_SIGNATURE}`,
-    pers.footer
+    footer
   ].join('\n\n');
   return { html, text, from: WELCOME_FROM };
 }
@@ -263,16 +391,35 @@ function renderFor(msg: Msg, ctx: Ctx, role: Role, url: string): { html: string;
 }
 
 /** A made-up order sold today, for previews and test sends. */
-function sampleCtx(): Ctx {
+/** How far along the sample order is when each email goes out, so previews show real-looking dates. */
+const SAMPLE_STAGE: Record<string, number> = {
+  shipped: 2, delivery_problem: 2,
+  delivered: 3, inspection_reminder_2d: 3, inspection_reminder_1d: 3, return_requested: 3, problem_reported: 3, review_resolved: 3,
+  kept: 4, inspection_expired: 4, payout_sent: 5, refunded: 3
+};
+
+/** A made-up order at the right stage for `event` (sold 2 days before it ships, etc.), for previews and test sends. */
+function sampleCtx(event = 'paid'): Ctx {
   const day = 864e5;
+  const stage = SAMPLE_STAGE[event] ?? 1;
+  const now = Date.now();
+  // Work back from "now" so the email's own moment is today.
+  const delivered = stage >= 3 ? now - (event === 'inspection_reminder_2d' ? 3 : event === 'inspection_reminder_1d' ? 4 : stage >= 4 ? 5 : 0) * day : null;
+  const shipped = stage >= 2 ? (delivered ?? now) - (stage >= 3 ? 4 : 0) * day : null;
+  const created = (shipped ?? now) - (shipped ? 2 : 0) * day;
+  const iso = (t: number | null) => (t === null ? null : new Date(t).toISOString());
   const order = {
     id: 'sample',
-    created_at: new Date().toISOString(),
+    created_at: iso(created),
     sale_price_cents: 185000,
     shipping_cents: 9500,
     seller_payout_cents: 166500,
-    dispatch_due_at: new Date(Date.now() + 3 * day).toISOString(),
-    release_at: new Date(Date.now() + 9 * day).toISOString(),
+    dispatch_due_at: iso(created + 3 * day),
+    shipped_at: iso(shipped),
+    delivered_at: iso(delivered),
+    release_at: iso(delivered === null ? null : delivered + 5 * day),
+    kept_at: event === 'kept' ? iso(now) : null,
+    payout_status: stage >= 5 ? 'transferred' : 'held',
     tracking_number: '1Z999AA10123456784',
     carrier: 'ups'
   };
@@ -281,9 +428,9 @@ function sampleCtx(): Ctx {
 
 /** Every order email rendered with a sample order, for the /admin/emails review page. */
 export function previewOrderEmails() {
-  const ctx = sampleCtx();
   const out: { event: string; role: Role; subject: string; html: string; text: string; sms?: string; from?: string }[] = [];
   for (const [event, roles] of Object.entries(TEMPLATES)) {
+    const ctx = sampleCtx(event);
     for (const role of ['buyer', 'seller', 'admin'] as Role[]) {
       const t = roles[role];
       if (!t) continue;
@@ -370,7 +517,7 @@ export async function notifyOrderEvent(orderId: string, type: string, data?: Rec
 export function orderEmailForTest(type: string, role: Role, firstName: string | null) {
   const make = TEMPLATES[type]?.[role];
   if (!make) return null;
-  const ctx: Ctx = { ...sampleCtx(), firstName };
+  const ctx: Ctx = { ...sampleCtx(type), firstName };
   const msg = make(ctx);
   return { subject: msg.subject, ...renderFor(msg, ctx, role, link(ctx, role)) };
 }
