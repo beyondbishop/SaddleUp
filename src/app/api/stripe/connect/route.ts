@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getViewer } from '@/lib/roles';
-import { createSellerAccount, createOnboardingLink, isMissingAccount } from '@/lib/stripe-connect';
+import { createSellerAccount, createOnboardingLink, isMissingAccount, prefillSellerProfile } from '@/lib/stripe-connect';
 
 // Called from the seller dashboard: "Set up payouts" button.
 // Creates (or reuses) the seller's Stripe payout account and returns a Stripe-hosted
@@ -39,6 +39,11 @@ export async function POST() {
     }
 
     try {
+      // Older accounts were made without a website; fill it in so Stripe doesn't ask for one.
+      await prefillSellerProfile(accountId!, user.id).catch((e) => {
+        if (isMissingAccount(e)) throw e;
+        console.warn('Could not prefill seller profile', e);
+      });
       return NextResponse.json({ url: await createOnboardingLink(accountId!) });
     } catch (e) {
       if (!isMissingAccount(e)) throw e;

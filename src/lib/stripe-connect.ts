@@ -46,6 +46,22 @@ async function v2<T = any>(method: 'GET' | 'POST', path: string, body?: unknown)
   return json as T;
 }
 
+/**
+ * What Stripe shows as the seller's "website" and "product description". Sellers sell through
+ * SaddleUp, so we fill these in with their SaddleUp page instead of asking them for a website.
+ */
+function sellerProfile(userId: string) {
+  return {
+    business_url: `${SITE_URL}/sellers/${userId}`,
+    product_description: 'Sells used horse saddles to riders through the SaddleUp marketplace (saddleup.me).'
+  };
+}
+
+/** Fill in the seller's website/description on an existing account (made before we prefilled them). */
+export async function prefillSellerProfile(accountId: string, userId: string) {
+  await v2('POST', `/v2/core/accounts/${accountId}`, { defaults: { profile: sellerProfile(userId) } });
+}
+
 export async function createSellerAccount(opts: { email?: string | null; name?: string | null; userId: string }) {
   const account = await v2('POST', '/v2/core/accounts', {
     contact_email: opts.email ?? undefined,
@@ -55,7 +71,10 @@ export async function createSellerAccount(opts: { email?: string | null; name?: 
       recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } }
     },
     dashboard: 'express',
-    defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },
+    defaults: {
+      responsibilities: { fees_collector: 'application', losses_collector: 'application' },
+      profile: sellerProfile(opts.userId)
+    },
     metadata: { saddleup_user_id: opts.userId }
   });
   return account.id as string;
