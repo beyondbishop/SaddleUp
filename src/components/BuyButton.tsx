@@ -8,16 +8,24 @@ type Quote = { quoteId: string; amountCents: number; service: string | null; day
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const ZIP_KEY = 'saddleup:ship-zip';
 
-/** Shipping quote by ZIP, total, and Buy Now. Checkout charges exactly the quote shown. */
+/**
+ * Shipping or local pickup, total, and Buy Now. Shipping: quote by ZIP, and checkout charges
+ * exactly the quote shown. Pickup (only when the seller offers it): just the saddle price.
+ */
 export default function BuyButton({
   listingId,
   priceCents,
-  status
+  status,
+  pickupWhere = null
 }: {
   listingId: string;
   priceCents: number;
   status: string;
+  /** Where pickup is (city, state) when the seller offers it; null = shipping only. */
+  pickupWhere?: string | null;
 }) {
+  const [method, setMethod] = useState<'ship' | 'pickup'>('ship');
+  const pickup = method === 'pickup' && !!pickupWhere;
   const [zip, setZip] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -82,14 +90,14 @@ export default function BuyButton({
   }
 
   async function handleBuy() {
-    if (!quote) return;
+    if (!pickup && !quote) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId, quoteId: quote.quoteId })
+        body: JSON.stringify(pickup ? { listingId, fulfillment: 'pickup' } : { listingId, quoteId: quote!.quoteId, fulfillment: 'ship' })
       });
       const data = await res.json();
       if (res.status === 401) {
@@ -116,6 +124,29 @@ export default function BuyButton({
         </p>
       )}
 
+      {pickupWhere && (
+        <fieldset className="mb-3">
+          <legend className="block text-sm font-semibold mb-1">How do you want to get it?</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label className="flex items-start gap-2 text-sm bg-white border border-saddle-line rounded p-2.5 cursor-pointer">
+              <input type="radio" name="fulfillment" value="ship" checked={method === 'ship'} onChange={() => { setMethod('ship'); setError(null); }} className="mt-1" />
+              <span>
+                <span className="font-semibold block">Ship it to me</span>
+                <span className="text-xs text-gray-500">UPS or FedEx, insured, signature on delivery</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm bg-white border border-saddle-line rounded p-2.5 cursor-pointer">
+              <input type="radio" name="fulfillment" value="pickup" checked={method === 'pickup'} onChange={() => { setMethod('pickup'); setError(null); }} className="mt-1" />
+              <span>
+                <span className="font-semibold block">Local pickup</span>
+                <span className="text-xs text-gray-500">In {pickupWhere}. No shipping charge.</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+      )}
+
+      {!pickup && (
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -133,8 +164,23 @@ export default function BuyButton({
           {quoting ? 'Checking…' : 'Get shipping price'}
         </button>
       </form>
+      )}
 
-      {quote && (
+      {pickup && (
+        <dl className="text-sm grid grid-cols-[1fr_auto] gap-y-1 mb-3 bg-white border border-saddle-line rounded p-3">
+          <dt>Saddle</dt>
+          <dd className="text-right">{usd(priceCents)}</dd>
+          <dt>
+            Local pickup
+            <span className="block text-xs text-gray-500">In {pickupWhere}. The seller contacts you to arrange a time.</span>
+          </dt>
+          <dd className="text-right">{usd(0)}</dd>
+          <dt className="font-semibold border-t border-saddle-line pt-1">Total</dt>
+          <dd className="text-right font-semibold border-t border-saddle-line pt-1">{usd(priceCents)}</dd>
+        </dl>
+      )}
+
+      {!pickup && quote && (
         <dl className="text-sm grid grid-cols-[1fr_auto] gap-y-1 mb-3 bg-white border border-saddle-line rounded p-3">
           <dt>Saddle</dt>
           <dd className="text-right">{usd(priceCents)}</dd>
@@ -151,19 +197,29 @@ export default function BuyButton({
         </dl>
       )}
 
-      {quote && <ReturnShippingNote shippingCents={quote.amountCents} className="mb-3" />}
+      {pickup ? (
+        <ReturnShippingNote pickup className="mb-3" />
+      ) : (
+        quote && <ReturnShippingNote shippingCents={quote.amountCents} className="mb-3" />
+      )}
 
       <button
         onClick={handleBuy}
-        disabled={loading || !quote}
+        disabled={loading || (!pickup && !quote)}
         className="w-full bg-saddle-green text-white rounded-md py-3 font-semibold disabled:opacity-50"
       >
-        {loading ? 'Redirecting to checkout…' : quote ? `Buy Now — ${usd(priceCents + quote.amountCents)}` : 'Enter your ZIP to buy'}
+        {loading
+          ? 'Redirecting to checkout…'
+          : pickup
+            ? `Buy Now — ${usd(priceCents)}`
+            : quote
+              ? `Buy Now — ${usd(priceCents + quote.amountCents)}`
+              : 'Enter your ZIP to buy'}
       </button>
       {error && <p role="alert" className="text-red-600 text-sm mt-2">{error}</p>}
       <p className="text-xs text-gray-500 mt-2">
         Payment is processed by Stripe and held for a 5-day trial that starts when the carrier delivers the
-        saddle. The seller isn&apos;t paid until you keep it or the trial ends. If you send it back, you pay
+        saddle{pickupWhere ? ' (or when you pick it up)' : ''}. The seller isn&apos;t paid until you keep it or the trial ends. If you send it back, you pay
         return shipping unless it isn&apos;t as described. If the delivery address at
         checkout is in a different ZIP, SaddleUp covers any difference in shipping.
       </p>

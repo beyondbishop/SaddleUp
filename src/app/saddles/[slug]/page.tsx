@@ -70,7 +70,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
       ? (
           await createAdminClient()
             .from('orders')
-            .select('id, buyer_id, seller_id, status, payout_status, shipped_at, delivered_at, release_at, kept_at, confirmed_at, issue_type, review_status, dispatch_due_at, created_at')
+            // '*' so newer columns (e.g. fulfillment, after the pickup SQL) come through when they exist.
+            .select('*')
             .eq('listing_id', listing.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -221,6 +222,15 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dd>{listing.year_manufactured ?? <NotStated />}</dd>
           <dt className="text-gray-500">Location</dt>
           <dd>{[listing.location_city, listing.location_state].filter(Boolean).join(', ') || <NotStated />}</dd>
+          <dt className="text-gray-500">Delivery</dt>
+          <dd>
+            {listing.pickup_available
+              ? `Shipping (UPS or FedEx) or local pickup${listing.location_city ? ` near ${[listing.location_city, listing.location_state].filter(Boolean).join(', ')}` : ''}`
+              : 'Shipping (UPS or FedEx)'}
+            {listing.pickup_available && listing.pickup_note && (
+              <span className="block text-xs text-gray-500">{listing.pickup_note}</span>
+            )}
+          </dd>
           <dt className="text-gray-500">Trials</dt>
           <dd>{listing.trial_policy ? TRIAL_POLICY_LABELS[listing.trial_policy as keyof typeof TRIAL_POLICY_LABELS] : 'Ask the seller'}</dd>
         </dl>
@@ -292,7 +302,16 @@ export default async function ListingPage({ params }: { params: { slug: string }
           </div>
         ) : (
           <>
-            <BuyButton listingId={listing.id} priceCents={listing.price_cents} status={listing.status} />
+            <BuyButton
+              listingId={listing.id}
+              priceCents={listing.price_cents}
+              status={listing.status}
+              pickupWhere={
+                listing.pickup_available
+                  ? [listing.location_city, listing.location_state].filter(Boolean).join(', ') || 'the seller’s location'
+                  : null
+              }
+            />
             <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />
           </>
         )}

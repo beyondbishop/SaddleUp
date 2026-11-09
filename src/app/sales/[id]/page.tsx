@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import OrderView from '@/components/orders/OrderView';
-import { formatDeadline, orderStage } from '@/lib/order-rules';
+import { formatDeadline, isPickup, orderStage } from '@/lib/order-rules';
+import PickupHandover from '@/components/orders/PickupHandover';
 import TrackingForm from '@/components/orders/TrackingForm';
 import LabelForm from '@/components/orders/LabelForm';
 import { shippoConfigured } from '@/lib/shippo';
@@ -48,13 +49,32 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
   const shipment = shipments?.[0];
   const labelWaiting = shipment?.source === 'shippo_label' && !shipment.accepted_at;
   const canLabel = shippoConfigured() && !!(order.ship_to as any)?.street1;
+  const pickup = isPickup(order);
+  const buyerContact = pickup ? ((order.ship_to as { name?: string; phone?: string | null; email?: string | null } | null) ?? null) : null;
 
   return (
     <div className="py-8 max-w-2xl mx-auto space-y-6">
       <Link href="/sales" className="text-sm underline text-gray-600">← Your sales</Link>
       <OrderView order={order} events={events ?? []} role="seller" />
 
-      {stage === 'awaiting_shipment' && !shipment && (
+      {pickup && stage === 'awaiting_shipment' && (
+        <section className="bg-saddle-cream border border-saddle-tan rounded-lg p-5 text-sm space-y-3">
+          <h2 className="font-semibold">Local pickup: hand it over by {formatDeadline(order.dispatch_due_at)}</h2>
+          <p>The buyer chose to collect the saddle in person, so there&apos;s nothing to ship. Contact them to agree a time and place:</p>
+          <ul className="space-y-1">
+            {buyerContact?.name && <li><span className="text-gray-600">Name:</span> {buyerContact.name}</li>}
+            {buyerContact?.phone && <li><span className="text-gray-600">Phone:</span> <a className="underline" href={`tel:${buyerContact.phone}`}>{buyerContact.phone}</a></li>}
+            {buyerContact?.email && <li><span className="text-gray-600">Email:</span> <a className="underline" href={`mailto:${buyerContact.email}`}>{buyerContact.email}</a></li>}
+          </ul>
+          <p className="text-gray-700">
+            When the buyer has the saddle, tap the button below (or they can). Their 5-day trial starts then, and you&apos;re paid
+            when they keep it or the trial ends.
+          </p>
+          <PickupHandover orderId={order.id} role="seller" />
+        </section>
+      )}
+
+      {!pickup && stage === 'awaiting_shipment' && !shipment && (
         <section className="bg-saddle-cream border border-saddle-tan rounded-lg p-5 text-sm space-y-3">
           <h2 className="font-semibold">Pack and ship by {formatDeadline(order.dispatch_due_at)}</h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -68,7 +88,7 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
               <details>
                 <summary className="cursor-pointer underline">I&apos;d rather ship it myself</summary>
                 <p className="mt-2 text-gray-700">
-                  Use tracked shipping with signature required and insurance for the full sale price, then add the tracking
+                  Ship with UPS or FedEx (not USPS), signature required and insurance for the full sale price, then add the tracking
                   number. Your own shipping costs aren&apos;t reimbursed.
                 </p>
                 <div className="mt-2"><TrackingForm orderId={order.id} /></div>
@@ -76,7 +96,7 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
             </>
           ) : (
             <>
-              <p className="text-gray-700">Ship it with tracking, signature required and full insurance, then add the tracking number.</p>
+              <p className="text-gray-700">Ship it with UPS or FedEx (not USPS), signature required and insured for the full sale price, then add the tracking number.</p>
               <TrackingForm orderId={order.id} />
             </>
           )}

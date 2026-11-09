@@ -2,6 +2,11 @@
 
 export const BUSINESS_TZ = 'America/New_York'; // placeholder until the business-day calendar is decided
 export const DISPATCH_BUSINESS_DAYS = 3;
+/** Local pickup: business days the seller and buyer have to arrange the handover. */
+export const PICKUP_BUSINESS_DAYS = 7;
+
+/** Shipped (default, and every order before pickup existed) or local pickup. */
+export const isPickup = (o: { fulfillment?: string | null } | null | undefined) => o?.fulfillment === 'pickup';
 export const BUYER_TERMS_VERSION = '2026-11-07';
 
 /** Offset (ms) of a timezone from UTC at a given instant. */
@@ -96,6 +101,7 @@ export const EVENT_LABELS: Record<string, string> = {
   paid: 'Payment received',
   dispatch_overdue: 'Dispatch deadline passed',
   shipped: 'Handed to the carrier',
+  picked_up: 'Saddle handed over at pickup: 5-day trial started',
   delivered: 'Delivered: 5-day inspection started',
   kept: 'Buyer kept the saddle',
   inspection_expired: 'Inspection window ended',
@@ -120,6 +126,8 @@ export const EVENT_LABELS: Record<string, string> = {
  * order page. The 5-day trial (inspection window) starts when the carrier confirms delivery.
  */
 export const PROGRESS_STEPS = ['Paid', 'Shipped', 'Delivered', 'On trial', 'Complete'] as const;
+/** Same steps for a local-pickup order (it goes straight from step 1 to 3 at the handover). */
+export const PICKUP_PROGRESS_STEPS = ['Paid', 'Arrange pickup', 'Picked up', 'On trial', 'Complete'] as const;
 
 /** Which progress step is current (0-based); PROGRESS_STEPS.length when everything is done. */
 export function progressIndex(stage: Stage): number {

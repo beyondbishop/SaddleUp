@@ -1,4 +1,4 @@
-import { EVENT_LABELS, ISSUE_REASONS, formatDeadline, orderStage } from '@/lib/order-rules';
+import { EVENT_LABELS, ISSUE_REASONS, formatDeadline, isPickup, orderStage } from '@/lib/order-rules';
 import { TREE_WIDTH_LABELS, type TreeWidth } from '@/lib/types';
 import OrderProgress from '@/components/orders/OrderProgress';
 import ReturnShippingNote from '@/components/orders/ReturnShippingNote';
@@ -11,6 +11,7 @@ export type OrderEvent = { id: number; type: string; actor: string; created_at: 
 export default function OrderView({ order, events, role }: { order: any; events: OrderEvent[]; role: 'buyer' | 'seller' | 'admin' }) {
   const snap = order.listing_snapshot ?? order.listings ?? {};
   const stage = orderStage(order);
+  const pickup = isPickup(order);
   const issueLabel = order.issue_type
     ? order.issue_reason === 'delivery_exception'
       ? 'The carrier reported a delivery problem'
@@ -32,7 +33,9 @@ export default function OrderView({ order, events, role }: { order: any; events:
             {snap.tree_width ? `${TREE_WIDTH_LABELS[snap.tree_width as TreeWidth]} tree · ` : ''}
             {role === 'seller'
               ? `Sale price ${usd(order.sale_price_cents)} · your payout ${usd(order.seller_payout_cents)}`
-              : order.shipping_cents
+              : pickup
+                ? `${usd(order.sale_price_cents)} · local pickup`
+                : order.shipping_cents
                 ? `${usd(order.sale_price_cents)} + ${usd(order.shipping_cents)} shipping = ${usd(order.sale_price_cents + order.shipping_cents)}`
                 : usd(order.sale_price_cents)}
           </p>
@@ -57,7 +60,7 @@ export default function OrderView({ order, events, role }: { order: any; events:
         <div className="space-y-3">
           <OrderProgress order={order} role={role} />
           {role === 'buyer' && stage !== 'completed' && stage !== 'kept' && (
-            <ReturnShippingNote shippingCents={order.shipping_cents} />
+            <ReturnShippingNote shippingCents={order.shipping_cents} pickup={pickup} />
           )}
         </div>
       )}
@@ -65,7 +68,7 @@ export default function OrderView({ order, events, role }: { order: any; events:
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
         {order.dispatch_due_at && !order.delivered_at && stage !== 'refunded' && (
           <>
-            <dt className="text-gray-500">{role === 'seller' ? 'Ship by' : 'Seller ships by'}</dt>
+            <dt className="text-gray-500">{pickup ? 'Hand over by' : role === 'seller' ? 'Ship by' : 'Seller ships by'}</dt>
             <dd className={new Date(order.dispatch_due_at) < new Date() ? 'text-red-700 font-semibold' : ''}>
               {formatDeadline(order.dispatch_due_at)}
               {new Date(order.dispatch_due_at) < new Date() ? ' (overdue)' : ''}
@@ -80,7 +83,7 @@ export default function OrderView({ order, events, role }: { order: any; events:
         )}
         {order.delivered_at && (
           <>
-            <dt className="text-gray-500">Delivered</dt>
+            <dt className="text-gray-500">{pickup ? 'Picked up' : 'Delivered'}</dt>
             <dd>{formatDeadline(order.delivered_at)}</dd>
           </>
         )}

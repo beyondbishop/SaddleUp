@@ -30,7 +30,7 @@ export default function TrackingForm({ orderId, current }: { orderId: string; cu
         <label htmlFor="carrier" className="block text-xs font-semibold">Carrier</label>
         <select id="carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} required className="border rounded p-2 text-sm">
           <option value="">Choose…</option>
-          {['UPS', 'FedEx', 'USPS', 'DHL', 'Other'].map((c) => <option key={c} value={c}>{c}</option>)}
+          {['UPS', 'FedEx'].map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
       <div className="flex-1 min-w-[12rem]">

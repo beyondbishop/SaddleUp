@@ -39,14 +39,19 @@ const shippoParcel = (p: Parcel) => ({
   weight: String(p.weight), mass_unit: 'lb'
 });
 
-/** Signature on delivery and insurance for the saddle's full value, on every outbound shipment. */
+/**
+ * Signature on delivery and insurance for the saddle's full value (the sale price), on every
+ * outbound shipment. Shippo includes the cost of both in each rate's amount, so the quote the
+ * buyer sees already covers them.
+ */
 const extras = (insuredCents: number) => ({
   signature_confirmation: 'STANDARD',
   insurance: { amount: (insuredCents / 100).toFixed(2), currency: 'USD', content: 'Used saddle' }
 });
 
-// Ground services we offer, cheapest wins. Overnight/express aren't offered by default.
-const OFFERED = ['ups_ground', 'usps_ground_advantage', 'fedex_ground', 'fedex_home_delivery', 'ups_3_day_select', 'usps_priority', 'fedex_express_saver'];
+// UPS and FedEx only (never USPS), ground first, cheapest wins. Overnight/express aren't offered.
+const OFFERED = ['ups_ground', 'fedex_ground', 'fedex_home_delivery', 'ups_3_day_select', 'fedex_express_saver'];
+const OFFERED_CARRIERS = ['ups', 'fedex'];
 
 export interface Rate {
   objectId: string;
@@ -58,7 +63,9 @@ export interface Rate {
 }
 
 function pickRate(rates: any[], preferredToken?: string | null): Rate | null {
-  const usable = (rates ?? []).filter((r) => OFFERED.includes(r.servicelevel?.token));
+  const usable = (rates ?? []).filter(
+    (r) => OFFERED.includes(r.servicelevel?.token) && OFFERED_CARRIERS.includes(String(r.provider ?? '').toLowerCase())
+  );
   const preferred = preferredToken ? usable.find((r) => r.servicelevel?.token === preferredToken) : null;
   const best = preferred ?? usable.sort((a, b) => Number(a.amount) - Number(b.amount))[0];
   if (!best) return null;
@@ -72,7 +79,7 @@ function pickRate(rates: any[], preferredToken?: string | null): Rate | null {
   };
 }
 
-/** Cheapest offered service between two ZIPs, insured for the saddle's value. */
+/** Cheapest UPS/FedEx service between two ZIPs, signature required, insured for the saddle's value. */
 export async function quoteByZip(fromZip: string, toZip: string, parcel: Parcel, insuredCents: number): Promise<Rate | null> {
   const shipment = await shippo('POST', '/shipments/', {
     address_from: { zip: fromZip, country: 'US' },

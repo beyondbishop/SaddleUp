@@ -89,7 +89,7 @@ const ALLOWED = [
   'year_manufactured', 'condition', 'color', 'price_cents', 'description', 'tree_width_cm',
   'panel_length_cm', 'location_city', 'location_state', 'location_zip', 'trial_policy', 'panel_flocking', 'images', 'video_url',
   'slug', 'source', 'ebay_item_id', 'ebay_item_url', 'ebay_seller_username', 'ebay_imported_at',
-  'pkg_length_in', 'pkg_width_in', 'pkg_height_in', 'pkg_weight_lb'
+  'pkg_length_in', 'pkg_width_in', 'pkg_height_in', 'pkg_weight_lb', 'pickup_available', 'pickup_note'
 ] as const;
 
 export async function POST(req: Request) {
@@ -134,8 +134,11 @@ export async function POST(req: Request) {
 
   let result = await write(row);
   // If a newer column hasn't been added in the database yet, save without it rather than fail.
-  for (const col of ['video_url', 'location_zip']) {
-    if (result.error?.code !== 'PGRST204' || !(col in row) || !String(result.error.message ?? '').includes(col)) continue;
+  // (Whichever missing column the database names first is dropped, then it tries again.)
+  const optional = ['video_url', 'location_zip', 'pickup_available', 'pickup_note'];
+  for (let tries = 0; tries < optional.length && result.error?.code === 'PGRST204'; tries++) {
+    const col = optional.find((c) => c in row && String(result.error?.message ?? '').includes(c));
+    if (!col) break;
     delete row[col];
     result = await write(row);
   }

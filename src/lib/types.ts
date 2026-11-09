@@ -79,6 +79,10 @@ export interface Listing {
   meta_description?: string | null;
   trial_policy?: TrialPolicy | null;
   location_zip?: string | null;
+  /** Seller offers local pickup (near location_city/state). Missing until the pickup SQL is run. */
+  pickup_available?: boolean | null;
+  /** Optional pickup detail from the seller, e.g. "near Ocala, weekday evenings". */
+  pickup_note?: string | null;
   /** Unclaimed saddle shown on the site before its seller claims it. */
   show_before_claim?: boolean | null;
   panel_flocking?: PanelFlocking | null;

@@ -13,6 +13,7 @@ export type TimelineOrder = {
   kept_at?: string | null;
   confirmed_at?: string | null;
   payout_status?: string | null;
+  fulfillment?: string | null;
 };
 
 const DAY = 864e5;
@@ -39,6 +40,19 @@ export function timelineSteps(order: TimelineOrder, role: TimelineRole, transitD
   const trialKnown = !!(delivered && order.release_at);
   const trialEnd = trialKnown ? new Date(order.release_at!) : new Date(estDelivery.getTime() + 5 * DAY);
   const est = (actual: unknown, d: Date) => (actual ? shortDate(d) : `est. ${shortDate(d)}`);
+
+  if (order.fulfillment === 'pickup') {
+    const pickedUp = delivered;
+    const estPickup = pickedUp ?? shipBy;
+    const trialEndP = trialKnown ? new Date(order.release_at!) : new Date(estPickup.getTime() + 5 * DAY);
+    return [
+      { label: role === 'seller' ? 'Sold' : 'Ordered', date: shortDate(sold) },
+      { label: 'Arrange pickup', date: pickedUp ? shortDate(pickedUp) : `by ${shortDate(shipBy)}` },
+      { label: 'Picked up', date: pickedUp ? shortDate(pickedUp) : `by ${shortDate(shipBy)}` },
+      { label: '5-day trial', date: `ends ${est(trialKnown, trialEndP)}` },
+      { label: role === 'seller' ? 'You’re paid' : 'It’s yours', date: est(trialKnown, trialEndP) }
+    ];
+  }
 
   return [
     { label: role === 'seller' ? 'Sold' : 'Ordered', date: shortDate(sold) },

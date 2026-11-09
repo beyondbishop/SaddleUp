@@ -29,6 +29,19 @@ type Personal = {
   rate?: { title: string; body: string };
 };
 
+const isPickupOrder = (c: Ctx) => c.order?.fulfillment === 'pickup';
+/** "Ocala, FL" from the saddle as sold, for pickup messages. */
+const pickupPlace = (c: Ctx) => {
+  const s = c.order?.listing_snapshot ?? {};
+  return [s.location_city, s.location_state].filter(Boolean).join(', ');
+};
+/** The buyer's contact details for a pickup order, for the seller's emails. */
+const buyerContactLine = (c: Ctx) => {
+  const t = c.order?.ship_to ?? {};
+  const bits = [t.name, t.phone, t.email].filter(Boolean);
+  return bits.length ? `The buyer: ${bits.join(', ')}.` : 'The buyer’s contact details are on your sale page.';
+};
+
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const link = (ctx: Ctx, role: Role) =>
@@ -48,6 +61,24 @@ function stepNotes(c: Ctx, role: 'buyer' | 'seller', current: number): [string, 
   const day = (iso: string | null | undefined) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : '';
   const pick = (i: number, done: string, todo: string) => (i < current ? done : todo);
+  if (isPickupOrder(c)) {
+    const where = pickupPlace(c);
+    return role === 'seller'
+      ? [
+          ['Sold', pick(0, `The buyer paid on ${day(o.created_at)}.${current < 4 ? ' SaddleUp is holding the money safely until the sale is final.' : ''}`, 'The buyer has paid. SaddleUp holds the money safely until the sale is final.')],
+          ['Arrange pickup', pick(1, 'You arranged the pickup. Thank you!', `The buyer is collecting it in person. Get in touch to agree a time, and hand it over by ${formatDeadline(o.dispatch_due_at)}.`)],
+          ['Picked up', pick(2, `The buyer collected it${o.delivered_at ? ` on ${day(o.delivered_at)}` : ''}.`, 'When they have it, tap “I’ve handed it over” on your sale page (or they’ll confirm it).')],
+          ['5-day trial', pick(3, 'The buyer’s trial is over and the sale is final.', `The buyer has 5 days from pickup to try the saddle on their horse${o.release_at ? `, until ${formatDeadline(o.release_at)}` : ''}.`)],
+          ['You’re paid', pick(4, `${usd(o.seller_payout_cents)} has been sent to your Stripe account.`, `Once they keep it, or the 5 days end, I send ${usd(o.seller_payout_cents)} to your Stripe account. It usually reaches your bank within a few business days.`)]
+        ]
+      : [
+          ['Ordered', pick(0, `You paid on ${day(o.created_at)}.${current < 4 ? ' SaddleUp is holding your payment safely until the sale is final.' : ''}`, 'You’ve paid, and SaddleUp holds your payment safely. The seller isn’t paid until the sale is final.')],
+          ['Arrange pickup', pick(1, 'The pickup was arranged.', `You’re collecting it${where ? ` in ${where}` : ''}. The seller will contact you to agree a time, by ${formatDeadline(o.dispatch_due_at)}.`)],
+          ['Picked up', pick(2, `You collected it${o.delivered_at ? ` on ${day(o.delivered_at)}` : ''}.`, 'When you have it, tap “I’ve picked it up” on your order (or the seller will). Your trial starts then.')],
+          ['5-day trial', pick(3, 'Your trial is over.', `You have 5 days to try it on your horse${o.release_at ? `, until ${formatDeadline(o.release_at)}` : ''}. Keep it, or request a return. If you return it, you bring it back to the seller unless it isn’t as described.`)],
+          ['It’s yours', pick(4, 'The sale is final. Enjoy your saddle!', 'Once you keep it, or the 5 days end, the sale is final and the seller is paid.')]
+        ];
+  }
   return role === 'seller'
     ? [
         ['Sold', pick(0, `The buyer paid on ${day(o.created_at)}.${current < 4 ? ' SaddleUp is holding the money safely until the sale is final.' : ''}`, 'The buyer has paid. SaddleUp holds the money safely until the sale is final.')],
@@ -68,7 +99,20 @@ function stepNotes(c: Ctx, role: 'buyer' | 'seller', current: number): [string, 
 /** event type -> message per recipient role. Missing role = that person isn't told. */
 const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> = {
   paid: {
-    buyer: (c) => ({
+    buyer: (c) => isPickupOrder(c) ? ({
+      subject: `🎉 Order confirmed: your ${c.saddle}`,
+      lines: [
+        `Congratulations on your new saddle! Your order for the ${c.saddle} is confirmed. You paid ${usd(c.order.sale_price_cents)}, and you chose local pickup${pickupPlace(c) ? ` in ${pickupPlace(c)}` : ''}, so there’s no shipping charge.`,
+        `The seller will contact you to arrange a time, by ${formatDeadline(c.order.dispatch_due_at)}. Here’s how the whole purchase works from here, and where you are now:`
+      ],
+      sms: `SaddleUp: Order confirmed for ${c.saddle} (local pickup). The seller will contact you to arrange it. Details:`,
+      personal: {
+        current: 1,
+        button: 'View your order',
+        tip: 'Bring a saddle cover or an old blanket and a girth to try it on your horse, and look it over carefully before you drive away. Take a few photos at pickup too.',
+        closing: 'Thank you for buying on SaddleUp. I hope it’s the one.'
+      }
+    }) : ({
       subject: `🎉 Order confirmed: your ${c.saddle}`,
       lines: [
         `Congratulations on your new saddle! Your order for the ${c.saddle} is confirmed. You paid ${usd(c.order.sale_price_cents + (c.order.shipping_cents ?? 0))}${c.order.shipping_cents ? `, including ${usd(c.order.shipping_cents)} for insured shipping` : ''}.`,
@@ -82,7 +126,21 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
         closing: 'Thank you for buying on SaddleUp. I hope it’s the one.'
       }
     }),
-    seller: (c) => ({
+    seller: (c) => isPickupOrder(c) ? ({
+      subject: `🎉 Your ${c.saddle} sold! (local pickup)`,
+      lines: [
+        `Congratulations, your ${c.saddle} just sold! The buyer paid ${usd(c.order.sale_price_cents)}, and after SaddleUp’s fee you’ll receive ${usd(c.order.seller_payout_cents)}.`,
+        `They chose local pickup, so there’s nothing to ship. Please contact them to arrange a time and hand it over by ${formatDeadline(c.order.dispatch_due_at)}. ${buyerContactLine(c)}`,
+        'Here’s how the whole sale works from here, and where you are now:'
+      ],
+      sms: `SaddleUp: Your ${c.saddle} sold (local pickup)! Contact the buyer to arrange it by ${formatDeadline(c.order.dispatch_due_at)}:`,
+      personal: {
+        current: 1,
+        button: 'See the buyer’s details',
+        tip: 'Meet somewhere you’re comfortable, like your barn. Once they have it, tap “I’ve handed it over” on your sale page so their trial (and your payout clock) starts.',
+        closing: 'Thank you for selling on SaddleUp. I hope it’s the perfect fit for its new horse.'
+      }
+    }) : ({
       subject: `🎉 Your ${c.saddle} sold!`,
       lines: [
         `Congratulations, your ${c.saddle} just sold! The buyer paid ${usd(c.order.sale_price_cents)}, and after SaddleUp’s fee you’ll receive ${usd(c.order.seller_payout_cents)}.`,
@@ -98,7 +156,15 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
     })
   },
   dispatch_reminder: {
-    seller: (c) => ({
+    seller: (c) => isPickupOrder(c) ? ({
+      subject: `Reminder: please hand over your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}`,
+      lines: [
+        `Just a friendly reminder that the buyer is collecting your ${c.saddle} in person, and the handover is due by ${formatDeadline(c.order.dispatch_due_at)}. ${buyerContactLine(c)}`,
+        'Once they have it, tap “I’ve handed it over” on your sale page. Here’s where the sale is now:'
+      ],
+      sms: `SaddleUp: Reminder to hand over your ${c.saddle} to the buyer by ${formatDeadline(c.order.dispatch_due_at)}:`,
+      personal: { current: 1, button: 'View your sale', closing: 'Thanks for getting it to its new home.' }
+    }) : ({
       subject: `Reminder: please ship your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}`,
       lines: [
         `Just a friendly reminder that your ${c.saddle} needs to ship by ${formatDeadline(c.order.dispatch_due_at)}. The buyer is excited to try it!`,
@@ -114,7 +180,15 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
     })
   },
   dispatch_overdue: {
-    seller: (c) => ({
+    seller: (c) => isPickupOrder(c) ? ({
+      subject: `Your ${c.saddle} pickup is overdue`,
+      lines: [
+        `The buyer was due to collect your ${c.saddle} by ${formatDeadline(c.order.dispatch_due_at)}, and it hasn’t been marked as handed over yet.`,
+        'If they have it, tap “I’ve handed it over” on your sale page. If you can’t reach them, just reply and I’ll help.'
+      ],
+      sms: `SaddleUp: The pickup of your ${c.saddle} is overdue. Mark it handed over or contact us:`,
+      personal: { current: 1, button: 'View your sale', closing: 'If something’s come up, just reply. I’m happy to help.' }
+    }) : ({
       subject: `Your ${c.saddle} is overdue to ship`,
       lines: [
         `Your ${c.saddle} was due to ship by ${formatDeadline(c.order.dispatch_due_at)}, and I haven’t seen it with the carrier yet.`,
@@ -123,7 +197,7 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
       sms: `SaddleUp: Your ${c.saddle} is overdue to ship. Please ship today or contact us.`,
       personal: { current: 1, button: 'Print your shipping label', closing: 'If something’s come up, just reply. I’m happy to help.' }
     }),
-    admin: (c) => ({ subject: `Overdue to ship: ${c.saddle}`, lines: [`Was due ${formatDeadline(c.order.dispatch_due_at)}.`] })
+    admin: (c) => ({ subject: `Overdue to ${isPickupOrder(c) ? 'hand over (pickup)' : 'ship'}: ${c.saddle}`, lines: [`Was due ${formatDeadline(c.order.dispatch_due_at)}.`] })
   },
   shipped: {
     buyer: (c) => ({
@@ -138,6 +212,36 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
         button: 'Track your saddle',
         tip: 'If you won’t be home to sign, use the carrier’s app to hold the package at a nearby location or pick a different day. A saddle sitting at the depot is much better than one sent back.',
         closing: 'Almost there!'
+      }
+    })
+  },
+  picked_up: {
+    buyer: (c) => ({
+      subject: `You have your ${c.saddle}: your 5-day trial starts now`,
+      lines: [
+        `Your ${c.saddle} has been handed over. Your 5-day trial runs until ${formatDeadline(c.order.release_at)}.`,
+        'Happy with it? Tap “Keep this saddle” on your order. If it doesn’t fit, request a return before the trial ends. If you do nothing, the sale becomes final when the trial ends. Here’s where you are now:'
+      ],
+      sms: `SaddleUp: You have your ${c.saddle}. Your 5-day trial ends ${formatDeadline(c.order.release_at)}. Keep, return or report a problem:`,
+      personal: {
+        current: 3,
+        button: 'Keep it or request a return',
+        tip: 'Check the fit before you ride: saddle on a bare back, girth loose. Look for even contact along the panels and two to three fingers of clearance at the withers.',
+        closing: 'Enjoy trying it. I hope it’s a perfect fit.'
+      }
+    }),
+    seller: (c) => ({
+      subject: `Your ${c.saddle} was picked up`,
+      lines: [
+        `Your ${c.saddle} is with its buyer. They now have 5 days to try it, until ${formatDeadline(c.order.release_at)}.`,
+        `When they keep it, or the trial ends, I’ll send your ${usd(c.order.seller_payout_cents)}. Here’s where the sale is now:`
+      ],
+      sms: `SaddleUp: Your ${c.saddle} was picked up. The buyer's trial ends ${formatDeadline(c.order.release_at)}.`,
+      personal: {
+        current: 3,
+        button: 'View your sale',
+        tip: 'Now is a good time to check that the bank account on your Stripe payout account is right, so nothing holds up your payout.',
+        closing: 'Nearly done. Thank you for your patience.'
       }
     })
   },
@@ -450,7 +554,7 @@ function renderFor(msg: Msg, ctx: Ctx, role: Role, url: string): { html: string;
 /** How far along the sample order is when each email goes out, so previews show real-looking dates. */
 const SAMPLE_STAGE: Record<string, number> = {
   shipped: 2, delivery_problem: 2,
-  delivered: 3, inspection_reminder_2d: 3, inspection_reminder_1d: 3, return_requested: 3, problem_reported: 3, review_resolved: 3,
+  delivered: 3, picked_up: 3, inspection_reminder_2d: 3, inspection_reminder_1d: 3, return_requested: 3, problem_reported: 3, review_resolved: 3,
   kept: 4, inspection_expired: 4, payout_sent: 5, refunded: 3
 };
 

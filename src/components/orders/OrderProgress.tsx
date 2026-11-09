@@ -1,7 +1,7 @@
-import { PROGRESS_STEPS, formatDeadline, orderStage, progressIndex, type OrderLike } from '@/lib/order-rules';
+import { PICKUP_PROGRESS_STEPS, PROGRESS_STEPS, formatDeadline, orderStage, progressIndex, type OrderLike } from '@/lib/order-rules';
 
 type Props = {
-  order: OrderLike & { dispatch_due_at?: string | null; created_at?: string | null };
+  order: OrderLike & { dispatch_due_at?: string | null; created_at?: string | null; fulfillment?: string | null };
   role: 'buyer' | 'seller' | 'admin';
 };
 
@@ -10,10 +10,20 @@ export default function OrderProgress({ order, role }: Props) {
   const stage = orderStage(order);
   const current = progressIndex(stage);
   if (current < 0) return null;
+  const pickup = order.fulfillment === 'pickup';
+  const steps = pickup ? PICKUP_PROGRESS_STEPS : PROGRESS_STEPS;
 
   // One line under the bar saying what happens next, worded for whoever is looking.
   const next: string =
-    current === 1
+    current === 1 && pickup
+      ? role === 'seller'
+        ? `Local pickup: arrange a time with the buyer and hand it over by ${formatDeadline(order.dispatch_due_at)}.`
+        : `Local pickup: the seller will contact you to arrange it, by ${formatDeadline(order.dispatch_due_at)}.`
+      : current === 3 && pickup
+        ? role === 'seller'
+          ? `Picked up. The buyer is trying the saddle until ${formatDeadline(order.release_at)}.`
+          : `Picked up. Your 5-day trial ends ${formatDeadline(order.release_at)}.`
+      : current === 1
       ? role === 'seller'
         ? `Ship it by ${formatDeadline(order.dispatch_due_at)}.`
         : `The seller ships by ${formatDeadline(order.dispatch_due_at)}.`
@@ -34,7 +44,7 @@ export default function OrderProgress({ order, role }: Props) {
   return (
     <div aria-label="Order progress">
       <ol className="flex items-start">
-        {PROGRESS_STEPS.map((label, i) => {
+        {steps.map((label, i) => {
           const done = i < current;
           const isCurrent = i === current;
           return (

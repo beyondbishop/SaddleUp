@@ -38,9 +38,9 @@ export default async function SalesPage() {
             <Link key={o.id} href={`/sales/${o.id}`} className="block bg-white border border-saddle-tan rounded-lg p-4 hover:shadow-md">
               <p className="font-semibold">{snap.seat_size}&quot; {snap.brands?.name} {snap.model}</p>
               <p className="text-sm text-gray-600">
-                {usd(o.sale_price_cents)} · {STAGE_TEXT[stage] ?? stage}
+                {usd(o.sale_price_cents)} · {o.fulfillment === 'pickup' && stage === 'awaiting_shipment' ? 'Local pickup: arrange with the buyer' : STAGE_TEXT[stage] ?? stage}
                 {stage === 'awaiting_shipment' && o.dispatch_due_at && (
-                  <span className={overdue ? 'text-red-700 font-semibold' : ''}> · ship by {formatDeadline(o.dispatch_due_at)}{overdue ? ' (overdue)' : ''}</span>
+                  <span className={overdue ? 'text-red-700 font-semibold' : ''}> · {o.fulfillment === 'pickup' ? 'hand over' : 'ship'} by {formatDeadline(o.dispatch_due_at)}{overdue ? ' (overdue)' : ''}</span>
                 )}
               </p>
             </Link>

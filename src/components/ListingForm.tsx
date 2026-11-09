@@ -406,6 +406,10 @@ export default function ListingForm({
       pkg_width_in: form.get('pkg_width_in') ? Number(form.get('pkg_width_in')) : null,
       pkg_height_in: form.get('pkg_height_in') ? Number(form.get('pkg_height_in')) : null,
       pkg_weight_lb: form.get('pkg_weight_lb') ? Number(form.get('pkg_weight_lb')) : null,
+      pickup_available: form.get('pickup_available') === 'on',
+      pickup_note: form.get('pickup_available') === 'on' && String(form.get('pickup_note') ?? '').trim()
+        ? String(form.get('pickup_note')).trim().slice(0, 200)
+        : null,
       ...(form.get('trial_policy') ? { trial_policy: form.get('trial_policy') } : existing ? { trial_policy: null } : {}),
       images,
       video_url: video,
@@ -737,6 +741,24 @@ export default function ListingForm({
         initialState={existing?.location_state ?? prefill?.location_state}
         className={field}
       />
+
+      <fieldset>
+        <legend className="block text-sm font-semibold mb-1">Local pickup</legend>
+        <label className="flex items-start gap-2 text-sm bg-saddle-paper border border-saddle-line rounded p-2.5 cursor-pointer">
+          <input type="checkbox" name="pickup_available" defaultChecked={!!existing?.pickup_available} className="mt-1" />
+          <span>
+            Buyers can pick it up from me (near the city above)
+            <span className="block text-xs text-gray-500">
+              Buyers still can choose shipping. Pickup buyers pay just the saddle price, and you hand it over in person.
+            </span>
+          </span>
+        </label>
+        <label className="block text-xs mt-2">
+          <span className="block mb-1">Pickup details (optional)</span>
+          <input name="pickup_note" maxLength={200} defaultValue={existing?.pickup_note ?? ''}
+            placeholder="e.g. Near Wellington, weekday evenings or weekends" className="w-full border rounded p-2 text-sm" />
+        </label>
+      </fieldset>
 
       <fieldset>
         <legend className="block text-sm font-semibold mb-1">Trials</legend>

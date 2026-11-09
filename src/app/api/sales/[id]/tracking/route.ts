@@ -8,7 +8,8 @@ import { isUuid } from '@/lib/lists-server';
 import { carrierCode, registerTrack, shippoConfigured } from '@/lib/shippo';
 import { syncShipment } from '@/lib/shipment-sync';
 
-const CARRIERS = ['UPS', 'FedEx', 'USPS', 'DHL', 'Other'];
+// UPS or FedEx only: never USPS (signature + full-value insurance on a saddle).
+const CARRIERS = ['UPS', 'FedEx'];
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const {

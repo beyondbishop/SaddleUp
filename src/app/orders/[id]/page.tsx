@@ -4,7 +4,8 @@ import Link from 'next/link';
 import ReviewForm from '@/components/ReviewForm';
 import OrderView from '@/components/orders/OrderView';
 import BuyerActions from '@/components/orders/BuyerActions';
-import { formatDeadline } from '@/lib/order-rules';
+import { formatDeadline, isPickup } from '@/lib/order-rules';
+import PickupHandover from '@/components/orders/PickupHandover';
 import { createAdminClient } from '@/lib/supabase/server';
 import { GOOGLE_REVIEW_URL, saleIsFinal } from '@/lib/reviews';
 
@@ -41,11 +42,31 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const open = order.status === 'paid' && order.payout_status === 'held' && !order.issue_type;
   const inspectionOpen = !!order.delivered_at && !!order.release_at && now < new Date(order.release_at).getTime();
   const windowClosed = !!order.release_at && now >= new Date(order.release_at).getTime();
+  const pickup = isPickup(order);
+  const snap = (order.listing_snapshot ?? {}) as { location_city?: string; location_state?: string; pickup_note?: string | null };
+  const pickupWhere = [snap.location_city, snap.location_state].filter(Boolean).join(', ');
 
   return (
     <div className="py-8 max-w-2xl mx-auto space-y-6">
       <Link href="/orders" className="text-sm underline text-gray-600">← Your orders</Link>
       <OrderView order={order} events={events ?? []} role="buyer" />
+
+      {pickup && open && !order.delivered_at && (
+        <section className="bg-saddle-cream border border-saddle-tan rounded-lg p-5 text-sm space-y-3">
+          <h2 className="font-semibold">Local pickup</h2>
+          <p>
+            You&apos;re collecting this saddle
+            {pickupWhere ? <> in <span className="font-semibold">{pickupWhere}</span></> : null}. The seller will contact you to
+            agree a time and place, by {formatDeadline(order.dispatch_due_at)}.
+          </p>
+          {snap.pickup_note && <p className="text-gray-700">Seller&apos;s note: {snap.pickup_note}</p>}
+          <p className="text-gray-700">
+            When you have it, tap below (or the seller will). Your 5-day trial starts then. The seller isn&apos;t paid until you
+            keep it or the trial ends.
+          </p>
+          <PickupHandover orderId={order.id} role="buyer" />
+        </section>
+      )}
 
       {open && (
         <BuyerActions

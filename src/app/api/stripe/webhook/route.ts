@@ -3,7 +3,7 @@ import { stripe, calcCommissionCents, COMMISSION_PERCENT } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { voidRewardForRefund } from '@/lib/rewards';
-import { addBusinessDays, BUYER_TERMS_VERSION, DISPATCH_BUSINESS_DAYS, logOrderEvent } from '@/lib/orders';
+import { addBusinessDays, BUYER_TERMS_VERSION, DISPATCH_BUSINESS_DAYS, PICKUP_BUSINESS_DAYS, logOrderEvent } from '@/lib/orders';
 
 // Stripe requires the raw body to verify the webhook signature, so this
 // route must NOT run through Next's default JSON body parsing.
@@ -124,7 +124,9 @@ async function recordPurchaseDetails(sessionArg: Stripe.Checkout.Session, listin
         .single()
     ]);
     if (!order) return;
-    const dispatchDue = addBusinessDays(new Date(order.created_at), DISPATCH_BUSINESS_DAYS);
+    const pickup = session.metadata?.fulfillment === 'pickup';
+    // Pickup: the seller and buyer arrange a handover, so allow a little longer than shipping.
+    const dispatchDue = addBusinessDays(new Date(order.created_at), pickup ? PICKUP_BUSINESS_DAYS : DISPATCH_BUSINESS_DAYS);
 
     // Where it's going (needed for the label). Webhook payloads use the Stripe account's API
     // version, which may have moved this field, so read the session back with our pinned version
@@ -136,7 +138,14 @@ async function recordPurchaseDetails(sessionArg: Stripe.Checkout.Session, listin
       (session as any).shipping_details ??
       (session as any).collected_information?.shipping_details;
     if (fresh?.customer_details) session = { ...session, customer_details: fresh.customer_details };
-    const shipTo = ship?.address
+    // Pickup has no address: keep the buyer's name, phone and email so the seller can arrange it.
+    const shipTo = pickup
+      ? {
+          name: session.customer_details?.name ?? '',
+          phone: session.customer_details?.phone ?? null,
+          email: session.customer_details?.email ?? null
+        }
+      : ship?.address
       ? {
           name: ship.name ?? session.customer_details?.name ?? '',
           street1: ship.address.line1 ?? '',
@@ -162,6 +171,16 @@ async function recordPurchaseDetails(sessionArg: Stripe.Checkout.Session, listin
         ship_to_zip_mismatch: zipMismatch
       })
       .eq('id', order.id);
+    if (pickup) {
+      // Separate update: orders.fulfillment only exists once the pickup SQL has run (and pickup
+      // checkouts can't start before then). Done before 'paid' so its emails talk about pickup.
+      const { error: fErr } = await admin.from('orders').update({ fulfillment: 'pickup' }).eq('id', order.id);
+      if (fErr) console.error(`Could not mark order ${order.id} as pickup`, fErr);
+      const { data: extra } = await admin.from('listings').select('pickup_note').eq('id', listingId).maybeSingle();
+      if (listing && extra) {
+        await admin.from('orders').update({ listing_snapshot: { ...listing, pickup_note: extra.pickup_note } }).eq('id', order.id);
+      }
+    }
     if (zipMismatch) {
       await logOrderEvent(order.id, 'shipping_zip_changed', 'system', null, { quoted_zip: quotedZip, ship_to_zip: shipTo?.zip });
     }
