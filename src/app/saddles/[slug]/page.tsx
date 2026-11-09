@@ -25,7 +25,16 @@ async function getListing(slug: string) {
     .select('*, brands(name, slug)')
     .eq('slug', slug)
     .single();
-  return data as unknown as Listing | null;
+  if (data) return data as unknown as Listing;
+  // Sold saddles stay public (On Trial, then Sold), but row-level security only shows shoppers
+  // listings that are for sale, so read sold ones with the service key. Nothing else.
+  const { data: sold } = await createAdminClient()
+    .from('listings')
+    .select('*, brands(name, slug)')
+    .eq('slug', slug)
+    .eq('status', 'sold')
+    .maybeSingle();
+  return sold as unknown as Listing | null;
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
