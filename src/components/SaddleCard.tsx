@@ -18,6 +18,7 @@ export default function SaddleCard({ listing, seller, distance }: {
     maximumFractionDigits: 0
   });
   // Priced under the low end of its fair-price range: same rule the saddle's page calls "a good deal".
+  const place = [listing.location_city, listing.location_state].filter(Boolean).join(', ');
   const goodValue = !!listing.price_range_low && listing.price_cents / 100 < listing.price_range_low;
 
   return (
@@ -56,15 +57,19 @@ export default function SaddleCard({ listing, seller, distance }: {
             ) : null}
           </p>
           <p className="text-sm text-gray-600">
-            {treeWidthText(listing.tree_width)}
-            {listing.location_state ? ` · ${listing.location_state}` : ''}
-          </p>
-          {distance && <p className="text-xs text-saddle-green font-semibold">{distance}</p>}
-          <p className="text-xs text-gray-500">
             {listing.condition
-              ? `${CONDITION_LABELS[listing.condition as Condition] ?? listing.condition} condition`
+              ? CONDITION_LABELS[listing.condition as Condition] ?? listing.condition
               : 'Condition not stated'}
+            {' · '}
+            {treeWidthText(listing.tree_width)}
           </p>
+          {(place || distance) && (
+            <p className="text-xs text-gray-500">
+              {place}
+              {place && distance ? ' · ' : ''}
+              {distance && <span className="text-saddle-green font-semibold">{distance}</span>}
+            </p>
+          )}
           <div className="flex items-end justify-between gap-2 mt-1">
             <p className="font-bold">{price}</p>
             {seller && (

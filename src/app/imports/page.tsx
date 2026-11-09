@@ -7,6 +7,7 @@ import { claimMessage, claimUrlFor } from '@/lib/claim-message';
 import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import { REWARD_PERCENT } from '@/lib/rewards';
 import DeleteListingButton from '@/components/DeleteListingButton';
+import MarkUnavailableButton from '@/components/imports/MarkUnavailableButton';
 import { headers } from 'next/headers';
 import MarkTeamBrowser from '@/components/imports/MarkTeamBrowser';
 import { SOON_AFTER_MINUTES, clientIp, networkHash } from '@/lib/claim-opens';
@@ -43,7 +44,7 @@ const STAGE_LABEL: Record<Stage, string> = {
   claimed: 'Claimed: seller is finishing it',
   live: 'Live',
   sold: 'Sold',
-  removed: 'Removed'
+  removed: 'No longer available'
 };
 const STAGE_ORDER: Stage[] = ['to_message', 'follow_up', 'waiting', 'opened', 'claimed', 'live', 'sold', 'removed'];
 
@@ -65,7 +66,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   // Admins can look at anyone's imports (linked from the Users page).
   const importerId = isAdmin && isUuid(searchParams.importer) ? searchParams.importer : user.id;
   const admin = createAdminClient();
-  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, model, seat_size, tree_width, discipline, status, claimed_at, images, price_cents, price_range_low, price_range_typical, price_range_high, brands(name), listing_claim_tokens(token))';
+  const IMPORT_COLS = 'listing_id, source_url, seller_name, messaged_at, created_at, listings(slug, seller_id, model, seat_size, tree_width, discipline, status, claimed_at, images, price_cents, price_range_low, price_range_typical, price_range_high, brands(name), listing_claim_tokens(token))';
   const importsQuery = (cols: string) =>
     admin.from('listing_imports').select(cols).eq('importer_id', importerId).order('created_at', { ascending: false }).limit(500);
   const [{ data: rows }, { data: who }, { data: rewards }] = await Promise.all([
@@ -246,6 +247,9 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
                     )}
                     {canManage && (
                       <Link href={`/dashboard/listings/${i.listing_id}/stats`} className="underline">Stats</Link>
+                    )}
+                    {canManage && !i.l?.seller_id && (i.l?.status === 'unclaimed' || i.l?.status === 'removed') && (
+                      <MarkUnavailableButton listingId={i.listing_id} unavailable={i.l.status === 'removed'} />
                     )}
                     {canManage && i.stage !== 'removed' && <DeleteListingButton listingId={i.listing_id} />}
                     <span className="text-saddle-muted">

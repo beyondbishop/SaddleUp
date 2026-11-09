@@ -28,7 +28,7 @@ function stage(l: { status: string; seller_id: string | null } | null): { label:
       return { label: 'On SaddleUp, waiting for the seller to claim it', tone: 'stop' };
     case 'removed':
       return {
-        label: l.seller_id ? 'Removed by the seller after claiming it' : 'Removed (the seller asked not to be on SaddleUp, or it was taken down)',
+        label: l.seller_id ? 'Removed by the seller after claiming it' : 'Off SaddleUp: no longer available, or the seller asked not to be listed',
         tone: 'stop'
       };
     case 'sold':
