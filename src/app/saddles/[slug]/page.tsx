@@ -40,7 +40,7 @@ async function getListing(slug: string) {
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const listing = await getListing(params.slug);
   if (!listing) return {};
-  const title = `${listing.seat_size}" ${listing.brands?.name} ${listing.model}${listing.tree_width ? ` — ${TREE_WIDTH_LABELS[listing.tree_width]} Tree` : ''}`;
+  const title = `${listing.seat_size}" ${listing.brands?.name ? `${listing.brands.name} ` : ''}${listing.model}${listing.tree_width ? ` — ${TREE_WIDTH_LABELS[listing.tree_width]} Tree` : ''}`;
   return {
     title,
     description:
@@ -101,7 +101,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    name: `${listing.seat_size}" ${listing.brands?.name} ${listing.model}`,
+    name: `${listing.seat_size}" ${listing.brands?.name ? `${listing.brands.name} ` : ''}${listing.model}`,
     description: listing.description,
     image: listing.images,
     brand: { '@type': 'Brand', name: listing.brands?.name },
