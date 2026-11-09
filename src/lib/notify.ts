@@ -35,24 +35,31 @@ const link = (ctx: Ctx, role: Role) =>
 const BUYER_FOOTER = 'You’re getting this because you bought a saddle on SaddleUp. Questions? Just hit reply. It comes straight to me.';
 const SELLER_FOOTER = 'You’re getting this because you sold a saddle on SaddleUp. Questions? Just hit reply. It comes straight to me.';
 
-/** What each part of the sale means, in order, for under the timeline. Same five steps as the bar. */
-function stepNotes(c: Ctx, role: 'buyer' | 'seller'): [string, string][] {
+/**
+ * What each part of the sale means, in order, for under the timeline. Same five steps as the bar.
+ * Steps already done are told in the past tense with their dates; the rest say what will happen.
+ */
+function stepNotes(c: Ctx, role: 'buyer' | 'seller', current: number): [string, string][] {
+  const o = c.order;
   const days = c.transitDays ?? 5;
-  const ret = c.order.shipping_cents ? ` (about ${usd(c.order.shipping_cents)})` : '';
+  const ret = o.shipping_cents ? ` (about ${usd(o.shipping_cents)})` : '';
+  const day = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'America/New_York' }) : '';
+  const pick = (i: number, done: string, todo: string) => (i < current ? done : todo);
   return role === 'seller'
     ? [
-        ['Sold', 'The buyer has paid. SaddleUp holds the money safely until the sale is final.'],
-        ['Ship it', `Pack the saddle and ship it by ${formatDeadline(c.order.dispatch_due_at)}. Your prepaid, insured shipping label is on your sale page: print it, tape it to the box and drop it off with the carrier.`],
-        ['Delivered', `The buyer signs for it, usually about ${days} days after you ship. I’ll email you when it arrives.`],
-        ['5-day trial', 'The buyer has 5 days from delivery to try the saddle on their horse.'],
-        ['You’re paid', `Once they keep it, or the 5 days end, I send ${usd(c.order.seller_payout_cents)} to your Stripe account. It usually reaches your bank within a few business days.`]
+        ['Sold', pick(0, `The buyer paid on ${day(o.created_at)}.${current < 4 ? ' SaddleUp is holding the money safely until the sale is final.' : ''}`, 'The buyer has paid. SaddleUp holds the money safely until the sale is final.')],
+        [current > 1 ? 'Shipped' : 'Ship it', pick(1, `You shipped it${o.shipped_at ? ` on ${day(o.shipped_at)}` : ''}. Thank you!`, `Pack the saddle and ship it by ${formatDeadline(o.dispatch_due_at)}. Your prepaid, insured shipping label is on your sale page: print it, tape it to the box and drop it off with the carrier.`)],
+        ['Delivered', pick(2, `It arrived${o.delivered_at ? ` on ${day(o.delivered_at)}` : ''}.`, `The buyer signs for it, usually about ${days} days after you ship. I’ll email you when it arrives.`)],
+        ['5-day trial', pick(3, 'The buyer’s trial is over and the sale is final.', `The buyer has 5 days from delivery to try the saddle on their horse${o.release_at ? `, until ${formatDeadline(o.release_at)}` : ''}.`)],
+        ['You’re paid', pick(4, `${usd(o.seller_payout_cents)} has been sent to your Stripe account.`, `Once they keep it, or the 5 days end, I send ${usd(o.seller_payout_cents)} to your Stripe account. It usually reaches your bank within a few business days.`)]
       ]
     : [
-        ['Ordered', 'You’ve paid, and SaddleUp holds your payment safely. The seller isn’t paid until the sale is final.'],
-        ['Shipped', `The seller ships by ${formatDeadline(c.order.dispatch_due_at)}. I’ll email you the tracking number as soon as it’s on its way.`],
-        ['Delivered', `Someone signs for it, usually about ${days} days after it ships. Your trial starts when the carrier confirms delivery.`],
-        ['5-day trial', `You have 5 days to try it on your horse. Keep it, or request a return. If you send it back, you pay return shipping${ret}, unless it isn’t as described.`],
-        ['It’s yours', 'Once you keep it, or the 5 days end, the sale is final and the seller is paid.']
+        ['Ordered', pick(0, `You paid on ${day(o.created_at)}.${current < 4 ? ' SaddleUp is holding your payment safely until the sale is final.' : ''}`, 'You’ve paid, and SaddleUp holds your payment safely. The seller isn’t paid until the sale is final.')],
+        ['Shipped', pick(1, `The seller shipped it${o.shipped_at ? ` on ${day(o.shipped_at)}` : ''}.`, `The seller ships by ${formatDeadline(o.dispatch_due_at)}. I’ll email you the tracking number as soon as it’s on its way.`)],
+        ['Delivered', pick(2, `It was delivered${o.delivered_at ? ` on ${day(o.delivered_at)}` : ''}.`, `Someone signs for it, usually about ${days} days after it ships. Your trial starts when the carrier confirms delivery.`)],
+        ['5-day trial', pick(3, 'Your trial is over.', `You have 5 days to try it on your horse${o.release_at ? `, until ${formatDeadline(o.release_at)}` : ''}. Keep it, or request a return. If you send it back, you pay return shipping${ret}, unless it isn’t as described.`)],
+        ['It’s yours', pick(4, 'The sale is final. Enjoy your saddle!', 'Once you keep it, or the 5 days end, the sale is final and the seller is paid.')]
       ];
 }
 
@@ -337,7 +344,7 @@ function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
   const footer = role === 'seller' ? SELLER_FOOTER : BUYER_FOOTER;
   const hasTimeline = pers.current !== undefined;
   const cur = pers.current ?? -1;
-  const notes = hasTimeline ? stepNotes(ctx, tRole) : [];
+  const notes = hasTimeline ? stepNotes(ctx, tRole, cur) : [];
   const p = (t: string, margin = '0 0 14px') => `<p style="font-size:15px;line-height:1.5;margin:${margin}">${t}</p>`;
   const steps = notes
     .map(([title, body], i) => {
