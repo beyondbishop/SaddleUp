@@ -8,6 +8,7 @@
 // for Stripe fees and negative balances, as it was with the old Express accounts. Stripe hosts
 // onboarding and identity checks.
 import { createAdminClient } from '@/lib/supabase/server';
+import { STRIPE_SECRET_KEY } from '@/lib/stripe';
 
 const STRIPE_V2_VERSION = '2026-10-28.endive';
 
@@ -22,7 +23,7 @@ async function v2<T = any>(method: 'GET' | 'POST', path: string, body?: unknown)
   const res = await fetch(`https://api.stripe.com${path}`, {
     method,
     headers: {
-      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
       'Stripe-Version': STRIPE_V2_VERSION,
       'Content-Type': 'application/json'
     },
@@ -31,6 +32,10 @@ async function v2<T = any>(method: 'GET' | 'POST', path: string, body?: unknown)
   });
   const json = await res.json();
   if (!res.ok) {
+    if (res.status === 401) {
+      // Safe hint at what the key looks like (mode prefix + length only), for fixing it in Vercel.
+      console.error(`Stripe key rejected: prefix ${STRIPE_SECRET_KEY.slice(0, 8)}, length ${STRIPE_SECRET_KEY.length}`);
+    }
     throw new StripeV2Error(
       `Stripe ${method} ${path} failed (${res.status}${json?.error?.code ? ` ${json.error.code}` : ''}): ${json?.error?.message ?? 'no message'}`,
       res.status,
