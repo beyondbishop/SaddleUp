@@ -495,6 +495,13 @@ export default function AdminQuickAdd({
               const measureGuide =
                 treeMissing || parsed.missing.some((m) => m === 'seat size' || m === 'tree width') || notes.some((n) => /^sizing:/i.test(n));
               const tips: ClaimTips = { spellingFixes: parsed.spellingFixes, askingPrice: price, hasPhotos, discipline: parsed.prefill.discipline, fromFounder, listingNotes: notes, measureGuide, treeMissing };
+              // Keep these for the seller's Edit page after they claim (the Facebook message stays short).
+              fetch(`/api/listings/${id}/import-notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({ spellingFixes: parsed.spellingFixes ?? [], listingNotes: notes, measureGuide })
+              }).catch(() => {});
               setCreated((prev) => [{ id, key: parsed.key, saddle, sellerName, sourceUrl, claimUrl, tips }, ...prev]);
               reset();
             }}
