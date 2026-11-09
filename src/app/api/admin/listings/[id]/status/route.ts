@@ -18,8 +18,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const body = await req.json().catch(() => ({}));
   const choice = body.choice as StatusChoice;
   const admin = createAdminClient();
-  const { data: listing } = await admin.from('listings').select('id, status, seller_id, show_before_claim').eq('id', params.id).maybeSingle();
-  if (!listing) return NextResponse.json({ error: 'Listing not found.' }, { status: 404 });
+  const { data: listing, error: readError } = await admin.from('listings').select('id, status, seller_id, show_before_claim').eq('id', params.id).maybeSingle();
+  if (!listing) {
+    if (readError) console.error('Listing status read failed', readError);
+    return NextResponse.json({ error: readError ? `Could not read the listing: ${readError.message}` : 'Listing not found.' }, { status: 404 });
+  }
   if (!allowedChoices(listing).includes(choice)) {
     return NextResponse.json(
       { error: listing.status === 'sold' || listing.status === 'pending_sale' ? 'This saddle has a sale, so its status can’t be changed here.' : 'That status isn’t available for this listing.' },
