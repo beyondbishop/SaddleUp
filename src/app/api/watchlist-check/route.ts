@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { matchListing, type SearchCriteria, FOR_SALE } from '@/lib/search';
 import { readPrefs } from '@/lib/notification-prefs';
+import { SITE_URL } from '@/lib/site';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
             ${unseenMatches
               .map(
                 (m) =>
-                  `<li><a href="${process.env.NEXT_PUBLIC_SITE_URL}/saddles/${m.slug}">${m.seat_size}" ${m.brands?.name} ${m.model} — $${(m.price_cents / 100).toLocaleString()}</a></li>`
+                  `<li><a href="${SITE_URL}/saddles/${m.slug}">${m.seat_size}" ${m.brands?.name} ${m.model} — $${(m.price_cents / 100).toLocaleString()}</a></li>`
               )
               .join('')}
           </ul>

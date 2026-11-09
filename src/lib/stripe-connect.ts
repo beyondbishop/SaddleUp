@@ -9,6 +9,7 @@
 // onboarding and identity checks.
 import { createAdminClient } from '@/lib/supabase/server';
 import { STRIPE_SECRET_KEY } from '@/lib/stripe';
+import { SITE_URL } from '@/lib/site';
 
 const STRIPE_V2_VERSION = '2026-10-28.endive';
 
@@ -61,7 +62,7 @@ export async function createSellerAccount(opts: { email?: string | null; name?: 
 }
 
 export async function createOnboardingLink(accountId: string, returnPath = '/dashboard') {
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  const site = SITE_URL;
   const link = await v2('POST', '/v2/core/account_links', {
     account: accountId,
     use_case: {

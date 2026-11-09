@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe';
 import { refreshSellerPayoutStatus } from '@/lib/stripe-connect';
+import { SITE_URL } from '@/lib/site';
 
 // Stripe's minimum Checkout Session lifetime is 30 minutes. The reservation lasts a little
 // longer so a payment completed at the last second still matches it.
@@ -159,8 +160,8 @@ export async function POST(req: Request) {
         quote_zip: quote.to_zip
       },
       payment_intent_data: { metadata: { listing_id: listing.id, buyer_id: user.id } },
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/orders?purchased=1`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/saddles/${listing.slug}?canceled=1`
+      success_url: `${SITE_URL}/orders?purchased=1`,
+      cancel_url: `${SITE_URL}/saddles/${listing.slug}?canceled=1`
     });
 
     const { data: attached } = await admin.rpc('attach_reservation_session', {
