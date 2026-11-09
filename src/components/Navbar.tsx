@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import AccountMenu from './AccountMenu';
 import SignInLink from './SignInLink';
 import { avatarUrlFor, initialsOf } from '@/lib/avatar';
+import { orderStage } from '@/lib/order-rules';
+
+const STAGE_FIELDS = 'status, payout_status, shipped_at, delivered_at, kept_at, confirmed_at, issue_type, review_status';
 
 export default async function Navbar() {
   const supabase = createClient();
@@ -27,10 +30,11 @@ export default async function Navbar() {
       // Unread messages from the other person (only their own conversations are visible to them).
       supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null).neq('sender_id', user.id),
       // Sales they still need to ship.
-      supabase.from('orders').select('id', { count: 'exact', head: true })
+      // Uses the same stage rules as the Sales page, so a finished or paid-out order never counts.
+      supabase.from('orders').select(STAGE_FIELDS)
         .eq('seller_id', user.id).eq('status', 'paid').is('shipped_at', null),
       // Saddles delivered to them that they haven't kept or raised a problem about yet.
-      supabase.from('orders').select('id', { count: 'exact', head: true })
+      supabase.from('orders').select(STAGE_FIELDS)
         .eq('buyer_id', user.id).eq('status', 'paid').not('delivered_at', 'is', null)
         .is('kept_at', null).is('confirmed_at', null).is('issue_type', null),
       isAdmin
@@ -38,8 +42,8 @@ export default async function Navbar() {
         : Promise.resolve({ count: 0 })
     ]);
     counts.messages = n(messages);
-    counts.toShip = n(toShip);
-    counts.toInspect = n(toInspect);
+    counts.toShip = (toShip.data ?? []).filter((o) => orderStage(o) === 'awaiting_shipment').length;
+    counts.toInspect = (toInspect.data ?? []).filter((o) => orderStage(o) === 'inspection').length;
     pendingCount = n(pending);
   }
 
