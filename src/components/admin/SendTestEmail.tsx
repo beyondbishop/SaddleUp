@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 /** "Send me a test": emails this message to the signed-in admin and shows what Resend said. */
-export default function SendTestEmail({ kind }: { kind: 'welcome' }) {
+export default function SendTestEmail({ kind }: { kind: string }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 

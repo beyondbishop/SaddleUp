@@ -14,7 +14,7 @@ export const metadata = { title: 'Emails · Admin', robots: { index: false } };
 // Every email SaddleUp sends, in the order a member meets them, rendered from the real
 // templates with sample data. What you see here is exactly what goes out.
 
-type Preview = { id: string; when: string; to: string; from?: string; subject: string; html: string; text: string; sms?: string; source?: string };
+type Preview = { id: string; when: string; to: string; from?: string; testKind?: string; subject: string; html: string; text: string; sms?: string; source?: string };
 
 const ORDER_WHEN: Record<string, string> = {
   paid: 'Right after checkout',
@@ -48,6 +48,7 @@ function EmailCard({ p }: { p: Preview }) {
       </header>
       <iframe title={p.subject} srcDoc={p.html} className="w-full h-[420px] bg-white" sandbox="" />
       {p.id === 'welcome' && <SendTestEmail kind="welcome" />}
+      {p.testKind && <SendTestEmail kind={p.testKind} />}
       <details className="px-4 py-2 border-t border-saddle-line text-sm">
         <summary className="cursor-pointer text-saddle-muted">Plain-text version{p.sms ? ' and text message' : ''}</summary>
         <pre className="whitespace-pre-wrap text-xs mt-2 font-mono">{p.text}</pre>
@@ -104,7 +105,10 @@ export default async function AdminEmailsPage() {
       subject: e.subject,
       html: e.html,
       text: e.text,
-      sms: e.sms
+      sms: e.sms,
+      from: e.from,
+      // Emails already in the personal style can be sent to yourself (sample sale, your name).
+      testKind: e.from ? `order:${e.event}:${e.role}` : undefined
     }));
 
   const sections = [
