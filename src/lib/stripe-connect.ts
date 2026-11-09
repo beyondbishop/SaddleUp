@@ -11,6 +11,13 @@ import { createAdminClient } from '@/lib/supabase/server';
 
 const STRIPE_V2_VERSION = '2026-10-28.endive';
 
+/** A failed Stripe v2 call, keeping Stripe's HTTP status and error code for callers to act on. */
+export class StripeV2Error extends Error {
+  constructor(message: string, public status: number, public code?: string) {
+    super(message);
+  }
+}
+
 async function v2<T = any>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const res = await fetch(`https://api.stripe.com${path}`, {
     method,
@@ -24,7 +31,11 @@ async function v2<T = any>(method: 'GET' | 'POST', path: string, body?: unknown)
   });
   const json = await res.json();
   if (!res.ok) {
-    throw new Error(`Stripe ${method} ${path} failed: ${json?.error?.message ?? res.status}`);
+    throw new StripeV2Error(
+      `Stripe ${method} ${path} failed (${res.status}${json?.error?.code ? ` ${json.error.code}` : ''}): ${json?.error?.message ?? 'no message'}`,
+      res.status,
+      json?.error?.code
+    );
   }
   return json as T;
 }
@@ -57,6 +68,20 @@ export async function createOnboardingLink(accountId: string, returnPath = '/das
     }
   });
   return link.url as string;
+}
+
+/**
+ * True when Stripe doesn't know this account ID under the current key, e.g. an ID saved while the
+ * site ran on a test key, now looked up with the live key (test and live accounts are separate).
+ */
+export function isMissingAccount(e: unknown) {
+  if (!(e instanceof StripeV2Error)) return false;
+  // Stripe v2 answers an unknown account ID with 403 "does not have permission to access account".
+  return (
+    e.status === 404 ||
+    e.code === 'resource_missing' ||
+    (e.status === 403 && /permission to access account/i.test(e.message))
+  );
 }
 
 /** True once Stripe will accept transfers to this seller. */

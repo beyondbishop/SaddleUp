@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { createSellerAccount, createOnboardingLink } from '@/lib/stripe-connect';
+import { createSellerAccount, createOnboardingLink, isMissingAccount } from '@/lib/stripe-connect';
 
 // Called from the seller dashboard: "Set up payouts" button.
 // Creates (or reuses) the seller's Stripe payout account and returns a Stripe-hosted
@@ -41,7 +41,22 @@ export async function POST() {
       }
     }
 
-    return NextResponse.json({ url: await createOnboardingLink(accountId!) });
+    try {
+      return NextResponse.json({ url: await createOnboardingLink(accountId!) });
+    } catch (e) {
+      if (!isMissingAccount(e)) throw e;
+      // The saved account isn't visible to this Stripe key (e.g. it was made in test mode and the
+      // site now runs live). Make a fresh one, replacing only that stale ID.
+      console.warn(`Stripe account ${accountId} not found for user ${user.id}; creating a new one`);
+      const stale = accountId!;
+      accountId = await createSellerAccount({ email: user.email, name: profile?.full_name, userId: user.id });
+      await admin
+        .from('profiles')
+        .update({ stripe_connect_account_id: accountId, stripe_connect_onboarded: false })
+        .eq('id', user.id)
+        .eq('stripe_connect_account_id', stale);
+      return NextResponse.json({ url: await createOnboardingLink(accountId) });
+    }
   } catch (e) {
     console.error('Payout setup failed', e);
     return NextResponse.json({ error: 'Payout setup is unavailable right now. Please try again.' }, { status: 500 });
