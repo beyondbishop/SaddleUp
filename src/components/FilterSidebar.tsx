@@ -1,5 +1,6 @@
 import { DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS } from '@/lib/types';
 import { CONDITION_LABELS, US_STATES, type SearchCriteria } from '@/lib/search';
+import AutoFilterForm from './search/AutoFilterForm';
 
 const field = 'w-full border rounded p-2 text-sm';
 const groupLabel = 'block font-semibold mb-1 text-sm';
@@ -23,7 +24,7 @@ export default function FilterSidebar({
   listId?: string;
 }) {
   return (
-    <form method="get" action="/saddles" className="bg-white border border-saddle-tan rounded-lg p-4 space-y-5 h-fit">
+    <AutoFilterForm action="/saddles" className="bg-white border border-saddle-tan rounded-lg p-4 space-y-5 h-fit">
       {listId && <input type="hidden" name="list" value={listId} />}
       <div>
         <label htmlFor="f-discipline" className={groupLabel}>Discipline</label>
@@ -144,10 +145,13 @@ export default function FilterSidebar({
         </span>
       </label>
 
-      <button type="submit" className="w-full bg-saddle-green text-white rounded-md py-2 font-semibold">
-        Apply Filters
-      </button>
+      {/* Filters apply as they change; the button is only for browsers without JavaScript. */}
+      <noscript>
+        <button type="submit" className="w-full bg-saddle-green text-white rounded-md py-2 font-semibold">
+          Apply Filters
+        </button>
+      </noscript>
       <a href={listId ? `/saddles?list=${listId}` : '/saddles'} className="block text-center text-sm underline text-gray-600">Clear all</a>
-    </form>
+    </AutoFilterForm>
   );
 }

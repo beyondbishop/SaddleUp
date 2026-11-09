@@ -67,6 +67,10 @@ export interface Listing {
   condition: string | null;
   color: string | null;
   price_cents: number;
+  /** AI fair-price range for similar used saddles, in whole dollars. */
+  price_range_low?: number | null;
+  price_range_typical?: number | null;
+  price_range_high?: number | null;
   description: string | null;
   images: string[];
   /** One short video, if the seller added one (20261117_listing_video.sql). */

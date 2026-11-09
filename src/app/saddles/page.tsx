@@ -58,6 +58,10 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
   const brands = (await approvedBrands(supabase)) as { id: number; name: string; slug: string }[];
   const criteria = parseCriteria(searchParams);
   const brand = criteria.brand ? brands?.find((b) => b.slug === criteria.brand) : undefined;
+  // Brand filter only offers brands with a saddle for sale right now (plus the one already picked).
+  const { data: stocked } = await supabase.from('listings').select('brand_id').or(FOR_SALE);
+  const stockedIds = new Set((stocked ?? []).map((r) => r.brand_id));
+  const brandOptions = stocked ? brands.filter((b) => stockedIds.has(b.id) || b.id === brand?.id) : brands;
 
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const near = /^\d{5}$/.test(first(searchParams.near) ?? '') ? first(searchParams.near)! : null;
@@ -119,7 +123,7 @@ export default async function SaddlesPage({ searchParams }: { searchParams: SP }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 py-8">
-      <FilterSidebar brands={brands ?? []} criteria={criteria} listId={editingList?.id}
+      <FilterSidebar brands={brandOptions} criteria={criteria} listId={editingList?.id}
         near={near ?? (viewer?.source === 'saved' || viewer?.source === 'member' ? viewer.zip : null)} within={within}
         locationLabel={viewer?.source === 'ip' ? viewer.label : null} />
       {near && <RememberZip zip={near} />}

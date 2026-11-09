@@ -17,6 +17,8 @@ export default function SaddleCard({ listing, seller, distance }: {
     currency: 'USD',
     maximumFractionDigits: 0
   });
+  // Priced under the low end of its fair-price range: same rule the saddle's page calls "a good deal".
+  const goodValue = !!listing.price_range_low && listing.price_cents / 100 < listing.price_range_low;
 
   return (
     <div className="bg-white border border-saddle-tan rounded-lg overflow-hidden relative group">
@@ -35,10 +37,23 @@ export default function SaddleCard({ listing, seller, distance }: {
               No photo yet
             </div>
           )}
+          {goodValue && (
+            <span
+              title="Priced below what similar used saddles usually sell for"
+              className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-saddle-green px-2.5 py-1 text-xs font-semibold text-white shadow-md ring-2 ring-white/70"
+            >
+              <span aria-hidden="true">✨</span> Sweet deal
+            </span>
+          )}
         </div>
         <div className="p-3">
           <p className="font-semibold text-saddle-brown">
             {listing.seat_size}&quot; {listing.brands?.name} {listing.model}
+            {listing.year_manufactured ? (
+              <span className="ml-1.5 align-middle rounded bg-saddle-cream px-1.5 py-0.5 text-xs font-semibold text-saddle-brown/80">
+                {listing.year_manufactured}
+              </span>
+            ) : null}
           </p>
           <p className="text-sm text-gray-600">
             {treeWidthText(listing.tree_width)}
