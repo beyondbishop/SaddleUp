@@ -7,6 +7,23 @@ import { claimMessage, claimUrlFor } from '@/lib/claim-message';
 import SellerMessageCard from '@/components/imports/SellerMessageCard';
 import { REWARD_PERCENT } from '@/lib/rewards';
 import DeleteListingButton from '@/components/DeleteListingButton';
+import { headers } from 'next/headers';
+import MarkTeamBrowser from '@/components/imports/MarkTeamBrowser';
+import { SOON_AFTER_MINUTES, clientIp, networkHash } from '@/lib/claim-opens';
+
+interface OpenRow {
+  listing_id: string;
+  opened_at: string;
+  device: string | null;
+  app: string | null;
+  country: string | null;
+  likely_team: boolean;
+  team_reason: string | null;
+  minutes_after_message: number | null;
+}
+
+const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const afterText = (m: number) => (m < 60 ? `${m} min` : m < 2880 ? `${Math.round(m / 60)} hr` : `${Math.round(m / 1440)} days`) + ' after you sent it';
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -58,6 +75,12 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
     importerId !== user.id ? admin.from('profiles').select('full_name, email').eq('id', importerId).maybeSingle() : Promise.resolve({ data: null }),
     admin.from('importer_rewards').select('listing_id, amount_cents, status, void_reason, paid_at').eq('importer_id', importerId)
   ]);
+  // Remember this network (hashed) as the importer's, so claim-link opens from it aren't counted as the seller.
+  const net = importerId === user.id ? networkHash(clientIp(headers())) : null;
+  if (net) {
+    const { error: netError } = await admin.from('team_networks').upsert({ network_hash: net, user_id: user.id, last_seen_at: new Date().toISOString() });
+    if (netError) console.error('Could not save team network', netError);
+  }
   const rewardByListing = new Map((rewards ?? []).map((r) => [r.listing_id, r]));
   const owedCents = (rewards ?? []).filter((r) => r.status === 'earned').reduce((s, r) => s + r.amount_cents, 0);
   const paidCents = (rewards ?? []).filter((r) => r.status === 'paid').reduce((s, r) => s + r.amount_cents, 0);
@@ -82,6 +105,16 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
   const { data: viewRows } = ids.length
     ? await admin.from('listing_views').select('listing_id, visitor_hash').in('listing_id', ids).gte('viewed_at', since).limit(50_000)
     : { data: [] as { listing_id: string; visitor_hash: string }[] };
+  const { data: openRows } = ids.length
+    ? await admin
+        .from('listing_import_opens')
+        .select('listing_id, opened_at, device, app, country, likely_team, team_reason, minutes_after_message')
+        .in('listing_id', ids)
+        .order('opened_at', { ascending: false })
+        .limit(5000)
+    : { data: [] as OpenRow[] };
+  const opensBy = new Map<string, OpenRow[]>();
+  for (const o of (openRows ?? []) as OpenRow[]) opensBy.set(o.listing_id, [...(opensBy.get(o.listing_id) ?? []), o]);
   const viewsBy = new Map<string, { views: number; visitors: Set<string> }>();
   for (const v of viewRows ?? []) {
     const e = viewsBy.get(v.listing_id) ?? { views: 0, visitors: new Set<string>() };
@@ -112,6 +145,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
 
   return (
     <div className="py-8">
+      {!who && <MarkTeamBrowser />}
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
         <h1 className="font-serif text-3xl text-saddle-ink">
           {who ? `Imports by ${who.full_name || who.email}` : 'My imports'}
@@ -237,10 +271,32 @@ export default async function ImportsPage({ searchParams }: { searchParams: { im
                   )}
                   {i.link_open_count > 0 && !['live', 'sold', 'removed'].includes(i.stage) && (
                     <p className="text-sm text-saddle-green">
-                      👀 Seller opened the link {i.link_open_count === 1 ? 'once' : `${i.link_open_count} times`}
-                      {' '}· last {new Date(i.link_last_opened_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      {i.stage === 'opened' ? '. They looked but haven’t claimed it yet, so a quick follow-up could help.' : ''}
+                      👀 Link opened {i.link_open_count === 1 ? 'once' : `${i.link_open_count} times`}
+                      {i.link_last_opened_at ? ` · last ${when(i.link_last_opened_at)}` : ''}
+                      {i.stage === 'opened' ? '. If that was the seller, they looked but haven’t claimed it yet, so a quick follow-up could help.' : ''}
                     </p>
+                  )}
+                  {(opensBy.get(i.listing_id)?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-saddle-muted mb-1">Who opened the link</p>
+                      <ul className="text-sm space-y-0.5">
+                        {opensBy.get(i.listing_id)!.slice(0, 10).map((o, n) => {
+                          const soon = o.minutes_after_message != null && o.minutes_after_message <= SOON_AFTER_MINUTES;
+                          return (
+                            <li key={n} className={o.likely_team ? 'text-saddle-muted' : 'text-saddle-ink'}>
+                              {when(o.opened_at)} · {o.device ?? 'Unknown device'}, {o.app ?? 'a browser'}
+                              {o.country ? ` · ${o.country}` : ''}
+                              {o.minutes_after_message != null ? ` · ${afterText(o.minutes_after_message)}` : ''}
+                              {o.likely_team
+                                ? ` · probably you (${o.team_reason === 'network' ? 'your network' : 'your browser'}), not counted`
+                                : soon
+                                  ? ' · so soon it may have been you'
+                                  : ''}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   )}
                   {i.stage === 'follow_up' && (
                     <p className="text-xs text-gray-600">Messaged over {FOLLOW_UP_DAYS} days ago and not claimed yet. A friendly nudge often helps.</p>

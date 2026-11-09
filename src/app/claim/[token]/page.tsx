@@ -7,6 +7,7 @@ import { treeWidthText, type TreeWidth } from '@/lib/types';
 import GoogleButton from '@/components/GoogleButton';
 import { SELLER_FEE_CAP_DOLLARS, SELLER_FEE_PERCENT } from '@/lib/fees';
 import { authErrorText } from '@/lib/auth-error';
+import { TEAM_COOKIE } from '@/lib/claim-opens-shared';
 
 const PERKS = [
   ['Found by the right riders', 'Buyers search by seat size and tree width, so the people who see your saddle are the ones it fits.'],
@@ -60,6 +61,8 @@ export default function ClaimPage({ params }: { params: { token: string } }) {
       setImages(Array.isArray(photos?.images) ? photos.images : []);
       setListingUrl(photos?.isPublic && typeof photos.slug === 'string' ? `/saddles/${photos.slug}` : null);
       setViewerIsImporter(!!photos?.viewerIsImporter);
+      // Remember this browser as an importer's, so later signed-out opens here aren't counted as the seller.
+      if (photos?.viewerIsImporter) document.cookie = `${TEAM_COOKIE}=1; max-age=31536000; path=/; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
       const row = (data as Claimable[] | null)?.[0];
       if (!row) return setStatus('not_found');
       setListing(row);

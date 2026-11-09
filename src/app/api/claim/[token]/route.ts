@@ -6,11 +6,15 @@
 //
 // Also records that the claim link was opened, for the importer's "My imports" page. Only real
 // visits count: the claim page calls this from the browser, so Messenger/Facebook link previews
-// never reach it, and importers or admins opening the link themselves are skipped.
+// never reach it, and importers or admins opening the link themselves are skipped. Every other
+// open is logged in listing_import_opens (device, app, country); ones from an importer's browser
+// or network are logged as likely_team and don't count as the seller opening it.
 
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { getViewer } from '@/lib/roles';
+import { TEAM_COOKIE, clientIp, describeUserAgent, networkHash } from '@/lib/claim-opens';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,15 +24,39 @@ async function recordOpen(listingId: string, req: Request, viewerIsImporter: boo
   try {
     const ua = req.headers.get('user-agent') ?? '';
     if (!ua || BOT.test(ua)) return;
-    if (viewerIsImporter) return; // the importer (or an admin) checking the link
+    if (viewerIsImporter) return; // the importer (or an admin) checking the link while signed in
 
     const admin = createAdminClient();
     const { data: row, error } = await admin
       .from('listing_imports')
-      .select('link_first_opened_at, link_open_count')
+      .select('messaged_at, link_first_opened_at, link_open_count')
       .eq('listing_id', listingId)
       .maybeSingle();
     if (error || !row) return; // not an import, or the migration hasn't been run yet
+
+    // Signed out, but is it still probably the importer? Their browser (cookie set on My imports)
+    // or a network they've used My imports from.
+    const teamBrowser = cookies().get(TEAM_COOKIE)?.value === '1';
+    const net = networkHash(clientIp(req.headers));
+    const { data: teamNet } = !teamBrowser && net
+      ? await admin.from('team_networks').select('network_hash').eq('network_hash', net).maybeSingle()
+      : { data: null };
+    const likelyTeam = teamBrowser || !!teamNet;
+    const { device, app } = describeUserAgent(ua);
+    const minutes = row.messaged_at ? Math.max(0, Math.round((Date.now() - new Date(row.messaged_at).getTime()) / 60_000)) : null;
+
+    const { error: logError } = await admin.from('listing_import_opens').insert({
+      listing_id: listingId,
+      device,
+      app,
+      country: req.headers.get('x-vercel-ip-country'),
+      likely_team: likelyTeam,
+      team_reason: teamBrowser ? 'browser' : teamNet ? 'network' : null,
+      minutes_after_message: minutes
+    });
+    if (logError) console.error('Could not log claim link open', logError);
+
+    if (likelyTeam) return; // not the seller, so it doesn't count as "opened"
     const now = new Date().toISOString();
     await admin
       .from('listing_imports')
