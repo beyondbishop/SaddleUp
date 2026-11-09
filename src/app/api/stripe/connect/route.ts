@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { getViewer } from '@/lib/roles';
 import { createSellerAccount, createOnboardingLink, isMissingAccount } from '@/lib/stripe-connect';
 
 // Called from the seller dashboard: "Set up payouts" button.
 // Creates (or reuses) the seller's Stripe payout account and returns a Stripe-hosted
 // onboarding link to redirect them to.
 export async function POST() {
-  const supabase = createClient();
   const admin = createAdminClient();
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { user, isAdmin } = await getViewer();
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
 
   try {
@@ -59,6 +56,8 @@ export async function POST() {
     }
   } catch (e) {
     console.error('Payout setup failed', e);
-    return NextResponse.json({ error: 'Payout setup is unavailable right now. Please try again.' }, { status: 500 });
+    // Admins see the underlying reason, so a broken setup can be diagnosed from the dashboard.
+    const detail = isAdmin ? ` (${e instanceof Error ? e.message : String(e)})` : '';
+    return NextResponse.json({ error: `Payout setup is unavailable right now. Please try again.${detail}` }, { status: 500 });
   }
 }
