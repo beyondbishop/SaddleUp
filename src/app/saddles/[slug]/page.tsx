@@ -225,8 +225,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dt className="text-gray-500">Delivery</dt>
           <dd>
             {listing.pickup_available
-              ? `Shipping (UPS or FedEx) or local pickup${listing.location_city ? ` near ${[listing.location_city, listing.location_state].filter(Boolean).join(', ')}` : ''}`
-              : 'Shipping (UPS or FedEx)'}
+              ? `Insured shipping or local pickup${listing.location_city ? ` near ${[listing.location_city, listing.location_state].filter(Boolean).join(', ')}` : ''}`
+              : 'Insured shipping, signature on delivery'}
             {listing.pickup_available && listing.pickup_note && (
               <span className="block text-xs text-gray-500">{listing.pickup_note}</span>
             )}

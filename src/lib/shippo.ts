@@ -49,9 +49,14 @@ const extras = (insuredCents: number) => ({
   insurance: { amount: (insuredCents / 100).toFixed(2), currency: 'USD', content: 'Used saddle' }
 });
 
-// UPS and FedEx only (never USPS), ground first, cheapest wins. Overnight/express aren't offered.
+// UPS and FedEx are the carriers we want: ground first, cheapest wins. Overnight/express aren't offered.
 const OFFERED = ['ups_ground', 'fedex_ground', 'fedex_home_delivery', 'ups_3_day_select', 'fedex_express_saver'];
 const OFFERED_CARRIERS = ['ups', 'fedex'];
+// TEMPORARY fallback until UPS/FedEx are enabled on the Shippo account (UPS needs Shippo's approval,
+// FedEx isn't connected yet). USPS is used only when Shippo returns no UPS/FedEx rate at all, so it
+// switches to UPS/FedEx by itself once they're connected. Same signature + full-value insurance.
+const FALLBACK = ['usps_ground_advantage', 'usps_priority'];
+const FALLBACK_CARRIERS = ['usps'];
 
 export interface Rate {
   objectId: string;
@@ -63,9 +68,14 @@ export interface Rate {
 }
 
 function pickRate(rates: any[], preferredToken?: string | null): Rate | null {
-  const usable = (rates ?? []).filter(
-    (r) => OFFERED.includes(r.servicelevel?.token) && OFFERED_CARRIERS.includes(String(r.provider ?? '').toLowerCase())
-  );
+  const pickFrom = (tokens: string[], carriers: string[]) =>
+    (rates ?? []).filter(
+      (r) => tokens.includes(r.servicelevel?.token) && carriers.includes(String(r.provider ?? '').toLowerCase())
+    );
+  const primary = pickFrom(OFFERED, OFFERED_CARRIERS);
+  const usable = primary.length ? primary : pickFrom(FALLBACK, FALLBACK_CARRIERS);
+  // A USPS quote never forces a USPS label once UPS/FedEx rates exist: the preferred service
+  // is only looked for among the rates we'd use anyway.
   const preferred = preferredToken ? usable.find((r) => r.servicelevel?.token === preferredToken) : null;
   const best = preferred ?? usable.sort((a, b) => Number(a.amount) - Number(b.amount))[0];
   if (!best) return null;

@@ -132,7 +132,7 @@ export default function BuyButton({
               <input type="radio" name="fulfillment" value="ship" checked={method === 'ship'} onChange={() => { setMethod('ship'); setError(null); }} className="mt-1" />
               <span>
                 <span className="font-semibold block">Ship it to me</span>
-                <span className="text-xs text-gray-500">UPS or FedEx, insured, signature on delivery</span>
+                <span className="text-xs text-gray-500">Insured for the full price, signature on delivery</span>
               </span>
             </label>
             <label className="flex items-start gap-2 text-sm bg-white border border-saddle-line rounded p-2.5 cursor-pointer">
