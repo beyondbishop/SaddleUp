@@ -47,23 +47,15 @@ function priceTip(t: ClaimTips): string | null {
 }
 
 /**
- * The message an importer pastes into Messenger. The claim-or-remove link comes right after the
- * greeting, so the seller can act (or take it down themselves) without reading on. Then who we
- * are, why SaddleUp helps, what we've done for them and what claiming gets them, the fee, and
- * the sign-off, and last a few observations to help it sell (price, spelling, any choices we made on their
- * listing). Honest throughout: buyer messages are passed on, the fee is the real one, and the
- * price note doesn't claim SaddleUp sales data.
- *
- * `saddle` reads like `17.5" Pessoa A/O`.
+ * The observations we made while importing (price, spelling, judgment calls, measuring help).
+ * No longer part of the Messenger message, which is kept short; meant for the seller once
+ * they've claimed and are editing the listing.
  */
-export function claimMessage(sellerName: string | null | undefined, saddle: string, claimUrl: string, tips: ClaimTips = {}) {
-  const first = (sellerName ?? '').trim().split(/\s+/)[0];
+export function claimNotes(tips: ClaimTips = {}): string[] {
   const fix = spelling(tips);
-  const price = priceTip(tips);
   const choices = (tips.listingNotes ?? []).map((n) => n.trim()).filter(Boolean).slice(0, 3);
-
-  const notes = [
-    price,
+  return [
+    priceTip(tips),
     fix ? `Spelling: "${fix.wrong}" is spelled "${fix.right}". Buyers search by brand, so fixing it on Facebook helps them find you.` : null,
     ...choices,
     tips.treeMissing
@@ -72,23 +64,26 @@ export function claimMessage(sellerName: string | null | undefined, saddle: stri
         ? `Measurements: Buyers look for seat size and tree width first. If you're not sure of yours, this quick guide shows exactly where to measure: ${siteUrl()}/guides/how-to-measure-a-saddle`
         : null
   ].filter((n): n is string => !!n);
+}
 
+/**
+ * The short message an importer pastes into Messenger: what we did, that there's nothing to
+ * re-enter, what claiming gets them, the fee, and the claim-or-remove link. Plain text, since
+ * Messenger doesn't render bold. The longer observations live in `claimNotes`.
+ *
+ * `saddle` reads like `17.5" Pessoa A/O`.
+ */
+export function claimMessage(sellerName: string | null | undefined, saddle: string, claimUrl: string, tips: ClaimTips = {}) {
+  const first = (sellerName ?? '').trim().split(/\s+/)[0];
   return [
-    `Hi${first ? ` ${first}` : ''}!\nI came across your ${saddle} and wanted to help you find a buyer!`,
-    `To claim your free listing or remove it, click here:\n${claimUrl}`,
-    tips.fromFounder
-      ? `I'm an equestrian and recently launched SaddleUp.me, a marketplace I built after experiencing firsthand how frustrating and expensive selling a used saddle can be.`
-      : `SaddleUp.me is a new saddle marketplace, built by an equestrian after experiencing firsthand how frustrating and expensive selling a used saddle can be.`,
-    `One challenge with selling on Facebook is that your listing is largely limited to Facebook users. SaddleUp is designed to help your saddle get discovered through Google and AI searches, reaching riders looking for that exact model.`,
-    `To make it easy, I created a free listing for your saddle using your existing ${tips.hasPhotos ? 'photos and description' : 'description'}${
-      fix ? ' (with the spelling fixed)' : ''
-    }. It's already on SaddleUp, and if someone inquires, I'll pass their message along to you.`,
-    `Once you claim your listing, you can edit it, communicate directly with buyers, and receive secure payments.`,
-    `We're currently in beta, so listing is completely free, and the total fee is only ${SELLER_FEE_PERCENT}% if your saddle sells, including credit card processing.`,
-    `I hope this helps connect your saddle with its next rider!${tips.fromFounder ? '\nDanielle Bishop\nFounder, SaddleUp' : ''}`,
-    notes.length
-      ? `${notes.length === 1 ? 'One observation' : notes.length === 2 ? 'A couple of observations' : 'A few observations'} that may help your saddle sell:\n${notes.map((n) => `• ${n}`).join('\n')}`
-      : null
+    `Hi${first ? ` ${first}` : ''}! I came across your ${saddle} and added it to SaddleUp, ${
+      tips.fromFounder ? 'a new marketplace I created' : 'a new marketplace created by an equestrian'
+    } to help equestrians sell their saddles.`,
+    `Your ${tips.hasPhotos ? 'photos and description are' : 'description is'} already there, so there's nothing to re-enter!`,
+    `Claim your free listing to take control of it, edit your price, and connect directly with buyers.`,
+    `SaddleUp is designed to help riders discover your saddle through Google and AI search. It's free to list, with a ${SELLER_FEE_PERCENT}% fee only if it sells.`,
+    `Claim your listing or remove it here:\n${claimUrl}`,
+    tips.fromFounder ? 'Danielle\nFounder, SaddleUp' : null
   ]
     .filter(Boolean)
     .join('\n\n');
