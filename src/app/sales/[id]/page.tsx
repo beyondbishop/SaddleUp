@@ -6,6 +6,9 @@ import { formatDeadline, orderStage } from '@/lib/order-rules';
 import TrackingForm from '@/components/orders/TrackingForm';
 import LabelForm from '@/components/orders/LabelForm';
 import { shippoConfigured } from '@/lib/shippo';
+import { createAdminClient } from '@/lib/supabase/server';
+import ReviewForm from '@/components/ReviewForm';
+import { GOOGLE_REVIEW_URL, saleIsFinal } from '@/lib/reviews';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Sale', robots: { index: false } };
@@ -36,6 +39,12 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
   ]);
 
   const stage = orderStage(order);
+  const { data: myReview } = await createAdminClient()
+    .from('reviews')
+    .select('rating, comment, share_ok')
+    .eq('order_id', order.id)
+    .eq('reviewer_role', 'seller')
+    .maybeSingle();
   const shipment = shipments?.[0];
   const labelWaiting = shipment?.source === 'shippo_label' && !shipment.accepted_at;
   const canLabel = shippoConfigured() && !!(order.ship_to as any)?.street1;
@@ -95,6 +104,14 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
               <TrackingForm orderId={order.id} current={{ carrier: order.carrier, tracking: order.tracking_number }} />
             </div>
           </details>
+        </section>
+      )}
+
+      {saleIsFinal(order) && (
+        <section className="bg-white border border-saddle-tan rounded-lg p-5">
+          <h2 className="font-semibold mb-1">{myReview ? 'Your review of SaddleUp' : 'How was selling on SaddleUp?'}</h2>
+          <p className="text-sm text-saddle-muted mb-3">I read every one. It helps me make selling easier.</p>
+          <ReviewForm orderId={order.id} role="seller" initial={myReview ?? null} googleReviewUrl={GOOGLE_REVIEW_URL} />
         </section>
       )}
     </div>

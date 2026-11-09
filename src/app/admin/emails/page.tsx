@@ -24,7 +24,7 @@ const ORDER_WHEN: Record<string, string> = {
   delivered: 'Carrier confirms delivery',
   inspection_reminder_2d: '2 days before inspection ends',
   inspection_reminder_1d: '1 day before inspection ends',
-  kept: 'Buyer taps “Keep this saddle” but the payout can’t go out yet (usually it does, and the next email covers both)',
+  kept: 'Buyer taps “Keep this saddle” (the seller gets this only if the payout can’t go out yet; usually “payout sent” covers both)',
   inspection_expired: 'Inspection ends with no action',
   payout_sent: 'Seller is paid: when the buyer taps Keep (shown) or the trial ends',
   payout_failed: 'Seller payout fails',

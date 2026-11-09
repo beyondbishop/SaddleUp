@@ -5,6 +5,7 @@ import { Listing } from '@/lib/types';
 import Avatar from '@/components/Avatar';
 import { getSellerFace } from '@/lib/avatar';
 import { isUuid } from '@/lib/lists-server';
+import { sellerRating } from '@/lib/reviews';
 
 export default async function SellerProfilePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -13,11 +14,8 @@ export default async function SellerProfilePage({ params }: { params: { id: stri
   const seller = isUuid(params.id) ? await getSellerFace(params.id) : null;
   if (!seller) return notFound();
 
-  const { data: reviews } = await supabase
-    .from('reviews')
-    .select('*')
-    .eq('reviewee_id', params.id)
-    .order('created_at', { ascending: false });
+  // Buyers' ratings (hidden ones left out); quotes only from buyers who said we could share them.
+  const rating = await sellerRating(params.id);
 
   const { data: listings } = await supabase
     .from('listings')
@@ -25,9 +23,7 @@ export default async function SellerProfilePage({ params }: { params: { id: stri
     .eq('seller_id', params.id)
     .eq('status', 'active');
 
-  const avgRating = reviews?.length
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
+  const avgRating = rating.average?.toFixed(1) ?? null;
 
   return (
     <div className="py-8">
@@ -40,8 +36,8 @@ export default async function SellerProfilePage({ params }: { params: { id: stri
       </div>
       {avgRating ? (
         <p className="mb-6">
-          <span className="text-yellow-500">★</span> {avgRating} ({reviews!.length} review
-          {reviews!.length === 1 ? '' : 's'})
+          <span className="text-amber-500">★</span> {avgRating} ({rating.count} review
+          {rating.count === 1 ? '' : 's'} from buyers)
         </p>
       ) : (
         <p className="text-gray-400 mb-6">No reviews yet</p>
@@ -55,15 +51,21 @@ export default async function SellerProfilePage({ params }: { params: { id: stri
         {listings?.length === 0 && <p className="text-gray-500">No active listings right now.</p>}
       </div>
 
-      {reviews && reviews.length > 0 && (
+      {rating.all.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold mb-3">Reviews</h2>
+          <h2 className="text-xl font-semibold mb-3">What buyers say</h2>
           <div className="space-y-3">
-            {reviews.map((r) => (
-              <div key={r.id} className="bg-white border border-saddle-tan rounded-lg p-4">
-                <p className="text-yellow-500 mb-1">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</p>
-                {r.comment && <p className="text-sm">{r.comment}</p>}
-              </div>
+            {rating.all.map((r) => (
+              <figure key={r.id} className="bg-white border border-saddle-tan rounded-lg p-4">
+                <p className="text-amber-500 mb-1" aria-label={`${r.rating} out of 5 stars`}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</p>
+                {/* Words are shown only when the buyer agreed to share them. */}
+                {rating.quotes.some((q) => q.id === r.id) && <blockquote className="text-sm">“{r.comment}”</blockquote>}
+                <figcaption className="text-xs text-saddle-muted mt-1">
+                  {rating.quotes.some((q) => q.id === r.id) && r.reviewer_first_name ? `${r.reviewer_first_name}, ` : ''}
+                  bought {r.saddle_label ? `a ${r.saddle_label}` : 'a saddle'} ·{' '}
+                  {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </figcaption>
+              </figure>
             ))}
           </div>
         </>

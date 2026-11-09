@@ -17,6 +17,7 @@ const NotStated = () => <span className="text-gray-500 italic">Not stated</span>
 import { notFound } from 'next/navigation';
 import Avatar from '@/components/Avatar';
 import { getSellerFace } from '@/lib/avatar';
+import { sellerRating } from '@/lib/reviews';
 
 async function getListing(slug: string) {
   const supabase = createClient();
@@ -95,6 +96,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const awaitingSeller = listing.status === 'unclaimed' && !notPublic;
   const canEdit = !!user && (listing.seller_id === user.id || notPublic || isAdmin);
   const seller = await getSellerFace(listing.seller_id);
+  const rating = listing.seller_id ? await sellerRating(listing.seller_id) : null;
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
   // exact saddle when someone searches "16.5 medium tree Antares for sale".
@@ -224,14 +226,30 @@ export default async function ListingPage({ params }: { params: { slug: string }
         </dl>
 
         {seller ? (
+          <>
           <a href={`/sellers/${seller.id}`} className="group flex items-center gap-3 mb-4 p-3 bg-white border border-saddle-line rounded-lg hover:border-saddle-brown transition-colors">
             <Avatar url={seller.avatarUrl} initials={seller.initials} size={56} />
             <span>
               <span className="block text-xs text-saddle-muted">Sold by</span>
               <span className="block font-semibold text-saddle-ink">{seller.firstName}</span>
+              {rating?.average ? (
+                <span className="block text-sm text-saddle-ink">
+                  <span className="text-amber-500">★</span> {rating.average.toFixed(1)}{' '}
+                  <span className="text-saddle-muted">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
+                </span>
+              ) : null}
               <span className="block text-sm underline text-saddle-brown">View profile & reviews</span>
             </span>
           </a>
+          {rating?.quotes[0] && (
+            <figure className="-mt-2 mb-4 px-3 py-2 border-l-2 border-amber-400 text-sm">
+              <blockquote className="italic text-saddle-ink">“{rating.quotes[0].comment}”</blockquote>
+              <figcaption className="text-xs text-saddle-muted mt-1">
+                {rating.quotes[0].reviewer_first_name ?? 'A buyer'}, who bought {rating.quotes[0].saddle_label ? `a ${rating.quotes[0].saddle_label}` : 'a saddle'} from {seller.firstName}
+              </figcaption>
+            </figure>
+          )}
+          </>
         ) : listing.seller_id ? (
           <p className="mb-2">
             <a href={`/sellers/${listing.seller_id}`} className="text-sm underline text-saddle-brown">View seller profile & reviews</a>

@@ -25,6 +25,8 @@ type Personal = {
   button?: string;
   tip?: string;
   closing: string;
+  /** Ask them to rate the sale: five star links to /review/<order>?rating=n. */
+  rate?: { title: string; body: string };
 };
 
 const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -196,6 +198,20 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
     })
   },
   kept: {
+    buyer: (c) => ({
+      subject: `🎉 The ${c.saddle} is yours!`,
+      lines: [`Thank you for letting me know you’re keeping the ${c.saddle}. It’s officially yours, and the seller is being paid. I hope you have many happy rides in it.`],
+      personal: {
+        current: 5,
+        button: 'View your order',
+        rate: {
+          title: 'How did we do?',
+          body: 'Tap a star to rate the saddle, the seller and buying on SaddleUp. It takes a minute, and it really helps other riders.'
+        },
+        tip: 'Give it a gentle clean and condition before your first big ride. Have the flocking checked after a few weeks, once it has settled to your horse.',
+        closing: 'Thank you for buying on SaddleUp.'
+      }
+    }),
     // Usually the payout goes out the moment the buyer keeps the saddle, and "payout_sent" tells
     // the seller both things in one email. This one only goes if the payout is still pending.
     seller: (c) => c.order.payout_status === 'transferred' ? null : ({
@@ -217,6 +233,10 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
       personal: {
         current: 5,
         button: 'View your order',
+        rate: {
+          title: 'How did we do?',
+          body: 'Tap a star to rate the saddle, the seller and buying on SaddleUp. It takes a minute, and it really helps other riders.'
+        },
         tip: 'Give it a gentle clean and condition before your first big ride. Have the flocking checked after a few weeks, once it has settled to your horse.',
         closing: 'Thank you for buying on SaddleUp. Happy riding with your new saddle!'
       }
@@ -236,6 +256,10 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> =
       personal: {
         current: 5,
         button: 'View your sale',
+        rate: {
+          title: 'How was selling on SaddleUp?',
+          body: 'Tap a star to rate your experience. I read every review, and it helps me make selling easier.'
+        },
         tip: 'Know a rider with a saddle that doesn’t fit? Send them SaddleUp. Every saddle that finds the right horse makes the whole community better.',
         closing: 'Thank you for selling with SaddleUp.'
       }
@@ -343,6 +367,22 @@ function render(msg: Msg, url: string) {
   return { html, text };
 }
 
+const reviewUrl = (ctx: Ctx) => `${ctx.site}/review/${ctx.order.id}`;
+
+/** "How did we do?" with five big stars; each opens the rating page with that many stars picked. */
+function rateBlock(rate: { title: string; body: string }, base: string, esc: (s: string) => string) {
+  const stars = [1, 2, 3, 4, 5]
+    .map((n) => `<a href="${base}?rating=${n}" title="${n} star${n > 1 ? 's' : ''}" style="color:#d99a2b;text-decoration:none;font-size:34px;line-height:1;padding:0 3px">&#9733;</a>`)
+    .join('');
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:4px 0 20px;width:100%"><tr>
+    <td style="background:#fffaf0;border:1px solid #ecd9b0;border-radius:6px;padding:16px;text-align:center;font-family:Georgia,serif;color:#2b2118">
+      <div style="font-size:17px;font-weight:bold;margin-bottom:4px">${esc(rate.title)}</div>
+      <div style="font-size:14px;line-height:1.5;margin-bottom:8px">${esc(rate.body)}</div>
+      <div>${stars}</div>
+    </td>
+  </tr></table>`;
+}
+
 function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
   const pers = msg.personal!;
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -372,6 +412,7 @@ function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
   ${msg.lines.map((l) => p(esc(l))).join('\n  ')}
   ${hasTimeline ? timelineHtml(ctx.order, tRole, { transitDays: ctx.transitDays, current: cur }) : ''}
   ${steps ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 8px;width:100%">${steps}</table>` : ''}
+  ${pers.rate ? rateBlock(pers.rate, reviewUrl(ctx), esc) : ''}
   <p style="margin:8px 0 24px"><a href="${url}" style="background:#2f4a3a;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none">${esc(pers.button ?? (role === 'seller' ? 'View your sale' : 'View your order'))}</a></p>
   ${pers.tip ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 20px;width:100%"><tr>
     <td style="background:#f6f0e6;border-left:3px solid #2f4a3a;padding:12px 14px;font-family:Georgia,serif;font-size:14px;line-height:1.5;color:#2b2118"><strong style="color:#2f4a3a">Pro tip:</strong> ${esc(pers.tip)}</td>
@@ -390,6 +431,7 @@ function renderPersonal(msg: Msg, ctx: Ctx, role: Role, url: string) {
           notes.map(([t, b], i) => `${i + 1}. ${t}${i === cur ? ' (you are here)' : ''}: ${b}`).join('\n')
         ]
       : []),
+    ...(pers.rate ? [`${pers.rate.title} ${pers.rate.body}\nRate it: ${reviewUrl(ctx)}`] : []),
     `${pers.button ?? (role === 'seller' ? 'View your sale' : 'View your order')}: ${url}`,
     ...(pers.tip ? [`Pro tip: ${pers.tip}`] : []),
     pers.closing,

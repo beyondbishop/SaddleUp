@@ -8,6 +8,8 @@ import { brandsForDiscipline } from '@/lib/saddle-catalog';
 import { searchUrl, FOR_SALE } from '@/lib/search';
 import SaddleValueCheck from '@/components/sell/SaddleValueCheck';
 import { SELLER_KEEPS_PERCENT } from '@/lib/fees';
+import Testimonials from '@/components/Testimonials';
+import { featuredReviews } from '@/lib/reviews';
 
 const eyebrow = 'font-mono uppercase text-saddle-gold';
 const sectionH2 = 'font-serif font-medium text-[34px] text-saddle-ink m-0';
@@ -95,6 +97,7 @@ export default async function HomePage() {
     // Every saddle for sale, just its brand, to count listings per brand.
     supabase.from('listings').select('brand_id').or(FOR_SALE)
   ]);
+  const testimonials = await featuredReviews(6);
   const brandCounts = new Map<number, number>();
   for (const l of (forSale ?? []) as { brand_id: number | null }[]) {
     if (l.brand_id != null) brandCounts.set(l.brand_id, (brandCounts.get(l.brand_id) ?? 0) + 1);
@@ -233,6 +236,9 @@ export default async function HomePage() {
           ))}
         </ol>
       </section>
+
+      {/* What riders are saying: shared 5-star reviews */}
+      <Testimonials reviews={testimonials} />
 
       {/* Brands */}
       {brands.length > 0 && (

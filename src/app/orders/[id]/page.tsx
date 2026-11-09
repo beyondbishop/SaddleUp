@@ -5,6 +5,8 @@ import ReviewForm from '@/components/ReviewForm';
 import OrderView from '@/components/orders/OrderView';
 import BuyerActions from '@/components/orders/BuyerActions';
 import { formatDeadline } from '@/lib/order-rules';
+import { createAdminClient } from '@/lib/supabase/server';
+import { GOOGLE_REVIEW_URL, saleIsFinal } from '@/lib/reviews';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +19,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
 
   const { data: order } = await supabase
     .from('orders')
-    .select('*, listings(model, seat_size, slug, tree_width, images, brands(name)), reviews(id)')
+    .select('*, listings(model, seat_size, slug, tree_width, images, brands(name))')
     .eq('id', params.id)
     .eq('buyer_id', user.id)
     .maybeSingle();
@@ -29,7 +31,12 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     .eq('order_id', order.id)
     .order('created_at', { ascending: true });
 
-  const hasReview = (order as any).reviews?.length > 0;
+  const { data: myReview } = await createAdminClient()
+    .from('reviews')
+    .select('rating, comment, share_ok')
+    .eq('order_id', order.id)
+    .eq('reviewer_role', 'buyer')
+    .maybeSingle();
   const now = Date.now();
   const open = order.status === 'paid' && order.payout_status === 'held' && !order.issue_type;
   const inspectionOpen = !!order.delivered_at && !!order.release_at && now < new Date(order.release_at).getTime();
@@ -51,13 +58,13 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         />
       )}
 
-      {order.payout_status === 'transferred' && !hasReview && (
+      {saleIsFinal(order) && (
         <div className="bg-white border border-saddle-tan rounded-lg p-5">
-          <p className="font-semibold mb-3">How was it?</p>
-          <ReviewForm orderId={order.id} sellerId={order.seller_id} />
+          <p className="font-semibold mb-1">{myReview ? 'Your review' : 'How was it?'}</p>
+          <p className="text-sm text-saddle-muted mb-3">Rate the saddle, the seller and buying on SaddleUp.</p>
+          <ReviewForm orderId={order.id} role="buyer" initial={myReview ?? null} googleReviewUrl={GOOGLE_REVIEW_URL} />
         </div>
       )}
-      {order.payout_status === 'transferred' && hasReview && <p className="text-gray-500">Thanks for your review!</p>}
     </div>
   );
 }
