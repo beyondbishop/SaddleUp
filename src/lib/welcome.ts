@@ -81,9 +81,16 @@ export function welcomeEmail(fullName: string | null) {
 /** Sent from Danielle's own address; replies forward to her inbox. Needs saddleup.me verified in Resend. */
 export const WELCOME_FROM = 'Danielle Bishop <danielle@saddleup.me>';
 
-export async function sendWelcomeOnce(userId: string): Promise<void> {
+export type WelcomeResult = 'sent' | 'already_sent' | 'no_email' | 'skipped' | 'failed';
+
+/**
+ * Send the welcome email unless this person already had it. Safe to call from anywhere, any
+ * number of times. A failure is recorded on the profile (welcome_last_error) and the claim is
+ * released, so the next attempt (sign-in, or the daily catch-up) tries again.
+ */
+export async function sendWelcomeOnce(userId: string): Promise<WelcomeResult> {
+  const admin = createAdminClient();
   try {
-    const admin = createAdminClient();
     // Claim the welcome atomically: only the first caller gets the row back.
     const { data: profile } = await admin
       .from('profiles')
@@ -92,16 +99,54 @@ export async function sendWelcomeOnce(userId: string): Promise<void> {
       .is('welcome_sent_at', null)
       .select('email, full_name')
       .maybeSingle();
-    if (!profile?.email) return;
+    if (!profile) return 'already_sent';
+    if (!profile.email) {
+      await admin.from('profiles').update({ welcome_sent_at: null }).eq('id', userId);
+      return 'no_email';
+    }
 
     const { subject, html, text } = welcomeEmail(profile.full_name);
     const result = await sendEmail({ to: profile.email, from: WELCOME_FROM, subject, html, text, idempotencyKey: `welcome-${userId}` });
-    if (result.status !== 'sent') {
-      // Not sent (email not set up yet, or Resend failed): release the claim so it's tried next sign-in.
-      await admin.from('profiles').update({ welcome_sent_at: null }).eq('id', userId);
-      if (result.status === 'failed') console.error('Welcome email failed', userId, result.detail);
+    if (result.status === 'sent') {
+      await recordError(userId, null);
+      return 'sent';
     }
+    // Not sent (email not set up, or Resend refused it): release the claim and keep the reason.
+    await admin.from('profiles').update({ welcome_sent_at: null }).eq('id', userId);
+    await recordError(userId, `${result.status}: ${result.detail}`);
+    console.error('Welcome email not sent', userId, result.status, result.detail);
+    return result.status;
   } catch (e) {
     console.error('Welcome email error', e);
+    await recordError(userId, `error: ${e instanceof Error ? e.message : String(e)}`);
+    return 'failed';
   }
+}
+
+async function recordError(userId: string, message: string | null) {
+  // Column added by the 20261116 migration; ignore the error if it isn't there yet.
+  await createAdminClient()
+    .from('profiles')
+    .update({ welcome_last_error: message ? message.slice(0, 500) : null })
+    .eq('id', userId)
+    .then(() => {}, () => {});
+}
+
+/** Daily catch-up: welcome anyone who confirmed in the last week but hasn't had it (e.g. a send failed). */
+export async function sendMissedWelcomes(limit = 20): Promise<number> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - 7 * 864e5).toISOString();
+  const { data: pending } = await admin
+    .from('profiles')
+    .select('id')
+    .is('welcome_sent_at', null)
+    .gte('created_at', since)
+    .limit(limit);
+  let sent = 0;
+  for (const p of pending ?? []) {
+    const { data } = await admin.auth.admin.getUserById(p.id);
+    if (!data?.user?.email_confirmed_at) continue; // not confirmed yet
+    if ((await sendWelcomeOnce(p.id)) === 'sent') sent++;
+  }
+  return sent;
 }

@@ -5,6 +5,7 @@ import { recordMissingRewards } from '@/lib/rewards';
 import { syncOpenShipments } from '@/lib/shipment-sync';
 import { sendDailyReminders } from '@/lib/reminders';
 import { refreshStalePriceRanges } from '@/lib/listing-price-range';
+import { sendMissedWelcomes } from '@/lib/welcome';
 
 // Daily: pay sellers whose buyer confirmed receipt or whose inspection window (which starts at
 // confirmed delivery) has ended, and free saddles left reserved by abandoned checkouts.
@@ -60,7 +61,14 @@ export async function GET(req: Request) {
     return 0;
   });
 
+  // Welcome emails that didn't go out when the email was confirmed (e.g. a send failed).
+  const welcomesSent = await sendMissedWelcomes().catch((e) => {
+    console.error('Welcome catch-up failed', e);
+    return 0;
+  });
+
   return NextResponse.json({
+    welcomesSent,
     priceRangesUpdated,
     shipmentsChecked,
     remindersSent,
