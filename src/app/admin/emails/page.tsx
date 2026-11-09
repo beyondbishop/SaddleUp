@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getViewer } from '@/lib/roles';
 import { WELCOME_FROM, welcomeEmail } from '@/lib/welcome';
+import SendTestEmail from '@/components/admin/SendTestEmail';
 import { previewOrderEmails } from '@/lib/notify';
 import { loginLinkEmail } from '@/lib/login-link';
 import { CONFIRM_SIGNUP, previewConfirmSignup } from '@/lib/auth-emails';
@@ -46,6 +47,7 @@ function EmailCard({ p }: { p: Preview }) {
         <p className="font-semibold text-saddle-ink mt-0.5">{p.subject}</p>
       </header>
       <iframe title={p.subject} srcDoc={p.html} className="w-full h-[420px] bg-white" sandbox="" />
+      {p.id === 'welcome' && <SendTestEmail kind="welcome" />}
       <details className="px-4 py-2 border-t border-saddle-line text-sm">
         <summary className="cursor-pointer text-saddle-muted">Plain-text version{p.sms ? ' and text message' : ''}</summary>
         <pre className="whitespace-pre-wrap text-xs mt-2 font-mono">{p.text}</pre>
