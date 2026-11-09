@@ -4,6 +4,8 @@ import { brandsForPicker } from '@/lib/brands-server';
 import { isUuid } from '@/lib/lists-server';
 import { redirect, notFound } from 'next/navigation';
 import ListingForm from '@/components/ListingForm';
+import ListingStatusPicker from '@/components/admin/ListingStatusPicker';
+import { STATUS_LABELS, type ListingStatus } from '@/lib/admin-listings';
 
 export default async function EditListingPage({
   params,
@@ -45,6 +47,19 @@ export default async function EditListingPage({
         </div>
       )}
       <h1 className="text-2xl font-bold text-saddle-brown mb-6">Edit Listing</h1>
+      {isAdmin && (
+        <div className="max-w-2xl bg-white border border-saddle-line rounded p-4 mb-6 space-y-2">
+          <p className="text-sm text-saddle-muted">
+            Now: <strong className="text-saddle-ink">{STATUS_LABELS[listing.status as ListingStatus] ?? listing.status}</strong>
+            {listing.status === 'unclaimed' && (listing.show_before_claim ? ', showing on the site' : ', hidden from the site')}
+            {listing.slug && (listing.status === 'active' || (listing.status === 'unclaimed' && listing.show_before_claim)) && (
+              <> · <a href={`/saddles/${listing.slug}`} className="underline text-saddle-brown">View on site</a></>
+            )}
+          </p>
+          <ListingStatusPicker listing={listing} />
+          <p className="text-xs text-saddle-muted">Changes save straight away. Removed and draft saddles are hidden, never deleted, so you can always put them back.</p>
+        </div>
+      )}
       {access === 'importer' && (
         <div className="max-w-2xl bg-saddle-sand border border-saddle-line rounded p-3 mb-4 text-sm text-saddle-brown">
           You added this saddle and the seller hasn&apos;t claimed it yet, so you can still fix its details and photos.

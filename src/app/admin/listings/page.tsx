@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/server';
 import ModerationCard from '@/components/ModerationCard';
 import DeleteListingButton from '@/components/DeleteListingButton';
+import ListingStatusPicker from '@/components/admin/ListingStatusPicker';
 import { LISTING_STATUSES, STATUS_LABELS, STATUS_STYLES, saddleTitle, usd, type ListingStatus } from '@/lib/admin-listings';
 
 export const dynamic = 'force-dynamic';
@@ -214,6 +215,7 @@ export default async function AdminListingsPage({ searchParams }: { searchParams
                       <span className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLES[l.status as ListingStatus]}`}>
                         {STATUS_LABELS[l.status as ListingStatus]}
                       </span>
+                      <div className="mt-1"><ListingStatusPicker listing={l} compact /></div>
                     </td>
                     <td className="p-2 text-right tabular-nums whitespace-nowrap">{usd(l.price_cents)}</td>
                     <td className="p-2">
