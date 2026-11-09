@@ -64,7 +64,7 @@ function stepNotes(c: Ctx, role: 'buyer' | 'seller', current: number): [string, 
 }
 
 /** event type -> message per recipient role. Missing role = that person isn't told. */
-const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
+const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg | null>>> = {
   paid: {
     buyer: (c) => ({
       subject: `🎉 Order confirmed: your ${c.saddle}`,
@@ -196,7 +196,9 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
     })
   },
   kept: {
-    seller: (c) => ({
+    // Usually the payout goes out the moment the buyer keeps the saddle, and "payout_sent" tells
+    // the seller both things in one email. This one only goes if the payout is still pending.
+    seller: (c) => c.order.payout_status === 'transferred' ? null : ({
       subject: `🎉 The buyer is keeping your ${c.saddle}`,
       lines: [`Great news: the buyer loves your ${c.saddle} and is keeping it. Your payout of ${usd(c.order.seller_payout_cents)} is on its way.`],
       sms: `SaddleUp: The buyer kept your ${c.saddle}. Your ${usd(c.order.seller_payout_cents)} payout is on its way.`,
@@ -223,8 +225,13 @@ const TEMPLATES: Record<string, Partial<Record<Role, (c: Ctx) => Msg>>> = {
   },
   payout_sent: {
     seller: (c) => ({
-      subject: `💸 Your ${usd(c.order.seller_payout_cents)} payout is on its way`,
-      lines: [`I’ve sent ${usd(c.order.seller_payout_cents)} for your ${c.saddle} to your Stripe account. It usually reaches your bank within a few business days. That’s the sale complete!`],
+      subject: c.order.confirmed_at
+        ? `🎉 The buyer is keeping your ${c.saddle}, and you’ve been paid`
+        : `💸 Your ${usd(c.order.seller_payout_cents)} payout is on its way`,
+      lines: [
+        ...(c.order.confirmed_at ? [`Great news: the buyer loves your ${c.saddle} and is keeping it.`] : []),
+        `I’ve sent ${usd(c.order.seller_payout_cents)} for your ${c.saddle} to your Stripe account. It usually reaches your bank within a few business days. That’s the sale complete!`
+      ],
       sms: `SaddleUp: ${usd(c.order.seller_payout_cents)} for your ${c.saddle} has been sent to your Stripe account.`,
       personal: {
         current: 5,
@@ -426,6 +433,8 @@ function sampleCtx(event = 'paid'): Ctx {
     delivered_at: iso(delivered),
     release_at: iso(delivered === null ? null : delivered + 5 * day),
     kept_at: event === 'kept' ? iso(now) : null,
+    // Preview the usual case: the buyer tapped Keep, so the payout email says so too.
+    confirmed_at: event === 'payout_sent' ? iso(now) : null,
     payout_status: stage >= 5 ? 'transferred' : 'held',
     tracking_number: '1Z999AA10123456784',
     carrier: 'ups'
@@ -442,6 +451,7 @@ export function previewOrderEmails() {
       const t = roles[role];
       if (!t) continue;
       const msg = t(ctx);
+      if (!msg) continue;
       out.push({ event, role, subject: msg.subject, sms: msg.sms, ...renderFor(msg, ctx, role, link(ctx, role)) });
     }
   }
@@ -499,6 +509,7 @@ export async function notifyOrderEvent(orderId: string, type: string, data?: Rec
       const make = templates[role];
       if (!p || !make) continue;
       const msg = make({ ...ctx, firstName: p.full_name?.trim().split(/\s+/)[0] ?? null });
+      if (!msg) continue;
       const url = link(ctx, role);
       const base = { order_id: order.id, user_id: p.id, template: type };
 
@@ -526,5 +537,6 @@ export function orderEmailForTest(type: string, role: Role, firstName: string | 
   if (!make) return null;
   const ctx: Ctx = { ...sampleCtx(type), firstName };
   const msg = make(ctx);
+  if (!msg) return null;
   return { subject: msg.subject, ...renderFor(msg, ctx, role, link(ctx, role)) };
 }
