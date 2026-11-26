@@ -255,7 +255,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
                 <span className="block text-sm underline text-saddle-brown group-hover:text-saddle-ink">View profile & reviews</span>
               </span>
             </a>
-            {canMessageSeller && <MessageSeller listingId={listing.id} sellerId={listing.seller_id!} firstName={seller.firstName} />}
+            {canMessageSeller && <MessageSeller listingId={listing.id} sellerId={listing.seller_id!} firstName={seller.firstName} signedIn={!!user} />}
           </div>
           {rating?.quotes[0] && (
             <figure className="-mt-2 mb-4 px-3 py-2 border-l-2 border-amber-400 text-sm">
@@ -322,7 +322,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
               <p className="mt-3 text-sm">
                 Questions?{' '}
                 <a href="#message-seller" className="underline font-semibold text-saddle-brown">
-                  Message {seller?.firstName ?? 'the seller'}
+                  {user ? `Message ${seller?.firstName ?? 'the seller'}` : 'Sign in to send a message'}
                 </a>
               </p>
             )}
