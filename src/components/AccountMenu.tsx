@@ -1,4 +1,5 @@
 'use client';
+import ViewAsSwitch from './ViewAsSwitch';
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -12,8 +13,10 @@ type Counts = { messages: number; toShip: number; toInspect: number };
 const Badge = ({ n }: { n: number }) =>
   n > 0 ? <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-700 text-white text-[11px] leading-5 text-center font-semibold">{n}</span> : null;
 
-export default function AccountMenu({ isAdmin, isImporter = false, pendingCount = 0, avatarUrl = null, initials = '?', counts = { messages: 0, toShip: 0, toInspect: 0 } }: {
+export default function AccountMenu({ isAdmin, isImporter = false, pendingCount = 0, avatarUrl = null, initials = '?', counts = { messages: 0, toShip: 0, toInspect: 0 }, realAdmin = false, viewingAsMember = false }: {
   isAdmin: boolean; isImporter?: boolean; pendingCount?: number; avatarUrl?: string | null; initials?: string; counts?: Counts;
+  /** Really an admin (shows the view switch even while viewing as a member). */
+  realAdmin?: boolean; viewingAsMember?: boolean;
 }) {
   const total = counts.messages + counts.toShip + counts.toInspect + (isAdmin ? pendingCount : 0);
   const [open, setOpen] = useState(false);
@@ -83,6 +86,11 @@ export default function AccountMenu({ isAdmin, isImporter = false, pendingCount 
                 {pendingCount > 0 && <span className="text-saddle-green font-semibold">{pendingCount}</span>}
               </Link>
             </>
+          )}
+          {realAdmin && (
+            <ViewAsSwitch to={viewingAsMember ? 'admin' : 'member'} className={`${item} w-full text-left`}>
+              {viewingAsMember ? 'Switch back to admin view' : 'View as a member'}
+            </ViewAsSwitch>
           )}
 
           <div className="border-t border-saddle-line my-1" />

@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rolesFor } from '@/lib/roles';
 import { listingPaths, notifyIndexNow } from '@/lib/indexnow';
 import { sendListingEmail } from '@/lib/listing-emails';
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
 
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
-  if (!profile?.is_admin) return NextResponse.json({ error: 'Admins only.' }, { status: 403 });
+  if (!rolesFor(profile).isAdmin) return NextResponse.json({ error: 'Admins only.' }, { status: 403 });
 
   const { id, status } = (await req.json().catch(() => ({}))) as { id?: string; status?: string };
   if (!id || (status !== 'active' && status !== 'removed')) {

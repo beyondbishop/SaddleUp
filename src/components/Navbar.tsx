@@ -4,6 +4,8 @@ import AccountMenu from './AccountMenu';
 import SignInLink from './SignInLink';
 import { avatarUrlFor, initialsOf } from '@/lib/avatar';
 import { orderStage } from '@/lib/order-rules';
+import { rolesFor } from '@/lib/roles';
+import ViewAsSwitch from './ViewAsSwitch';
 
 const STAGE_FIELDS = 'status, payout_status, shipped_at, delivered_at, kept_at, confirmed_at, issue_type, review_status';
 
@@ -16,14 +18,15 @@ export default async function Navbar() {
   // Admins get an Admin section and a count of listings waiting for review.
   let isAdmin = false;
   let isImporter = false;
+  let realAdmin = false;
+  let viewingAsMember = false;
   let pendingCount = 0;
   let initials = '?';
   // Things waiting on this person: the number on their headshot.
   const counts = { messages: 0, toShip: 0, toInspect: 0 };
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('full_name, is_admin, is_importer').eq('id', user.id).single();
-    isAdmin = !!profile?.is_admin;
-    isImporter = isAdmin || !!profile?.is_importer;
+    ({ isAdmin, isImporter, realAdmin, viewingAsMember } = rolesFor(profile));
     initials = initialsOf(profile?.full_name, user.email);
     const n = (r: { count: number | null }) => r.count ?? 0;
     const [messages, toShip, toInspect, pending] = await Promise.all([
@@ -49,6 +52,12 @@ export default async function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-saddle-cream/90 backdrop-blur-md border-b border-saddle-line">
+      {viewingAsMember && (
+        <div className="bg-saddle-green text-saddle-cream text-xs sm:text-sm px-4 py-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <span>You&apos;re viewing SaddleUp as a member. Admin tools are hidden.</span>
+          <ViewAsSwitch to="admin" className="underline font-semibold">Switch back to admin</ViewAsSwitch>
+        </div>
+      )}
       <div className="max-w-[1200px] mx-auto px-[18px] py-[14px] sm:px-8 sm:py-4 flex flex-wrap sm:flex-nowrap gap-2.5 items-center justify-between">
         <Link href="/" className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -62,6 +71,7 @@ export default async function Navbar() {
           <Link href="/about" className="hover:text-saddle-brown">Our Story</Link>
           {user ? (
             <AccountMenu isAdmin={isAdmin} isImporter={isImporter} pendingCount={pendingCount}
+              realAdmin={realAdmin} viewingAsMember={viewingAsMember}
               avatarUrl={avatarUrlFor(user)} initials={initials} counts={counts} />
           ) : (
             <SignInLink
