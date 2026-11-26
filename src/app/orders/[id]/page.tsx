@@ -6,6 +6,7 @@ import OrderView from '@/components/orders/OrderView';
 import BuyerActions from '@/components/orders/BuyerActions';
 import { formatDeadline, isPickup } from '@/lib/order-rules';
 import PickupHandover from '@/components/orders/PickupHandover';
+import ReceivedButton from '@/components/orders/ReceivedButton';
 import { createAdminClient } from '@/lib/supabase/server';
 import { GOOGLE_REVIEW_URL, saleIsFinal } from '@/lib/reviews';
 
@@ -65,6 +66,19 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             keep it or the trial ends.
           </p>
           <PickupHandover orderId={order.id} role="buyer" />
+        </section>
+      )}
+
+      {!pickup && open && order.shipped_at && !order.delivered_at && (
+        <section className="bg-saddle-cream border border-saddle-tan rounded-lg p-5 text-sm space-y-3">
+          <h2 className="font-semibold">Has your saddle arrived?</h2>
+          <p>
+            {/^(usps|ups|fedex|dhl)$/i.test(order.carrier ?? '')
+              ? 'Your trial starts automatically when the carrier shows it delivered. If it’s with you and the tracking hasn’t caught up, tap below.'
+              : 'We can’t follow this carrier automatically, so please tap below as soon as it arrives.'}{' '}
+            Your 5-day trial starts then. The seller isn&apos;t paid until you keep it or the trial ends.
+          </p>
+          <ReceivedButton orderId={order.id} />
         </section>
       )}
 

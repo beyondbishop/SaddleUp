@@ -88,15 +88,15 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
               <details>
                 <summary className="cursor-pointer underline">I&apos;d rather ship it myself</summary>
                 <p className="mt-2 text-gray-700">
-                  Ship with UPS or FedEx (not USPS), signature required and insurance for the full sale price, then add the tracking
-                  number. Your own shipping costs aren&apos;t reimbursed.
+                  Ship with any carrier (USPS, UPS, FedEx, DHL or another), with signature required and insurance for the full
+                  sale price, then add the tracking number. Your own shipping costs aren&apos;t reimbursed.
                 </p>
                 <div className="mt-2"><TrackingForm orderId={order.id} /></div>
               </details>
             </>
           ) : (
             <>
-              <p className="text-gray-700">Ship it with UPS or FedEx (not USPS), signature required and insured for the full sale price, then add the tracking number.</p>
+              <p className="text-gray-700">Ship it with any carrier (USPS, UPS, FedEx, DHL or another), signature required and insured for the full sale price, then add the tracking number.</p>
               <TrackingForm orderId={order.id} />
             </>
           )}
@@ -115,9 +115,13 @@ export default async function SaleDetailPage({ params }: { params: { id: string 
         </section>
       )}
 
-      {stage === 'shipped' && shipment?.source === 'manual' && (
+      {stage === 'shipped' && (!shipment || shipment.source === 'manual') && (
         <section className="bg-white border border-saddle-line rounded-lg p-5 text-sm space-y-2">
-          <p>The buyer&apos;s 5-day inspection starts when the carrier confirms delivery.</p>
+          <p>
+            {shipment
+              ? 'The buyer’s 5-day inspection starts when the carrier confirms delivery.'
+              : `We can’t follow ${order.carrier ?? 'this carrier'} automatically, so the buyer’s 5-day inspection starts when they confirm the saddle arrived.`}
+          </p>
           <details>
             <summary className="cursor-pointer underline">Fix the tracking number</summary>
             <div className="mt-2">

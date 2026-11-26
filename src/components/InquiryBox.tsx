@@ -15,11 +15,12 @@ export function alertRecipient(messageId: string) {
   }).catch(() => {});
 }
 
-export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Question' }: {
+export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Question', autoFocus = false }: {
   listingId: string;
   /** null for an unclaimed saddle: the database routes the conversation to SaddleUp. */
   sellerId: string | null;
   buttonLabel?: string;
+  autoFocus?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -87,6 +88,7 @@ export default function InquiryBox({ listingId, sellerId, buttonLabel = 'Ask a Q
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required
+        autoFocus={autoFocus}
         placeholder="Ask about tree fit, flocking, wear, shipping…"
         rows={3}
         className="w-full border rounded p-2 text-sm mb-2"
