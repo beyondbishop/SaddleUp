@@ -143,7 +143,9 @@ export default async function ListingPage({ params }: { params: { slug: string }
                 : `This listing is ${listing.status.replace('_', ' ')} and isn't public.`
               : awaitingSeller
                 ? 'Not claimed yet. It shows on the site, and messages about it come to you.'
-                : 'This is your listing.'}
+                : user?.id === listing.seller_id
+                  ? 'This is your listing.'
+                  : `You’re viewing ${seller?.firstName ? `${seller.firstName}’s` : 'this'} listing as an admin.`}
           </span>
           {canEdit && (
             <a href={`/dashboard/listings/${listing.id}/edit`} className="underline font-semibold text-saddle-brown">
