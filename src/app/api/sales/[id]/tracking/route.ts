@@ -1,6 +1,7 @@
-// POST /api/sales/<order id>/tracking { carrier, trackingNumber }   seller only
-// Records that the saddle has been handed to the carrier (manual until Shippo labels are live).
-// This doesn't start the inspection clock; confirmed delivery does.
+// POST /api/sales/<order id>/tracking { carrier, carrierName?, trackingNumber }   seller only
+// Records that the seller shipped the saddle themselves (their own label, any carrier).
+// This doesn't start the inspection clock; confirmed delivery does. USPS, UPS, FedEx and DHL are
+// tracked automatically. "Other" (carrierName) can't be tracked, so the buyer confirms receipt.
 import { NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { logOrderEvent } from '@/lib/orders';
@@ -8,8 +9,7 @@ import { isUuid } from '@/lib/lists-server';
 import { carrierCode, registerTrack, shippoConfigured } from '@/lib/shippo';
 import { syncShipment } from '@/lib/shipment-sync';
 
-// UPS or FedEx only: never USPS (signature + full-value insurance on a saddle).
-const CARRIERS = ['UPS', 'FedEx'];
+const CARRIERS = ['USPS', 'UPS', 'FedEx', 'DHL'];
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const {
@@ -19,10 +19,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!isUuid(params.id)) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
-  const carrier = CARRIERS.includes(body.carrier) ? body.carrier : null;
+  const otherName = typeof body.carrierName === 'string' ? body.carrierName.trim().replace(/\s+/g, ' ').slice(0, 40) : '';
+  const carrier = CARRIERS.includes(body.carrier) ? body.carrier : body.carrier === 'Other' && otherName.length >= 2 ? otherName : null;
   const tracking = typeof body.trackingNumber === 'string' ? body.trackingNumber.replace(/\s+/g, '').slice(0, 60) : '';
-  if (!carrier || tracking.length < 6) {
-    return NextResponse.json({ error: 'Choose the carrier and enter the full tracking number.' }, { status: 400 });
+  if (!carrier || tracking.length < 4) {
+    return NextResponse.json({ error: body.carrier === 'Other' && !otherName ? 'Enter the carrier’s name.' : 'Choose the carrier and enter the full tracking number.' }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -49,10 +50,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Track it automatically. Shippo test mode only understands its fake SHIPPO_* numbers.
   const code = /^SHIPPO_/i.test(tracking) && process.env.SHIPPO_API_TOKEN?.startsWith('shippo_live') !== true
     ? 'shippo'
-    : carrierCode(carrier);
+    : CARRIERS.includes(carrier) ? carrierCode(carrier) : null;
+  const manual = existingShipments?.find((s) => s.source === 'manual');
+  if (!code && manual) {
+    // Switched to a carrier we can't track: stop following the old number.
+    await admin.from('shipments').delete().eq('id', manual.id);
+  }
   if (code) {
     const row = { order_id: order.id, direction: 'outbound', source: 'manual', carrier: code, tracking_number: tracking.toUpperCase().startsWith('SHIPPO_') ? tracking.toUpperCase() : tracking, status: 'pre_transit' };
-    const manual = existingShipments?.find((s) => s.source === 'manual');
     const { data: saved, error } = manual
       ? await admin.from('shipments').update({ ...row, accepted_at: null, last_checked_at: null }).eq('id', manual.id).select('id').single()
       : await admin.from('shipments').insert(row).select('id').single();

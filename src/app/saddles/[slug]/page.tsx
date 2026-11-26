@@ -9,6 +9,7 @@ import { SITE_URL, disciplinePath } from '@/lib/seo';
 import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
+import MessageSeller from '@/components/MessageSeller';
 import type { Metadata } from 'next';
 import { CONDITION_LABELS, isForSale, type Condition } from '@/lib/search';
 import { getViewer } from '@/lib/roles';
@@ -97,6 +98,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const awaitingSeller = listing.status === 'unclaimed' && !notPublic;
   const canEdit = !!user && (listing.seller_id === user.id || notPublic || isAdmin);
   const seller = await getSellerFace(listing.seller_id);
+  // Shoppers can message the seller while it's for sale (not on their own listing).
+  const canMessageSeller = !!listing.seller_id && !awaitingSeller && !saleLabel && user?.id !== listing.seller_id;
   const rating = listing.seller_id ? await sellerRating(listing.seller_id) : null;
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
@@ -237,20 +240,23 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
         {seller ? (
           <>
-          <a href={`/sellers/${seller.id}`} className="group flex items-center gap-3 mb-4 p-3 bg-white border border-saddle-line rounded-lg hover:border-saddle-brown transition-colors">
-            <Avatar url={seller.avatarUrl} initials={seller.initials} size={56} />
-            <span>
-              <span className="block text-xs text-saddle-muted">Sold by</span>
-              <span className="block font-semibold text-saddle-ink">{seller.firstName}</span>
-              {rating?.average ? (
-                <span className="block text-sm text-saddle-ink">
-                  <span className="text-amber-500">★</span> {rating.average.toFixed(1)}{' '}
-                  <span className="text-saddle-muted">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
-                </span>
-              ) : null}
-              <span className="block text-sm underline text-saddle-brown">View profile & reviews</span>
-            </span>
-          </a>
+          <div className="mb-4 p-3 bg-white border border-saddle-line rounded-lg space-y-3">
+            <a href={`/sellers/${seller.id}`} className="group flex items-center gap-3">
+              <Avatar url={seller.avatarUrl} initials={seller.initials} size={56} />
+              <span>
+                <span className="block text-xs text-saddle-muted">Sold by</span>
+                <span className="block font-semibold text-saddle-ink">{seller.firstName}</span>
+                {rating?.average ? (
+                  <span className="block text-sm text-saddle-ink">
+                    <span className="text-amber-500">★</span> {rating.average.toFixed(1)}{' '}
+                    <span className="text-saddle-muted">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
+                  </span>
+                ) : null}
+                <span className="block text-sm underline text-saddle-brown group-hover:text-saddle-ink">View profile & reviews</span>
+              </span>
+            </a>
+            {canMessageSeller && <MessageSeller listingId={listing.id} sellerId={listing.seller_id!} firstName={seller.firstName} />}
+          </div>
           {rating?.quotes[0] && (
             <figure className="-mt-2 mb-4 px-3 py-2 border-l-2 border-amber-400 text-sm">
               <blockquote className="italic text-saddle-ink">“{rating.quotes[0].comment}”</blockquote>
@@ -312,7 +318,15 @@ export default async function ListingPage({ params }: { params: { slug: string }
                   : null
               }
             />
-            <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />
+            {canMessageSeller && (
+              <p className="mt-3 text-sm">
+                Questions?{' '}
+                <a href="#message-seller" className="underline font-semibold text-saddle-brown">
+                  Message {seller?.firstName ?? 'the seller'}
+                </a>
+              </p>
+            )}
+            {!seller && canMessageSeller && <InquiryBox listingId={listing.id} sellerId={listing.seller_id} />}
           </>
         )}
       </div>
