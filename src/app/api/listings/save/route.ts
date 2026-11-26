@@ -12,6 +12,7 @@ import { getViewer } from '@/lib/roles';
 import { sourceKey } from '@/lib/import-source';
 import { isOurStorageUrl } from '@/lib/storage-url';
 import { sendListingEmail } from '@/lib/listing-emails';
+import { textAdmins } from '@/lib/admin-alerts';
 import { listingAccess } from '@/lib/listing-access';
 
 // Importers (not admins) may add this many hidden listings per day. Keeps outreach personal
@@ -163,6 +164,7 @@ export async function POST(req: Request) {
   // A seller just added a saddle: confirm it's in, where it stands (in review), and link to it.
   if (body.mode === 'create' && typeof saved.id === 'string') {
     await sendListingEmail(saved.id, 'submitted');
+    await textAdmins('new_listing', saved.id); // text admins: a saddle is waiting for review
   }
   return NextResponse.json(result.data);
 }

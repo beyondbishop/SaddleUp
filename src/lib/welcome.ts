@@ -2,6 +2,7 @@
 // sendWelcomeOnce() is called on every way into an account (email sign-up, sign-in, Google and
 // email-confirmation links). profiles.welcome_sent_at makes sure it goes out exactly once.
 // Never throws: a failed email must never block signing in.
+import { textAdmins } from '@/lib/admin-alerts';
 import { createAdminClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/messaging';
 
@@ -100,6 +101,7 @@ export async function sendWelcomeOnce(userId: string): Promise<WelcomeResult> {
       .select('email, full_name')
       .maybeSingle();
     if (!profile) return 'already_sent';
+    await textAdmins('new_user', userId); // once per person (logged, so a retry sends nothing)
     if (!profile.email) {
       await admin.from('profiles').update({ welcome_sent_at: null }).eq('id', userId);
       return 'no_email';
