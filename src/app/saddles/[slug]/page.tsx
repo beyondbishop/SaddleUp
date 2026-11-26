@@ -63,7 +63,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
   const price = listing.price_cents / 100;
 
   // Owners and admins can open listings that aren't public yet; tell them so.
-  const { user, isAdmin } = await getViewer();
+  const { user, isAdmin, viewingAsMember } = await getViewer();
   // The sale behind a sold saddle (orders are private, so read with the service key and only
   // show the buyer/seller the details).
   const order =
@@ -95,6 +95,9 @@ export default async function ListingPage({ params }: { params: { slug: string }
   // A sold saddle stays public too, marked On Trial / Sold.
   const notPublic = !isForSale(listing) && listing.status !== 'pending_sale' && !saleLabel;
   // Unclaimed but shown: the seller hasn't joined yet, so shoppers message SaddleUp instead.
+  // An admin previewing as a member: the database still lets them read hidden listings, so hide
+  // anyone else's here, as a member would see it.
+  if (viewingAsMember && notPublic && listing.seller_id !== user?.id) return notFound();
   const awaitingSeller = listing.status === 'unclaimed' && !notPublic;
   const canEdit = !!user && (listing.seller_id === user.id || notPublic || isAdmin);
   const seller = await getSellerFace(listing.seller_id);
