@@ -6,8 +6,9 @@ import whereToSell from './where-to-sell-used-saddle-online';
 import whatIsItWorth from './how-much-is-my-used-saddle-worth';
 import howToMeasure from './how-to-measure-a-saddle';
 import sellFaster from './how-to-sell-a-used-saddle-faster';
+import saddleFit from './how-to-tell-if-a-saddle-fits-your-horse';
 
-export const GUIDES: Guide[] = [whereToSell, whatIsItWorth, howToMeasure, sellFaster].sort((a, b) => b.published.localeCompare(a.published));
+export const GUIDES: Guide[] = [whereToSell, whatIsItWorth, howToMeasure, sellFaster, saddleFit].sort((a, b) => b.published.localeCompare(a.published));
 
 export const getGuide = (slug: string) => GUIDES.find((g) => g.slug === slug);
 
