@@ -64,9 +64,14 @@ export default async function DashboardPage() {
     <div className="py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-saddle-brown">Your Listings</h1>
-        <Link href="/dashboard/listings/new" className="bg-saddle-green text-white px-4 py-2 rounded-md font-semibold">
-          + New Listing
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/stats" className="text-sm font-semibold underline text-saddle-brown">
+            Stats
+          </Link>
+          <Link href="/dashboard/listings/new" className="bg-saddle-green text-white px-4 py-2 rounded-md font-semibold">
+            + New Listing
+          </Link>
+        </div>
       </div>
 
       {!avatarUrlFor(user) && (

@@ -5,6 +5,7 @@ import { DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TREE_WIDTH_LABELS } from '@/l
 import { VIEW_SOURCE_LABELS, type ViewSource } from '@/lib/view-source';
 import { listingAccess } from '@/lib/listing-access';
 import { isUuid } from '@/lib/lists-server';
+import { isForSale } from '@/lib/search';
 
 export const metadata = { title: 'Listing stats' };
 export const dynamic = 'force-dynamic';
@@ -95,7 +96,7 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
   const admin = createAdminClient();
   const { data: listing } = await admin
     .from('listings')
-    .select('id, seller_id, slug, model, seat_size, status, created_at, brands(name)')
+    .select('id, seller_id, slug, model, seat_size, status, show_before_claim, created_at, brands(name)')
     .eq('id', params.id)
     .maybeSingle();
   if (!listing) return notFound();
@@ -167,7 +168,7 @@ export default async function ListingStatsPage({ params }: { params: { id: strin
           <Link href={`/saddles/${listing.slug}`} className="underline">
             View listing
           </Link>
-          {listing.status !== 'active' && ' · Not live yet, so no views are being counted.'}
+          {!isForSale(listing) && ' · Not showing to shoppers, so no new views are being counted.'}
         </p>
       </div>
 
