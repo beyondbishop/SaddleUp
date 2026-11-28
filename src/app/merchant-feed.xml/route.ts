@@ -13,7 +13,7 @@ export const maxDuration = 60;
 
 const esc = (s: string) =>
   s
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -63,10 +63,11 @@ export async function GET() {
       tag('g:availability', 'in_stock'),
       tag('g:price', money(l.price_cents)),
       tag('g:condition', l.condition === 'new' ? 'new' : 'used'),
-      tag('g:brand', l.brands?.name && l.brands.name !== 'Other' ? l.brands.name : 'SaddleUp'),
+      // "Other" means the seller's brand isn't in our list (it's usually in the model name): no brand.
+      tag('g:brand', l.brands?.name && l.brands.name !== 'Other' ? l.brands.name : null),
       tag('g:identifier_exists', 'no'),
       tag('g:product_type', `Saddles > ${l.discipline ? DISCIPLINE_LABELS[l.discipline] : 'Saddles'}`),
-      tag('g:color', l.color),
+      tag('g:color', l.color?.trim()),
       tag('g:size', l.seat_size ? `${l.seat_size} in seat` : null),
       ship !== null
         ? `<g:shipping>${tag('g:country', 'US')}${tag('g:service', 'Ground, signature required, fully insured')}${tag('g:price', money(ship))}</g:shipping>`
