@@ -128,6 +128,22 @@ export async function POST(req: Request) {
       .single();
   }
 
+  // A seller's saddle needs a ZIP (shipping quotes, checkout and Google Shopping use it). Saddles
+  // added for sellers who haven't joined yet (quick add, or unclaimed ones) may leave it blank.
+  if ('location_zip' in row || body.mode === 'create') {
+    const zip = typeof row.location_zip === 'string' ? row.location_zip.trim() : '';
+    let zipOptional = body.mode === 'seed';
+    if (body.mode === 'update' && body.id) {
+      const { data: current } = await createAdminClient().from('listings').select('seller_id').eq('id', body.id).maybeSingle();
+      zipOptional = !current?.seller_id;
+    }
+    if (zip && !/^\d{5}$/.test(zip)) return NextResponse.json({ error: 'Enter a 5-digit US ZIP code.' }, { status: 400 });
+    if (!zip && !zipOptional) {
+      return NextResponse.json({ error: 'Add the ZIP code where the saddle is, so buyers can get a shipping price.' }, { status: 400 });
+    }
+    if (zip) row.location_zip = zip;
+  }
+
   // Only our own storage can hold a listing's video.
   if (typeof row.video_url === 'string' && !isOurStorageUrl(row.video_url)) {
     delete row.video_url;
