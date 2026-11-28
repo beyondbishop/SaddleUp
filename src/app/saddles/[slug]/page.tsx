@@ -10,6 +10,7 @@ import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
 import MessageSeller from '@/components/MessageSeller';
+import { cachedShippingEstimate, HANDLING_DAYS, RETURN_DAYS, TRANSIT_DAYS } from '@/lib/merchant';
 import type { Metadata } from 'next';
 import { CONDITION_LABELS, isForSale, type Condition } from '@/lib/search';
 import { getViewer } from '@/lib/roles';
@@ -107,6 +108,11 @@ export default async function ListingPage({ params }: { params: { slug: string }
 
   // Structured data: helps Google *and* AI answer engines (GEO) surface this
   // exact saddle when someone searches "16.5 medium tree Antares for sale".
+  // Shipping and returns for Google Shopping, only on saddles that can be bought now. Uses the
+  // feed's cached carrier quotes (no carrier call on page view).
+  const buyable = listing.status === 'active';
+  const shipCents = buyable ? await cachedShippingEstimate(listing.id, listing.price_cents) : null;
+  const days = (r: { min: number; max: number }) => ({ '@type': 'QuantitativeValue', minValue: r.min, maxValue: r.max, unitCode: 'DAY' });
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -126,7 +132,27 @@ export default async function ListingPage({ params }: { params: { slug: string }
             : 'https://schema.org/LimitedAvailability',
       url: `${SITE_URL}/saddles/${listing.slug}`,
       // "New / never used" saddles are new; everything else on SaddleUp is used.
-      itemCondition: listing.condition === 'new' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'
+      itemCondition: listing.condition === 'new' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition',
+      ...(buyable && {
+        // The 5-day trial: return within 5 days of delivery; the buyer pays return shipping
+        // unless the saddle isn't as described (terms, section 2).
+        hasMerchantReturnPolicy: {
+          '@type': 'MerchantReturnPolicy',
+          applicableCountry: 'US',
+          returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+          merchantReturnDays: RETURN_DAYS,
+          returnMethod: 'https://schema.org/ReturnByMail',
+          returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility'
+        }
+      }),
+      ...(shipCents !== null && {
+        shippingDetails: {
+          '@type': 'OfferShippingDetails',
+          shippingRate: { '@type': 'MonetaryAmount', value: (shipCents / 100).toFixed(2), currency: 'USD' },
+          shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+          deliveryTime: { '@type': 'ShippingDeliveryTime', handlingTime: days(HANDLING_DAYS), transitTime: days(TRANSIT_DAYS) }
+        }
+      })
     },
     additionalProperty: [
       { '@type': 'PropertyValue', name: 'Seat Size', value: `${listing.seat_size} in` },
