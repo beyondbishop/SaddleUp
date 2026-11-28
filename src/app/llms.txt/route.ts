@@ -3,8 +3,9 @@
 // Rebuilt hourly so counts and links stay current.
 
 import { createClient } from '@supabase/supabase-js';
-import { SITE_URL, DISCIPLINE_INTROS, brandPath, disciplinePath } from '@/lib/seo';
-import { DISCIPLINE_LABELS, type Discipline } from '@/lib/types';
+import { SITE_URL, DISCIPLINE_INTROS, brandPath, disciplinePath, seatPath, treePath } from '@/lib/seo';
+import { FOR_SALE } from '@/lib/search';
+import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, type Discipline, type TreeWidth } from '@/lib/types';
 import { SELLER_FEE_PERCENT, SELLER_KEEPS_PERCENT } from '@/lib/fees';
 import { GUIDES } from '@/content/guides';
 
@@ -14,14 +15,18 @@ export async function GET() {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   const { data: listings } = await supabase
     .from('listings')
-    .select('slug, model, seat_size, price_cents, discipline, brands(name, slug)')
-    .eq('status', 'active')
+    .select('slug, model, seat_size, tree_width, price_cents, discipline, brands(name, slug)')
+    .or(FOR_SALE)
     .order('created_at', { ascending: false })
     .limit(100);
 
   const byDiscipline = new Map<Discipline, number>();
   const byBrand = new Map<string, { name: string; count: number }>();
+  const bySeat = new Map<number, number>();
+  const byTree = new Map<TreeWidth, number>();
   for (const l of listings ?? []) {
+    bySeat.set(Number(l.seat_size), (bySeat.get(Number(l.seat_size)) ?? 0) + 1);
+    if (l.tree_width) byTree.set(l.tree_width as TreeWidth, (byTree.get(l.tree_width as TreeWidth) ?? 0) + 1);
     byDiscipline.set(l.discipline as Discipline, (byDiscipline.get(l.discipline as Discipline) ?? 0) + 1);
     const b = l.brands as unknown as { name: string; slug: string } | null;
     if (b && b.slug !== 'other') byBrand.set(b.slug, { name: b.name, count: (byBrand.get(b.slug)?.count ?? 0) + 1 });
@@ -46,6 +51,12 @@ export async function GET() {
     ),
     ...(byBrand.size
       ? ['', '## Saddles by brand', ...Array.from(byBrand, ([slug, b]) => `- [Used ${b.name} saddles](${SITE_URL}${brandPath(slug)}): ${b.count} listed now`)]
+      : []),
+    ...(bySeat.size
+      ? ['', '## Saddles by seat size', ...Array.from(bySeat).sort((a, b) => a[0] - b[0]).map(([size, n]) => `- [Used ${size}" saddles](${SITE_URL}${seatPath(size)}): ${n} listed now`)]
+      : []),
+    ...(byTree.size
+      ? ['', '## Saddles by tree width', ...(Object.keys(TREE_WIDTH_LABELS) as TreeWidth[]).filter((t) => byTree.has(t)).map((t) => `- [Used ${TREE_WIDTH_LABELS[t].toLowerCase()} tree saddles](${SITE_URL}${treePath(t)}): ${byTree.get(t)} listed now`)]
       : []),
     ...(listings?.length
       ? [

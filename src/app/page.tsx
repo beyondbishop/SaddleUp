@@ -4,7 +4,7 @@ import { approvedBrands } from '@/lib/brands-server';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { DISCIPLINE_LABELS, Listing, treeWidthText } from '@/lib/types';
-import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
+import { SITE_URL, brandPath, disciplinePath, seatPath } from '@/lib/seo';
 import { brandsForDiscipline } from '@/lib/saddle-catalog';
 import { searchUrl, FOR_SALE } from '@/lib/search';
 import SaddleValueCheck from '@/components/sell/SaddleValueCheck';
@@ -205,7 +205,7 @@ export default async function HomePage() {
           {SEATS.map((seat) => (
             <Link
               key={seat}
-              href={searchUrl({ seat_min: seat, seat_max: seat })}
+              href={seatPath(seat)}
               className="border border-saddle-line rounded-[3px] bg-saddle-paper py-5 text-center transition-colors hover:border-saddle-brown"
             >
               <div className="font-serif text-[26px] text-saddle-ink">{seat}&Prime;</div>

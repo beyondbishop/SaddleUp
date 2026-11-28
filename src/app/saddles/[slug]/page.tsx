@@ -5,7 +5,7 @@ import FairPriceRange from '@/components/FairPriceRange';
 import { TREE_WIDTH_LABELS, DISCIPLINE_LABELS, PANEL_FLOCKING_LABELS, TRIAL_POLICY_LABELS, Listing } from '@/lib/types';
 import FavoriteButton from '@/components/FavoriteButton';
 import PhotoGallery from '@/components/PhotoGallery';
-import { SITE_URL, disciplinePath } from '@/lib/seo';
+import { SITE_URL, disciplinePath, treePath } from '@/lib/seo';
 import ViewTracker from '@/components/ViewTracker';
 import BuyButton from '@/components/BuyButton';
 import InquiryBox from '@/components/InquiryBox';
@@ -232,7 +232,11 @@ export default async function ListingPage({ params }: { params: { slug: string }
           <dt className="text-gray-500">Tree Width</dt>
           <dd>
             {listing.tree_width ? (
-              <>{TREE_WIDTH_LABELS[listing.tree_width]} <span className="text-gray-500 text-xs">(seller-reported)</span></>
+              <>
+                <a href={treePath(listing.tree_width)} className="underline hover:text-saddle-brown">
+                  {TREE_WIDTH_LABELS[listing.tree_width]}
+                </a>{' '}
+                <span className="text-gray-500 text-xs">(seller-reported)</span></>
             ) : canEdit ? (
               <span className="text-sm">
                 <NotStated />{' '}
