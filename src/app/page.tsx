@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { approvedBrands } from '@/lib/brands-server';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
@@ -82,6 +83,9 @@ function ListingCard({ listing }: { listing: Listing }) {
     </Link>
   );
 }
+
+// Title and description come from the root layout; this just names the one homepage URL.
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 export default async function HomePage() {
   const supabase = createClient();

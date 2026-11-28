@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { SITE_URL, brandPath, disciplinePath } from '@/lib/seo';
 import type { Discipline } from '@/lib/types';
 import { GUIDES } from '@/content/guides';
+import { FOR_SALE } from '@/lib/search';
 
 // Served at /sitemap.xml and rebuilt at most hourly. Lists every public page search engines
-// should know about: core pages, each live listing, and the discipline/brand landing pages that
+// should know about: core pages, each listing shoppers can see (live or unclaimed-but-showing), and the discipline/brand landing pages that
 // currently have saddles (empty landing pages are left out so they don't count as thin content).
 export const revalidate = 3600;
 
@@ -15,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: listings } = await supabase
     .from('listings')
     .select('slug, updated_at, discipline, brands(slug)')
-    .eq('status', 'active')
+    .or(FOR_SALE)
     .order('updated_at', { ascending: false });
 
   const now = new Date();

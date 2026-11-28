@@ -51,9 +51,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       `${title}, ${DISCIPLINE_LABELS[listing.discipline]} saddle for sale on SaddleUp. Condition: ${listing.condition ?? 'used'}.`,
     alternates: { canonical: `/saddles/${listing.slug}` },
     openGraph: { images: listing.images?.[0] ? [listing.images[0]] : [] },
-    // Only live listings belong in search results. Unclaimed saddles stay out of Google until
-    // their seller has claimed them.
-    robots: listing.status === 'active' ? undefined : { index: false, follow: false }
+    // Saddles shoppers can see (live, plus unclaimed ones showing on the site) belong in search
+    // results; drafts, hidden, removed, mid-sale and sold saddles stay out.
+    robots: isForSale(listing) ? undefined : { index: false, follow: false }
   };
 }
 
