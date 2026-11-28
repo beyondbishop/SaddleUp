@@ -4,8 +4,8 @@ import FilterSidebar from '@/components/FilterSidebar';
 import SaddleCard from '@/components/SaddleCard';
 import { DISCIPLINE_LABELS, TREE_WIDTH_LABELS, Listing } from '@/lib/types';
 import type { Metadata } from 'next';
-import { brandPath, disciplinePath } from '@/lib/seo';
-import type { Discipline } from '@/lib/types';
+import { brandPath, disciplinePath, seatFromSlug, seatPath, treePath } from '@/lib/seo';
+import type { Discipline, TreeWidth } from '@/lib/types';
 import { applyCriteria, describeCriteria, filtersOnOptionalDetails, hasCriteria, parseCriteria, searchUrl, FOR_SALE } from '@/lib/search';
 import SaveSearchButton from '@/components/lists/SaveSearchButton';
 import ListCriteriaBanner from '@/components/lists/ListCriteriaBanner';
@@ -38,18 +38,28 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
   const used = Object.entries(searchParams).filter(([, v]) => v !== undefined && v !== '');
   const only = used.length === 1 ? used[0] : null;
   const disciplineKey = only?.[0] === 'discipline' ? String(only[1]) : null;
+  const treeKey = only?.[0] === 'tree' && !Array.isArray(only[1]) ? String(only[1]) : null;
+  // One exact seat size (seat_min = seat_max, nothing else) has its own landing page.
+  const seat =
+    used.length === 2 && searchParams.seat_min && searchParams.seat_min === searchParams.seat_max
+      ? seatFromSlug(String(searchParams.seat_min).replace('.', '-'))
+      : null;
   const canonical =
     disciplineKey && disciplineKey in DISCIPLINE_LABELS
       ? disciplinePath(disciplineKey as Discipline)
       : only?.[0] === 'brand'
         ? brandPath(String(only[1]))
-        : '/saddles';
+        : treeKey && treeKey in TREE_WIDTH_LABELS
+          ? treePath(treeKey as TreeWidth)
+          : seat !== null
+            ? seatPath(seat)
+            : '/saddles';
   return {
     title,
     description: `${title} on SaddleUp — matched to your horse's back width and your seat size. Buy direct from verified sellers.`,
     alternates: { canonical },
     // Combinations of several filters are for shoppers, not for search results.
-    robots: used.length > 1 ? { index: false, follow: true } : undefined
+    robots: used.length > 1 && seat === null ? { index: false, follow: true } : undefined
   };
 }
 

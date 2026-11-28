@@ -1,7 +1,7 @@
 // Shared SEO/GEO bits: the site's address, clean URL slugs for disciplines, and the short
 // intro copy on each discipline landing page (also used in llms.txt).
 
-import type { Discipline } from './types';
+import type { Discipline, TreeWidth } from './types';
 
 export const SITE_URL = 'https://saddleup.me';
 
@@ -59,3 +59,45 @@ export const DISCIPLINE_INTROS: Record<Discipline, { heading: string; intro: str
 
 export const brandPath = (slug: string) => `/brands/${slug}`;
 export const disciplinePath = (d: Discipline) => `/disciplines/${DISCIPLINE_SLUGS[d]}`;
+
+// --- Seat size and tree width landing pages (/seat-size/17-5, /tree-width/medium) ---
+
+/** Seat sizes with a landing page: whole and half inches across English and western saddles. */
+export const SEAT_SIZES = Array.from({ length: 21 }, (_, i) => 10 + i * 0.5); // 10" to 20"
+
+/** 17.5 -> "17-5", 17 -> "17" (a dot in a URL slug looks like a file extension). */
+export const seatSlug = (size: number) => String(Number(size)).replace('.', '-');
+
+export const seatFromSlug = (slug: string): number | null => {
+  if (!/^\d{1,2}(-5)?$/.test(slug)) return null;
+  const size = Number(slug.replace('-', '.'));
+  return SEAT_SIZES.includes(size) ? size : null;
+};
+
+export const seatPath = (size: number) => `/seat-size/${seatSlug(size)}`;
+
+/** Answer-first copy for a seat size page. */
+export const seatIntro = (size: number) =>
+  `Used ${size}" saddles for sale on SaddleUp — close contact, eventing, all purpose and more — each listed with its tree width, condition and location so you can find one that fits your horse as well as you. Seat size is measured from the nail head beside the pommel to the center of the cantle, and saddles with the same number can ride differently depending on seat depth and flap length, so check those too.`;
+
+export const TREE_SLUGS: Record<TreeWidth, string> = {
+  x_narrow: 'x-narrow',
+  narrow: 'narrow',
+  medium_narrow: 'medium-narrow',
+  medium: 'medium',
+  medium_wide: 'medium-wide',
+  wide: 'wide',
+  x_wide: 'x-wide',
+  adjustable: 'adjustable'
+};
+
+export const treeFromSlug = (slug: string): TreeWidth | null =>
+  (Object.entries(TREE_SLUGS).find(([, s]) => s === slug)?.[0] as TreeWidth) ?? null;
+
+export const treePath = (t: TreeWidth) => `/tree-width/${TREE_SLUGS[t]}`;
+
+/** Answer-first copy for a tree width page. */
+export const treeIntro = (t: TreeWidth, label: string) =>
+  t === 'adjustable'
+    ? 'Used adjustable tree saddles for sale on SaddleUp, each listed with its exact seat size, condition and location. An adjustable tree can be changed to a different width — by swapping the gullet plate or by a saddle fitter, depending on the brand — so the saddle can follow your horse as their shape changes or move to a new horse.'
+    : `Used ${label.toLowerCase()} tree saddles for sale on SaddleUp, each listed with its exact seat size, condition and location. The tree width sets how the saddle sits across your horse’s withers and shoulders. Widths are reported by the seller and vary by brand — one maker’s medium can fit like another’s medium/wide — so compare the saddle against your horse, not just the label.`;
