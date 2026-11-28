@@ -12,12 +12,15 @@ export default function ZipField({
   initialZip,
   initialCity,
   initialState,
-  className
+  className,
+  required = false
 }: {
   initialZip?: string | null;
   initialCity?: string | null;
   initialState?: string | null;
   className: string;
+  /** Sellers must give a ZIP (shipping quotes and Google Shopping need it). */
+  required?: boolean;
 }) {
   const [zip, setZip] = useState(initialZip ?? '');
   const [city, setCity] = useState(initialCity ?? '');
@@ -52,7 +55,7 @@ export default function ZipField({
   return (
     <div>
       <label htmlFor="location_zip" className="block text-sm font-semibold mb-1">
-        Where is the saddle? (ZIP code)
+        Where is the saddle? (ZIP code){required && <span className="text-red-700"> *</span>}
       </label>
       <input
         id="location_zip"
@@ -61,6 +64,7 @@ export default function ZipField({
         autoComplete="postal-code"
         maxLength={5}
         pattern="\d{5}"
+        required={required}
         title="5-digit ZIP code"
         placeholder="e.g. 27701"
         value={zip}
@@ -73,8 +77,11 @@ export default function ZipField({
         {status === 'looking' && 'Looking up…'}
         {status === 'found' && place && <span className="text-saddle-green">📍 {place}</span>}
         {status === 'not_found' && <span className="text-red-700">Couldn&apos;t find that ZIP — check the number.</span>}
-        {status === 'idle' && place && <>From your post: {place}. Add the ZIP to confirm (optional).</>}
-        {status === 'idle' && !place && 'Buyers see the city and state, not the ZIP.'}
+        {status === 'idle' && place && <>From your post: {place}. Add the ZIP to confirm{required ? '.' : ' (optional).'}</>}
+        {status === 'idle' && !place &&
+          (required
+            ? 'Needed to quote shipping to buyers. Buyers see the city and state, not the ZIP.'
+            : 'Buyers see the city and state, not the ZIP.')}
       </p>
     </div>
   );

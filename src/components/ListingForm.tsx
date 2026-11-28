@@ -740,6 +740,9 @@ export default function ListingForm({
         initialCity={existing?.location_city ?? prefill?.location_city}
         initialState={existing?.location_state ?? prefill?.location_state}
         className={field}
+        // Required for a seller's own saddle; optional when adding or fixing one for a seller who
+        // hasn't joined yet (quick add / unclaimed), since the importer may not know it.
+        required={!onSeeded && !(existing && !existing.seller_id)}
       />
 
       <fieldset>
